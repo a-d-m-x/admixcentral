@@ -264,7 +264,7 @@
                                         </div>
                                         <div>
                                             <x-input-label for="telegram_api" :value="__('API Key')" />
-                                            <x-text-input id="telegram_api" class="block mt-1 w-full" type="text" name="telegram_api"
+                                            <x-text-input id="telegram_api" class="block mt-1 w-full" type="password" name="telegram_api"
                                                 :value="$data['notifications']['telegram']['api'] ?? ''" />
                                         </div>
                                         <div>
@@ -283,12 +283,12 @@
                                         </div>
                                          <div>
                                             <x-input-label for="pushover_apikey" :value="__('API Token')" />
-                                            <x-text-input id="pushover_apikey" class="block mt-1 w-full" type="text" name="pushover_apikey"
+                                            <x-text-input id="pushover_apikey" class="block mt-1 w-full" type="password" name="pushover_apikey"
                                                 :value="$data['notifications']['pushover']['apikey'] ?? ''" />
                                         </div>
                                         <div>
                                             <x-input-label for="pushover_userkey" :value="__('User Key')" />
-                                            <x-text-input id="pushover_userkey" class="block mt-1 w-full" type="text" name="pushover_userkey"
+                                            <x-text-input id="pushover_userkey" class="block mt-1 w-full" type="password" name="pushover_userkey"
                                                 :value="$data['notifications']['pushover']['userkey'] ?? ''" />
                                         </div>
                                          <div>
@@ -316,7 +316,7 @@
                                         </div>
                                         <div>
                                             <x-input-label for="slack_api" :value="__('Webhook URL')" />
-                                            <x-text-input id="slack_api" class="block mt-1 w-full" type="text" name="slack_api"
+                                            <x-text-input id="slack_api" class="block mt-1 w-full" type="password" name="slack_api"
                                                 :value="$data['notifications']['slack']['api'] ?? ''" />
                                         </div>
                                          <div>
