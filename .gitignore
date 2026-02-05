@@ -24,3 +24,12 @@ Homestead.yaml
 Thumbs.db
 
 .npm/
+
+# Security - SSL Keys & Certs
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+/ssl/*
+!/ssl/.gitkeep
