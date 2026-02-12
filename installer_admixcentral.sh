@@ -11,7 +11,7 @@ die(){ echo -e "\n[X] $*\n"; exit 1; }
 [[ "${EUID}" -eq 0 ]] || die "Run as root: sudo bash $0"
 
 # ---------------- CONFIG (override via env) ----------------
-REPO_URL="${REPO_URL:-https://github.com/admxlz/admixcentral.git}"
+REPO_URL="${REPO_URL:-https://github.com/a-d-m-x/admixcentral.git}"
 INSTALL_DIR="${INSTALL_DIR:-/var/www/admixcentral}"
 WEB_USER="${WEB_USER:-www-data}"
 WEB_GROUP="${WEB_GROUP:-www-data}"
