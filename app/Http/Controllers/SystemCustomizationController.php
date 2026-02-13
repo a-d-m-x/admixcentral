@@ -221,4 +221,63 @@ class SystemCustomizationController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Check for system updates.
+     */
+    public function checkUpdates(\App\Services\UpdateService $updater)
+    {
+        $currentVersion = 'v0.0.0';
+        $versionPath = base_path('VERSION');
+        if (file_exists($versionPath)) {
+            $currentVersion = trim(file_get_contents($versionPath));
+        }
+
+        $latest = $updater->checkForUpdates();
+
+        if (!$latest) {
+            return response()->json([
+                'update_available' => false,
+                'message' => 'Could not fetch updates.'
+            ]);
+        }
+
+        $newVersion = $latest['tag_name'];
+        $available = $updater->isNewVersionAvailable($currentVersion, $newVersion);
+
+        return response()->json([
+            'update_available' => $available,
+            'version' => $newVersion,
+            'current_version' => $currentVersion,
+            'release_notes' => $latest['body'] ?? ''
+        ]);
+    }
+
+    /**
+     * Trigger system update installation.
+     */
+    public function installUpdate(Request $request, \App\Services\UpdateService $updater)
+    {
+        $latest = $updater->checkForUpdates();
+
+        if (!$latest) {
+            return response()->json(['status' => 'error', 'message' => 'No update information found.'], 404);
+        }
+
+        $newVersion = $latest['tag_name'];
+
+        // Create pending record
+        \App\Models\SystemUpdate::create([
+            'available_version' => $newVersion,
+            'status' => 'pending_install',
+            'requested_by' => auth()->id(),
+            'requested_at' => now(),
+            'log' => ['Update requested via Settings Card at ' . now()],
+        ]);
+
+        // Queue the update command
+        \Illuminate\Support\Facades\Artisan::queue('system:install-update');
+
+        return response()->json(['status' => 'success', 'message' => 'Update queued. The system will update in the background.']);
+    }
 }

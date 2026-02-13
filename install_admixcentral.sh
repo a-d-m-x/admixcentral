@@ -377,6 +377,19 @@ EOF
   # Reduce exposure: don't keep password in shell env longer than needed
   unset DB_PASS
 
+  log "Running final permissions fix..."
+  # Export variables for fix-perms.sh
+  export INSTALL_DIR
+  export WEB_USER
+  export WEB_GROUP
+  
+  # Execute the fix-perms script if it exists
+  if [[ -f "${INSTALL_DIR}/scripts/fix-perms.sh" ]]; then
+    bash "${INSTALL_DIR}/scripts/fix-perms.sh"
+  else
+    log "Warning: scripts/fix-perms.sh not found. Skipping final permissions fix."
+  fi
+
   log "INSTALL COMPLETE"
   echo
   echo "============================================================"

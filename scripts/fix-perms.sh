@@ -1,8 +1,8 @@
 #!/bin/bash
 
-PROJECT_DIR="/var/www/admixcentral"
-APP_USER="administrator"
-WEB_GROUP="www-data"
+PROJECT_DIR="${INSTALL_DIR:-/var/www/admixcentral}"
+APP_USER="${WEB_USER:-administrator}"
+WEB_GROUP="${WEB_GROUP:-www-data}"
 
 echo "Fixing permissions for $PROJECT_DIR"
 

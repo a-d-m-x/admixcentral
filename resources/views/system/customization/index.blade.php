@@ -91,10 +91,11 @@
                                         <span x-text="checking ? 'Checking...' : 'Check for Updates'"></span>
                                     </button>
 
-                                    <a x-show="updateAvailable" href="{{ route('system.updates.index') }}"
-                                        class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                                        View Update &rarr;
-                                    </a>
+                                    <button x-show="updateAvailable" type="button" @click="installUpdate" :disabled="installing"
+                                        class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50">
+                                        <span x-show="!installing">Install Update &rarr;</span>
+                                        <span x-show="installing">Queueing...</span>
+                                    </button>
                                 </div>
                             </div>
 
@@ -108,6 +109,7 @@
                         function systemUpdater() {
                             return {
                                 checking: false,
+                                installing: false,
                                 updateAvailable: {{ ($updateAvailable ?? false) ? 'true' : 'false' }},
                                 message: '',
                                 isError: false,
@@ -131,7 +133,6 @@
                                         if (data.update_available) {
                                             this.updateAvailable = true;
                                             this.message = 'New update found: ' + data.version;
-                                            setTimeout(() => window.location.reload(), 1500);
                                         } else {
                                             this.message = 'System is up to date.';
                                         }
@@ -142,6 +143,40 @@
                                         this.message = 'Error checking for updates.';
                                     } finally {
                                         this.checking = false;
+                                    }
+                                },
+                                async installUpdate() {
+                                    if (!confirm('Are you sure you want to install this update? The system may be unavailable for a few minutes.')) return;
+
+                                    this.installing = true;
+                                    this.message = 'Queueing update...';
+                                    this.isError = false;
+
+                                    try {
+                                        const response = await fetch('{{ route("system.updates.install") }}', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                                'Accept': 'application/json'
+                                            }
+                                        });
+
+                                        const data = await response.json();
+
+                                        if (response.ok) {
+                                            this.message = data.message;
+                                            this.updateAvailable = false; // Hide button
+                                        } else {
+                                            this.isError = true;
+                                            this.message = data.message || 'Failed to queue update.';
+                                        }
+                                    } catch (e) {
+                                        console.error(e);
+                                        this.isError = true;
+                                        this.message = 'Error initiating update.';
+                                    } finally {
+                                        this.installing = false;
                                     }
                                 }
                             }
