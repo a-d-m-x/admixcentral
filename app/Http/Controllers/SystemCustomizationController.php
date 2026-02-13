@@ -20,7 +20,18 @@ class SystemCustomizationController extends Controller
             $settings['site_protocol'] = $parsed['scheme'] ?? 'https';
         }
 
-        return view('system.customization.index', compact('settings'));
+        // Get current version
+        $versionPath = base_path('VERSION');
+        $currentVersion = 'v0.0.0';
+
+        if (file_exists($versionPath) && is_readable($versionPath)) {
+            $content = @file_get_contents($versionPath);
+            if ($content !== false) {
+                $currentVersion = trim($content);
+            }
+        }
+
+        return view('system.customization.index', compact('settings', 'currentVersion'));
     }
 
     /**
