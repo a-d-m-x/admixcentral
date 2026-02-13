@@ -171,7 +171,7 @@ main() {
   apt_install ca-certificates curl gnupg git unzip lsb-release apt-transport-https
 
   log "Installing Nginx + MySQL + Supervisor"
-  apt_install nginx mysql-server supervisor
+  apt_install nginx mysql-server supervisor certbot python3-certbot-nginx
 
   log "Installing PHP ${PHP_VER} + extensions"
   apt_install \
@@ -274,6 +274,12 @@ main() {
     php artisan config:clear || true
     php artisan cache:clear || true
   '
+
+  log "Configuring sudoers for SSL management (Certbot)"
+  cat >/etc/sudoers.d/admixcentral <<EOF
+${WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot, /usr/sbin/nginx, /usr/bin/systemctl reload nginx, /usr/bin/tee /etc/nginx/sites-available/admixcentral
+EOF
+  chmod 0440 /etc/sudoers.d/admixcentral
 
   log "Configuring Nginx (IP-safe server_name _)"
   rm -f /etc/nginx/sites-enabled/default || true
