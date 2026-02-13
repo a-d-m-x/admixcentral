@@ -25,12 +25,14 @@
 
     <!-- Scripts -->
     <script>
+        const protocol = window.location.protocol;
+        const isSecure = protocol === 'https:';
         window.AdmixConfig = {
             reverb: {
                 key: "{{ env('VITE_REVERB_APP_KEY') }}",
-                host: "{{ env('VITE_REVERB_HOST') }}",
-                port: "{{ env('VITE_REVERB_PORT', 8080) }}",
-                scheme: "{{ env('VITE_REVERB_SCHEME', 'http') }}"
+                host: window.location.hostname,
+                port: window.location.port || (isSecure ? 443 : 80),
+                scheme: isSecure ? 'https' : 'http'
             }
         };
     </script>
