@@ -26,16 +26,29 @@ class SslManagerService
             // 1. Request Certificate
             $this->requestCertificate($domain, $email);
 
-            // 2. Update Configuration Files
-            $this->updateNginxConfig($domain);
+            // 2. Safely Apply Nginx Configuration
+            // We use a separate try-catch to rollback if applying config fails
+            try {
+                $this->updateNginxConfig($domain);
+                $this->applyNginxConfig();
+            } catch (\Exception $e) {
+                // Verification failed or reload failed. Revert immediately to HTTP.
+                Log::warning("SSL Configuration failed, reverting to HTTP: " . $e->getMessage());
 
-            // 3. Apply Nginx Configuration
-            $this->applyNginxConfig();
+                // Restore HTTP config
+                $this->updateNginxConfigToHttp($domain);
+                $this->applyNginxConfig();
+
+                throw new \Exception("SSL verification failed. Reverted to HTTP. Error: " . $e->getMessage());
+            }
 
             // 4. Update System Environment
             $this->configService->updateSystemHostname($domain, 'https');
 
             // 5. Enable Secure Cookies and Update Websockets
+            // Note: We keep REVERB on 443/wss for SSL, but the main site is dual-stack.
+            // However, Mixed Content issues might arise if user visits via HTTP but Reverb tries WSS.
+            // For now, aligning Reverb with the primary access method (HTTPS).
             $this->configService->updateEnv([
                 'SESSION_SECURE_COOKIE' => 'true',
                 'REVERB_PORT' => '443',
@@ -44,7 +57,7 @@ class SslManagerService
                 'VITE_REVERB_SCHEME' => 'https',
             ]);
 
-            return ['success' => true, 'message' => 'SSL installed successfully.'];
+            return ['success' => true, 'message' => 'SSL installed successfully. Please use HTTPS.'];
         } catch (\Exception $e) {
             Log::error("SSL Installation Failed: " . $e->getMessage());
             return ['success' => false, 'message' => $e->getMessage()];
@@ -93,6 +106,12 @@ class SslManagerService
     protected function updateNginxConfig(string $domain): void
     {
         $stub = $this->getNginxSslStub($domain);
+        file_put_contents(storage_path($this->nginxConfigPath), $stub);
+    }
+
+    protected function updateNginxConfigToHttp(string $domain): void
+    {
+        $stub = $this->getNginxHttpStub($domain);
         file_put_contents(storage_path($this->nginxConfigPath), $stub);
     }
 
@@ -158,11 +177,6 @@ class SslManagerService
 server {
     listen 80;
     listen [::]:80;
-    server_name 10.100.200.152 {$domain};
-    return 302 https://\$host\$request_uri;
-}
-
-server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
 
@@ -172,6 +186,9 @@ server {
 
     ssl_certificate /etc/letsencrypt/live/{$domain}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/{$domain}/privkey.pem;
+
+    # Optional: Enable HSTS (commented out by default to avoid accidental lockout)
+    # add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     add_header X-Frame-Options "SAMEORIGIN";
     add_header X-Content-Type-Options "nosniff";
