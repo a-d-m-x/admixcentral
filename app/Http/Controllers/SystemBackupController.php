@@ -70,7 +70,7 @@ class SystemBackupController extends Controller
         try {
             if ($request->hasFile('backup_file')) {
                 $path = $request->file('backup_file')->storeAs('temp_restores', 'restore_' . time() . '.json');
-                $fullPath = storage_path('app/' . $path);
+                $fullPath = Storage::path($path);
                 $this->backupService->restoreFromPath($fullPath, $request->password);
                 unlink($fullPath);
             } else {
