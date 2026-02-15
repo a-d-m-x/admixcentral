@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\SystemSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 
 class SystemCustomizationController extends Controller
 {
@@ -248,8 +249,49 @@ class SystemCustomizationController extends Controller
         return response()->json([
             'update_available' => $available,
             'version' => $newVersion,
-            'current_version' => $currentVersion,
-            'release_notes' => $latest['body'] ?? ''
+            'message' => $available ? 'Update available!' : 'System is up to date.'
+        ]);
+    }
+
+    /**
+     * Lightweight global check with caching to avoid API rate limits.
+     */
+    public function checkGlobal(\App\Services\UpdateService $updater)
+    {
+        // Cache the result for 1 hour
+        $latest = Cache::remember('system_update_latest_v3', 3600, function () use ($updater) {
+            return $updater->checkForUpdates();
+        });
+
+        if (!$latest) {
+            return response()->json(['update_available' => false]);
+        }
+
+        $currentVersion = 'v0.0.0';
+        $versionPath = base_path('VERSION');
+        if (file_exists($versionPath)) {
+            $currentVersion = trim(file_get_contents($versionPath));
+        }
+
+        $newVersion = $latest['tag_name'];
+        $available = $updater->isNewVersionAvailable($currentVersion, $newVersion);
+
+        // Check if this version has been ignored
+        if ($available) {
+            $ignoredVersion = SystemSetting::where('key', 'ignored_update_version')->value('value');
+            // Clean versions for comparison
+            $cleanNew = ltrim($newVersion, 'v');
+            $cleanIgnored = ltrim($ignoredVersion ?? '', 'v');
+
+            if ($cleanNew === $cleanIgnored) {
+                $available = false;
+            }
+        }
+
+        return response()->json([
+            'update_available' => $available,
+            'version' => $newVersion,
+            'current_version' => $currentVersion
         ]);
     }
 
@@ -275,9 +317,71 @@ class SystemCustomizationController extends Controller
             'log' => ['Update requested via Settings Card at ' . now()],
         ]);
 
-        // Queue the update command
-        \Illuminate\Support\Facades\Artisan::queue('system:install-update');
+        // Run the update command synchronously since queue worker might not be running
+        // This ensures the update logic executes immediately.
+        try {
+            \Illuminate\Support\Facades\Artisan::call('system:install-update');
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => 'Update start failed: ' . $e->getMessage()], 500);
+        }
 
-        return response()->json(['status' => 'success', 'message' => 'Update queued. The system will update in the background.']);
+        return response()->json(['status' => 'success', 'message' => 'Update started. The system is updating locally.']);
+    }
+    /**
+     * Clear all update records to reset stuck state.
+     */
+    public function resetUpdates()
+    {
+        try {
+            \App\Models\SystemUpdate::truncate();
+            return response()->json(['status' => 'success', 'message' => 'Update state reset successfully.']);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+    /**
+     * Check the status of the current update.
+     */
+    public function checkUpdateStatus()
+    {
+        $update = \App\Models\SystemUpdate::latest()->first();
+
+        if (!$update) {
+            return response()->json(['status' => 'idle']);
+        }
+
+        // If update is complete, clear the ignored version flag so future updates invoke prompts again
+        if ($update->status === 'complete') {
+            SystemSetting::where('key', 'ignored_update_version')->delete();
+        }
+
+        return response()->json([
+            'status' => $update->status,
+            'log' => $update->log,
+            'last_error' => $update->last_error,
+            'version' => $update->available_version
+        ]);
+    }
+
+    /**
+     * Dismiss an update version (ignore it until next release).
+     */
+    public function dismissUpdate(Request $request)
+    {
+        $request->validate([
+            'version' => 'required|string'
+        ]);
+
+        $version = $request->input('version');
+
+        // Strip 'v' prefix if present to ensure consistency
+        $version = ltrim($version, 'v');
+
+        SystemSetting::updateOrCreate(
+            ['key' => 'ignored_update_version'],
+            ['value' => $version]
+        );
+
+        return response()->json(['status' => 'success']);
     }
 }

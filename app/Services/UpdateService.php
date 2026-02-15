@@ -11,7 +11,12 @@ class UpdateService
     /**
      * The GitHub repository "owner/repo"
      */
-    protected string $repository = 'a-d-m-x/admixcentral';
+    protected string $repository;
+
+    public function __construct()
+    {
+        $this->repository = config('services.github.repository', 'a-d-m-x/admixcentral');
+    }
 
     /**
      * Fetch the latest release from GitHub.
@@ -78,8 +83,10 @@ class UpdateService
      */
     public function isNewVersionAvailable(string $currentVersion, string $latestVersion): bool
     {
-        // Simple string comparison or semver.
-        // PHP's version_compare works well for semver.
-        return version_compare($latestVersion, $currentVersion, '>');
+        // Normalize versions by removing 'v' prefix if present
+        $current = ltrim($currentVersion, 'v');
+        $latest = ltrim($latestVersion, 'v');
+
+        return version_compare($latest, $current, '>');
     }
 }

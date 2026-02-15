@@ -42,4 +42,9 @@ return [
         ],
     ],
 
+    'github' => [
+        'token' => env('GITHUB_TOKEN'),
+        'repository' => env('GITHUB_REPOSITORY', 'a-d-m-i-x/admixcentral'),
+    ],
+
 ];
