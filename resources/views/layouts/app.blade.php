@@ -64,9 +64,109 @@
     </script>
 </head>
 
-<body class="font-sans antialiased h-full overflow-hidden bg-gray-100 dark:bg-gray-900"
+<body class="font-sans antialiased h-full overflow-hidden bg-gray-100 dark:bg-gray-900 flex flex-col"
     x-data="{ sidebarOpen: false, collapsed: window.innerWidth < 1536 }"
     @resize.window="collapsed = window.innerWidth < 1536">
+    <!-- Global System Update Listener -->
+    @if(auth()->user()?->isGlobalAdmin())
+        <div x-data="systemUpdateListener()" x-cloak class="z-50 relative shrink-0">
+            <!-- Unified Update Bar -->
+            <!-- Notification Bar -->
+            <div x-show="(updateAvailable || isInstalling || updateComplete) && !dismissedSession" style="display: none;"
+                x-transition:enter="transform ease-out duration-300 transition"
+                x-transition:enter-start="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+                x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0" :class="{
+                                                            'bg-blue-600': updateAvailable && !isInstalling && !updateComplete,
+                                                            'bg-blue-500': isInstalling,
+                                                            'bg-green-600': updateComplete
+                                                        }">
+                <div class="max-w-7xl mx-auto py-3 px-3 sm:px-6 lg:px-8">
+                    <div class="flex items-center justify-between flex-wrap">
+                        <div class="w-0 flex-1 flex items-center">
+                            <span class="flex p-2 rounded-lg" :class="{
+                                                                        'bg-blue-800': updateAvailable && !isInstalling && !updateComplete,
+                                                                        'bg-blue-600': isInstalling,
+                                                                        'bg-green-800': updateComplete
+                                                                    }">
+                                <!-- Icon: Update Available -->
+                                <template x-if="updateAvailable && !isInstalling && !updateComplete">
+                                    <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                        viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                    </svg>
+                                </template>
+
+                                <!-- Icon: Installing (Spinner) -->
+                                <template x-if="isInstalling">
+                                    <svg class="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg"
+                                        fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                            stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                        </path>
+                                    </svg>
+                                </template>
+
+                                <!-- Icon: Complete -->
+                                <template x-if="updateComplete">
+                                    <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                        viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </template>
+                            </span>
+
+                            <p class="ml-3 font-medium text-white truncate">
+                                <span x-show="updateAvailable && !isInstalling && !updateComplete">
+                                    A new update is available (<span x-text="availableVersion"></span>).
+                                </span>
+                                <span x-show="isInstalling">
+                                    Installation in progress. Please wait...
+                                </span>
+                                <span x-show="updateComplete">
+                                    Update complete. Reload to apply changes.
+                                </span>
+                            </p>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="order-3 mt-2 flex-shrink-0 w-full sm:order-2 sm:mt-0 sm:w-auto">
+                            <!-- Button: Update Now -->
+                            <button x-show="updateAvailable && !isInstalling && !updateComplete" type="button"
+                                @click="startUpdate"
+                                class="flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-blue-600 bg-white hover:bg-blue-50">
+                                Update Now
+                            </button>
+
+                            <!-- Button: Reload Now -->
+                            <button x-show="updateComplete" type="button" @click="reloadPage"
+                                class="flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-green-600 bg-white hover:bg-green-50">
+                                Reload Now
+                            </button>
+                        </div>
+
+                        <!-- Dismiss (Only when Available) -->
+                        <div x-show="updateAvailable && !isInstalling && !updateComplete"
+                            class="order-2 flex-shrink-0 sm:order-3 sm:ml-3">
+                            <button type="button" @click="dismissUpdate()"
+                                class="-mr-1 flex p-2 rounded-md hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-white sm:-mr-2">
+                                <span class="sr-only">Dismiss</span>
+                                <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                    viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- Mobile Header -->
     <div
         class="md:hidden flex items-center justify-between h-16 bg-gray-900 border-b border-gray-700 px-4 z-40 relative">
@@ -85,7 +185,7 @@
         </button>
     </div>
 
-    <div class="flex h-dvh bg-gray-100 dark:bg-gray-900 md:h-dvh h-[calc(100dvh-4rem)]">
+    <div class="flex-1 flex bg-gray-100 dark:bg-gray-900 overflow-hidden">
         @include('layouts.sidebar')
 
         <div class="flex-1 flex flex-col overflow-hidden">
@@ -117,6 +217,27 @@
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        // Set Default Options for SweetAlert2 to prevent layout shifts
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true
+        });
+
+        // Global Override to prevent body padding shift
+        const swalFire = Swal.fire;
+        Swal.fire = function (args) {
+            // If args is an object, merge defaults
+            if (typeof args === 'object' && args !== null) {
+                args.heightAuto = false;
+                args.scrollbarPadding = false;
+            }
+            return swalFire.apply(this, arguments);
+        };
+    </script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             @if(session('success'))
@@ -267,6 +388,7 @@
 
     <script>
         (function () {
+            // ... existing PWA code ...
             window.deferredPrompt = null;
             const installContainer = document.getElementById('pwa-install-container');
             const installBtn = document.getElementById('pwa-install-btn');
@@ -326,6 +448,303 @@
                 window.dispatchEvent(new CustomEvent('pwa-installed'));
             });
         })();
+    </script>
+
+
+    <script>
+        function systemUpdateListener() {
+            return {
+                pollInterval: null,
+                updateComplete: false,
+                updateAvailable: false,
+                isInstalling: false,
+                dismissedSession: false,
+                currentVersion: '',
+                availableVersion: '',
+
+                init() {
+                    // Check session storage first
+                    if (sessionStorage.getItem('admix_update_remind_later')) {
+                        this.dismissedSession = true;
+                    }
+
+                    // Check for active installation first
+                    if (localStorage.getItem('admix_update_active')) {
+                        this.isInstalling = true;
+                        this.startPolling(); // Poll for installation status
+                    } else {
+                        this.checkAvailability(); // Check for available updates
+                    }
+
+                    // Listen for reload from other components
+                    window.addEventListener('system-update-reload', () => {
+                        this.reloadPage();
+                    });
+                    window.addEventListener('system-update-started', () => {
+                        this.isInstalling = true;
+                        this.updateAvailable = false;
+                        this.startPolling();
+                    });
+
+                    // Listen for install confirmation from Settings Page
+                    window.addEventListener('system-update-install-confirmed', () => {
+                        this.performUpdate();
+                    });
+                },
+
+                // ... dismissUpdate ...
+
+                async startUpdate() {
+                    const result = await Swal.fire({
+                        title: 'Install Update?',
+                        text: "The system will be unavailable for a few minutes.",
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#3085d6',
+                        cancelButtonColor: '#d33',
+                        confirmButtonText: 'Yes, install it!'
+                    });
+
+                    if (result.isConfirmed) {
+                        this.performUpdate();
+                    }
+                },
+
+                performUpdate() {
+                    this.isInstalling = true;
+                    this.updateAvailable = false;
+
+                    // Dispatch initiating event so Settings UI shows "Queueing..." immediately
+                    window.dispatchEvent(new CustomEvent('system-update-initiating'));
+
+                    fetch('{{ route("system.updates.install") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        }
+                    })
+                        .then(response => {
+                            if (!response.ok) throw new Error('Update start failed');
+                            return response.json().catch(() => ({}));
+                        })
+                        .then(data => {
+                            console.log('Update started', data);
+                            localStorage.setItem('admix_update_active', 'true');
+                            window.dispatchEvent(new CustomEvent('system-update-started'));
+                            this.startPolling();
+                        })
+                        .catch(error => {
+                            console.error('Error starting update:', error);
+                            this.isInstalling = false;
+                            this.updateAvailable = true;
+
+                            // Dispatch failure event
+                            window.dispatchEvent(new CustomEvent('system-update-failed', {
+                                detail: { message: 'Could not start the update process.' }
+                            }));
+
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Update Failed',
+                                text: 'Could not start the update process. Please check logs.',
+                                toast: true,
+                                position: 'top-end'
+                            });
+                        });
+                },
+
+                dismissUpdate() {
+                    Swal.fire({
+                        title: 'Dismiss This Update?',
+                        text: "You can hide this notification for now, or skip this specific version entirely.",
+                        icon: 'question',
+                        showCancelButton: true,
+                        showDenyButton: true,
+                        confirmButtonText: 'Skip This Version',
+                        denyButtonText: 'Remind Me Later',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#3085d6',
+                        denyButtonColor: '#6c757d',
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            fetch('{{ route("system.updates.dismiss") }}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                },
+                                body: JSON.stringify({ version: this.availableVersion })
+                            })
+                                .then(response => {
+                                    if (response.ok) {
+                                        this.updateAvailable = false;
+                                        Swal.fire({
+                                            title: 'Dismissed',
+                                            text: 'You will not be notified about this version again.',
+                                            icon: 'success',
+                                            timer: 2000,
+                                            showConfirmButton: false
+                                        });
+                                    } else {
+                                        throw new Error('Failed to dismiss');
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error dismissing update:', error);
+                                    Swal.fire('Error', 'Failed to dismiss update.', 'error');
+                                });
+                        } else if (result.isDenied) {
+                            // Remind Me Later: Set session storage
+                            sessionStorage.setItem('admix_update_remind_later', 'true');
+                            this.dismissedSession = true;
+
+                            Swal.fire({
+                                icon: 'info',
+                                title: 'Reminder Set',
+                                text: 'We will remind you again when you next login.',
+                                toast: true,
+                                position: 'top-end',
+                                timer: 3000,
+                                showConfirmButton: false
+                            });
+                        }
+                    });
+                },
+
+                async startUpdate() {
+                    const result = await Swal.fire({
+                        title: 'Install Update?',
+                        text: "The system will be unavailable for a few minutes.",
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#3085d6',
+                        cancelButtonColor: '#d33',
+                        confirmButtonText: 'Yes, install it!'
+                    });
+
+                    if (result.isConfirmed) {
+                        this.performUpdate();
+                    }
+                },
+
+                performUpdate() {
+                    this.isInstalling = true;
+                    this.updateAvailable = false;
+                    window.dispatchEvent(new CustomEvent('system-update-initiating'));
+
+                    fetch('{{ route("system.updates.install") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        }
+                    })
+                        .then(response => {
+                            // We expect a redirect or json. For now, just assume it started if 200/302.
+                            // Ideally the backend returns JSON.
+                            // If it redirects, fetch might follow it.
+                            // Let's assume the backend starts the process.
+                            if (!response.ok) throw new Error('Update start failed');
+                            return response.json().catch(() => ({})); // Handle if no json
+                        })
+                        .then(data => {
+                            console.log('Update started', data);
+                            localStorage.setItem('admix_update_active', 'true');
+                            window.dispatchEvent(new CustomEvent('system-update-started'));
+                            this.startPolling();
+                        })
+                        .catch(error => {
+                            console.error('Error starting update:', error);
+                            this.isInstalling = false;
+                            this.updateAvailable = true;
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Update Failed',
+                                text: 'Could not start the update process. Please check logs.',
+                                toast: true,
+                                position: 'top-end'
+                            });
+                        });
+                },
+
+                checkAvailability() {
+                    fetch('{{ route("system.updates.check-global") }}')
+                        .then(response => response.json())
+                        .then(data => {
+                            this.currentVersion = (data.current_version || 'unknown').replace(/^v/, '');
+                            this.availableVersion = (data.version || 'unknown').replace(/^v/, '');
+                            if (data.update_available && !this.isInstalling) {
+                                this.updateAvailable = true;
+                                this.updateComplete = false;
+                            } else if (!this.isInstalling) {
+                                this.updateAvailable = false;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error checking update availability:', error);
+                            this.updateAvailable = false;
+                        });
+                },
+
+                startPolling() {
+                    if (this.pollInterval) clearInterval(this.pollInterval);
+                    this.pollStatus(); // Immediate check
+                    this.pollInterval = setInterval(() => {
+                        this.pollStatus();
+                    }, 2000); // Poll every 2s
+                },
+
+                async pollStatus() {
+                    try {
+                        const response = await fetch('{{ route("system.updates.status") }}');
+                        if (!response.ok) return;
+
+                        const data = await response.json();
+
+                        // Dispatch status for other components to sync
+                        window.dispatchEvent(new CustomEvent('system-update-status', { detail: data }));
+
+                        if (data.status === 'complete') {
+                            this.updateComplete = true;
+                            this.isInstalling = false;
+                            this.updateAvailable = false;
+                            clearInterval(this.pollInterval);
+                            // Don't clear localStorage here; let reloadPage handle it
+                        } else if (data.status === 'failed' || data.status === 'idle') {
+                            clearInterval(this.pollInterval);
+                            localStorage.removeItem('admix_update_active');
+                            this.isInstalling = false;
+                            this.updateComplete = false;
+
+                            // Only re-check availability if it was a failure, or if we were installing
+                            if (data.status === 'failed') {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Update Failed',
+                                    text: data.last_error || 'Unknown error occurred.',
+                                    toast: true,
+                                    position: 'top-end'
+                                });
+                                this.checkAvailability();
+                            }
+                        } else {
+                            // Still installing/downloading
+                            this.isInstalling = true;
+                            this.updateAvailable = false;
+                            this.updateComplete = false;
+                        }
+                    } catch (e) {
+                        console.error('Global poll error', e);
+                    }
+                },
+
+                reloadPage() {
+                    localStorage.removeItem('admix_update_active');
+                    window.location.reload();
+                }
+            }
+        }
     </script>
 </body>
 

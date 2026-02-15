@@ -46,7 +46,11 @@
                     x-transition:enter-end="opacity-100 translate-y-0" style="display: none;">
 
                     <!-- Section: System Updates -->
-                    <div class="card-modern" x-data="systemUpdater()">
+                    <div class="card-modern" x-data="systemUpdater()"
+                        @system-update-initiating.window="installing = true; updateAvailable = false; message = 'Queueing update...'; isError = false;"
+                        @system-update-started.window="installing = true; updateAvailable = false; message = 'Update started...';"
+                        @system-update-failed.window="installing = false; isError = true; message = $event.detail?.message || 'Update failed.'; checkForUpdates();"
+                        @system-update-status.window="handleStatus($event.detail)">
                         <div class="card-header-modern">
                             <div class="card-icon-wrapper">
                                 <svg class="card-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -60,49 +64,151 @@
                             </div>
                         </div>
                         <div class="card-body-modern">
-                            <div class="flex items-center justify-between">
-                                <div class="flex flex-col">
-                                    <div class="text-sm font-medium text-gray-900 dark:text-white">
-                                        Current Version: <span
-                                            class="font-bold">v{{ $currentVersion ?? '0.0.0' }}</span>
-                                    </div>
-                                    <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                        @if($updateAvailable ?? false)
-                                            <span class="text-green-600 font-semibold">Update Available!</span>
-                                        @else
-                                            Your system is up to date.
-                                        @endif
-                                    </div>
+                            <!-- Current Version Display (Always Visible) -->
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="text-sm font-medium text-gray-900 dark:text-white">
+                                    Current Version
                                 </div>
+                                <div class="text-sm font-mono font-bold text-gray-600 dark:text-gray-300">
+                                    v{{ $currentVersion ?? '0.0.0' }}
+                                </div>
+                            </div>
 
-                                <!-- Action Buttons -->
-                                <div class="flex items-center gap-3">
-                                    <button type="button" @click="checkForUpdates" :disabled="checking"
-                                        class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">
-                                        <svg x-show="checking"
-                                            class="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700 dark:text-gray-200"
-                                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                                stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor"
-                                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                                            </path>
-                                        </svg>
-                                        <span x-text="checking ? 'Checking...' : 'Check for Updates'"></span>
-                                    </button>
-
-                                    <button x-show="updateAvailable" type="button" @click="installUpdate" :disabled="installing"
-                                        class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50">
+                            <!-- Update Available Alert (Full Width) -->
+                            <template x-if="updateAvailable && !installing && !isError">
+                                <div
+                                    class="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg p-4 flex items-center justify-between">
+                                    <div>
+                                        <div class="text-sm font-bold text-blue-700 dark:text-blue-300">
+                                            Update Available: <span x-text="version"></span>
+                                        </div>
+                                        <div class="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                                            A new version is ready to install.
+                                        </div>
+                                    </div>
+                                    <button type="button" @click="installUpdate" :disabled="installing"
+                                        class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 transition-colors">
                                         <span x-show="!installing">Install Update &rarr;</span>
                                         <span x-show="installing">Queueing...</span>
                                     </button>
                                 </div>
-                            </div>
+                            </template>
 
-                            <!-- Inline Feedback -->
-                            <div x-show="message" x-transition class="mt-4 text-sm"
-                                :class="isError ? 'text-red-600' : 'text-green-600'" x-text="message"></div>
+                            <!-- Up to Date State -->
+                            <template
+                                x-if="!updateAvailable && !checking && !installing && !isError && !updateComplete">
+                                <div
+                                    class="bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg p-4 text-center">
+                                    <svg class="h-6 w-6 text-green-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24"
+                                        stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                        System is up to date
+                                    </div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        You are running the latest version.
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- Error State -->
+                            <template x-if="isError">
+                                <div
+                                    class="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg p-4">
+                                    <div class="flex">
+                                        <div class="flex-shrink-0">
+                                            <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd"
+                                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                                    clip-rule="evenodd" />
+                                            </svg>
+                                        </div>
+                                        <div class="ml-3">
+                                            <h3 class="text-sm font-medium text-red-800 dark:text-red-200">Update Failed
+                                            </h3>
+                                            <div class="mt-2 text-sm text-red-700 dark:text-red-300">
+                                                <p x-text="message"></p>
+                                            </div>
+                                            <div class="mt-4">
+                                                <button type="button" @click="isError = false; checkForUpdates()"
+                                                    class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                                    Try Again
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- Update Complete (Green) -->
+                            <template x-if="updateComplete">
+                                <div
+                                    class="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-lg p-4 flex items-center justify-between">
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0">
+                                            <svg class="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24"
+                                                stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm font-medium text-green-800 dark:text-green-200">Update
+                                                Complete!</p>
+                                            <p class="text-xs text-green-600 dark:text-green-400 mt-1">Reload the page
+                                                to apply changes.</p>
+                                        </div>
+                                    </div>
+                                    <button @click="window.dispatchEvent(new CustomEvent('system-update-reload'))"
+                                        class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors">
+                                        Reload Now
+                                    </button>
+                                </div>
+                            </template>
+
+                            <!-- Installing State -->
+                            <template x-if="installing && !updateComplete">
+                                <div
+                                    class="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg p-4">
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0">
+                                            <svg class="animate-spin h-5 w-5 text-blue-600 dark:text-blue-400"
+                                                xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                                    stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor"
+                                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                                </path>
+                                            </svg>
+                                        </div>
+                                        <div class="ml-3 w-0 flex-1 pt-0.5">
+                                            <p class="text-sm font-medium text-blue-900 dark:text-blue-100"
+                                                x-text="message || 'Update in progress...'"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- Checking State -->
+                            <template x-if="checking && !installing">
+                                <div class="p-4 text-center">
+                                    <svg class="animate-spin h-5 w-5 text-indigo-500 mx-auto mb-2"
+                                        xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                            stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                        </path>
+                                    </svg>
+                                    <span class="text-sm text-gray-500 dark:text-gray-400"
+                                        x-text="installing ? 'Update in progress...' : 'Checking for updates...'"></span>
+                                </div>
+                            </template>
                         </div>
+
                     </div>
 
                     <script>
@@ -111,74 +217,100 @@
                                 checking: false,
                                 installing: false,
                                 updateAvailable: {{ ($updateAvailable ?? false) ? 'true' : 'false' }},
+                                updateComplete: false,
                                 message: '',
                                 isError: false,
+                                version: '',
+                                pollInterval: null,
+
+                                init() {
+                                    // Check if we are already installing
+                                    if (localStorage.getItem('admix_update_active')) {
+                                        this.installing = true;
+                                        this.updateAvailable = false;
+                                        this.message = 'Update in progress...';
+                                    } else {
+                                        this.checkForUpdates();
+                                    }
+                                },
+
+                                handleStatus(data) {
+                                    if (data.status === 'complete') {
+                                        this.installing = false;
+                                        this.updateComplete = true;
+                                        this.updateAvailable = false;
+                                        this.message = 'Update Complete!';
+                                    }
+                                    else if (data.status === 'failed') {
+                                        this.installing = false;
+                                        this.isError = true;
+                                        this.message = data.last_error || 'Update failed.';
+                                    }
+                                    else if (data.status === 'idle') {
+                                        if (this.installing) {
+                                            this.installing = false;
+                                            this.checkForUpdates();
+                                        }
+                                    }
+                                    else {
+                                        // Catch-all for any other status (installing, downloading, etc.)
+                                        this.installing = true;
+                                        this.updateAvailable = false;
+
+                                        let statusMsg = 'Update in progress...';
+                                        if (data.status === 'pending_install') statusMsg = 'Update queued...';
+                                        else if (data.status === 'downloading') statusMsg = 'Downloading package...';
+                                        else if (data.status === 'installing') statusMsg = 'Installing update...';
+
+                                        this.message = statusMsg;
+                                    }
+                                },
+
                                 async checkForUpdates() {
                                     this.checking = true;
-                                    this.message = '';
-                                    this.isError = false;
-
                                     try {
-                                        const response = await fetch('{{ route("system.updates.check") }}', {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                                                'Accept': 'application/json'
-                                            }
-                                        });
-
+                                        // Use check-global as it returns the comprehensive data structure we expect
+                                        const response = await fetch('{{ route("system.updates.check-global") }}');
                                         const data = await response.json();
 
-                                        if (data.update_available) {
+                                        if (data.update_available && !this.installing) {
                                             this.updateAvailable = true;
-                                            this.message = 'New update found: ' + data.version;
+                                            this.version = (data.version || '').replace(/^v/, '');
                                         } else {
-                                            this.message = 'System is up to date.';
+                                            this.updateAvailable = false;
                                         }
-
                                     } catch (e) {
-                                        console.error(e);
-                                        this.isError = true;
-                                        this.message = 'Error checking for updates.';
+                                        console.error('Update check failed:', e);
                                     } finally {
                                         this.checking = false;
                                     }
                                 },
+
                                 async installUpdate() {
-                                    if (!confirm('Are you sure you want to install this update? The system may be unavailable for a few minutes.')) return;
+                                    const result = await Swal.fire({
+                                        title: 'Install Update?',
+                                        text: "The system will be unavailable for a few minutes.",
+                                        icon: 'warning',
+                                        showCancelButton: true,
+                                        confirmButtonColor: '#3085d6',
+                                        cancelButtonColor: '#d33',
+                                        confirmButtonText: 'Yes, install it!'
+                                    });
 
+                                    if (!result.isConfirmed) return;
+
+                                    // Optimistic UI update
                                     this.installing = true;
+                                    this.updateAvailable = false;
                                     this.message = 'Queueing update...';
-                                    this.isError = false;
 
-                                    try {
-                                        const response = await fetch('{{ route("system.updates.install") }}', {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                                                'Accept': 'application/json'
-                                            }
-                                        });
+                                    // Dispatch global event for app.blade.php to handle
+                                    window.dispatchEvent(new CustomEvent('system-update-install-confirmed'));
+                                },
 
-                                        const data = await response.json();
 
-                                        if (response.ok) {
-                                            this.message = data.message;
-                                            this.updateAvailable = false; // Hide button
-                                        } else {
-                                            this.isError = true;
-                                            this.message = data.message || 'Failed to queue update.';
-                                        }
-                                    } catch (e) {
-                                        console.error(e);
-                                        this.isError = true;
-                                        this.message = 'Error initiating update.';
-                                    } finally {
-                                        this.installing = false;
-                                    }
-                                }
+
+
                             }
                         }
                     </script>
@@ -473,7 +605,8 @@
                                             :style="'background-color: ' + sidebarBg">
                                             <div class="flex items-center gap-2 mb-2" :style="'color: ' + sidebarText">
                                                 <div class="w-2 h-2 rounded-full"
-                                                    :style="'background-color: ' + sidebarText"></div>
+                                                    :style="'background-color: ' + sidebarText">
+                                                </div>
                                                 <span class="text-sm font-medium opacity-100">Dashboard</span>
                                             </div>
                                             <div class="flex items-center gap-2" :style="'color: ' + sidebarText">
