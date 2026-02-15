@@ -349,7 +349,6 @@ class SystemCustomizationController extends Controller
     {
         try {
             \App\Models\SystemUpdate::truncate();
-
             // Clear current dynamic cache key
             $versionPath = base_path('VERSION');
             $timestamp = file_exists($versionPath) ? filemtime($versionPath) : 0;
