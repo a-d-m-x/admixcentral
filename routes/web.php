@@ -336,8 +336,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
         ->name('system.updates.check');
     Route::post('/system/settings/updates/install', [App\Http\Controllers\SystemCustomizationController::class, 'installUpdate'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.updates.install');
+
+    Route::get('/system/settings/updates/check-global', [App\Http\Controllers\SystemCustomizationController::class, 'checkGlobal'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
+        ->name('system.updates.check-global');
+
+    Route::get('/system/settings/updates/status', [App\Http\Controllers\SystemCustomizationController::class, 'checkUpdateStatus'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
+        ->name('system.updates.status');
+
+    Route::post('/system/settings/updates/reset', [App\Http\Controllers\SystemCustomizationController::class, 'resetUpdates'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
+        ->name('system.updates.reset');
+
+    Route::post('/system/settings/updates/dismiss', [App\Http\Controllers\SystemCustomizationController::class, 'dismissUpdate'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
+        ->name('system.updates.dismiss');
 
 
 
