@@ -334,7 +334,8 @@ class SystemCustomizationController extends Controller
     {
         try {
             \App\Models\SystemUpdate::truncate();
-            return response()->json(['status' => 'success', 'message' => 'Update state reset successfully.']);
+            \Illuminate\Support\Facades\Cache::forget('system_update_latest_v4');
+            return response()->json(['status' => 'success', 'message' => 'Update state reset and cache cleared successfully.']);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
