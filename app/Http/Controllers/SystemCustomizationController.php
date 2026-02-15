@@ -259,7 +259,7 @@ class SystemCustomizationController extends Controller
     public function checkGlobal(\App\Services\UpdateService $updater)
     {
         // Cache the result for 1 hour
-        $latest = Cache::remember('system_update_latest_v3', 3600, function () use ($updater) {
+        $latest = Cache::remember('system_update_latest_v4', 3600, function () use ($updater) {
             return $updater->checkForUpdates();
         });
 
