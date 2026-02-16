@@ -259,22 +259,30 @@ class SystemCustomizationController extends Controller
     public function checkGlobal(\App\Services\UpdateService $updater)
     {
         // Generate dynamic cache key based on VERSION file modification time
-        // This ensures that valid cache is kept, but any version change (upgrade/downgrade/touch)
-        // immediately invalidates the cache key.
         $versionPath = base_path('VERSION');
         $timestamp = file_exists($versionPath) ? filemtime($versionPath) : 0;
+        $currentVersion = file_exists($versionPath) ? trim(file_get_contents($versionPath)) : 'v0.0.0';
+
         $cacheKey = 'system_update_latest_v5_' . $timestamp;
+
+        // Allow manual bypass via query string
+        if (request()->has('force')) {
+            Cache::forget($cacheKey);
+        }
 
         $latest = Cache::get($cacheKey);
 
         if (!$latest) {
             $latest = $updater->checkForUpdates();
 
-            // Only cache if we got a valid response. 
-            // If the API call failed (returns null), we don't want to cache "no update found" 
-            // effectively blocking retries for an hour.
             if ($latest) {
-                Cache::put($cacheKey, $latest, 3600);
+                // Smart Caching:
+                // If an update is available, cache for 1 hour.
+                // If NO update is available, cache for only 5 minutes.
+                $isNewer = $updater->isNewVersionAvailable($currentVersion, $latest['tag_name']);
+                $ttl = $isNewer ? 3600 : 300;
+
+                Cache::put($cacheKey, $latest, $ttl);
             }
         }
 

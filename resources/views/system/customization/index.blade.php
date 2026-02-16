@@ -110,6 +110,17 @@
                                     <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                         You are running the latest version.
                                     </div>
+                                    <div class="mt-4">
+                                        <button type="button" @click="checkForUpdates(true)"
+                                            class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600 transition-colors">
+                                            <svg class="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg"
+                                                fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                            </svg>
+                                            Check for Updates
+                                        </button>
+                                    </div>
                                 </div>
                             </template>
 
@@ -266,17 +277,21 @@
                                     }
                                 },
 
-                                async checkForUpdates() {
+                                async checkForUpdates(force = false) {
                                     this.checking = true;
                                     try {
                                         // Use check-global as it returns the comprehensive data structure we expect
-                                        const response = await fetch('{{ route("system.updates.check-global") }}');
+                                        let url = '{{ route("system.updates.check-global") }}';
+                                        if (force) url += '?force=1';
+
+                                        const response = await fetch(url);
                                         const data = await response.json();
 
                                         if (data.update_available && !this.installing) {
                                             this.updateAvailable = true;
                                             this.version = (data.version || '').replace(/^v/, '');
-                                        } else {
+                                        }
+                                        else {
                                             this.updateAvailable = false;
                                         }
                                     } catch (e) {

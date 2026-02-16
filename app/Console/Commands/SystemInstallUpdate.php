@@ -85,7 +85,7 @@ class SystemInstallUpdate extends Command
             // Construct URLs
             // Use the repository from config or default
             $repo = config('services.github.repository', 'a-d-m-x/admixcentral');
-<<<<<<< HEAD
+
 
             // Use GitHub Source Code Zipball URL
             $assetUrl = "https://github.com/{$repo}/archive/refs/tags/{$update->available_version}.zip";
@@ -97,31 +97,9 @@ class SystemInstallUpdate extends Command
 
             // Download files
             try {
-            $baseUrl = "https://github.com/{$repo}/releases/download/{$update->available_version}";
-
-            // Allow override for manifest URL during dev/testing if needed, but default to standard
-            $assetUrl = "{$baseUrl}/source.zip"; // Using source.zip as it's standard for GitHub releases if no specific artifact
-            // Check if we typically use 'update.zip' or source.
-            // GitHub releases have 'Source code (zip)' which is usually named after the repo-tag.
-            // Let's assume there is an attached 'update.zip' artifact as per original code intent.
-            $assetUrl = "{$baseUrl}/update.zip";
-
-            $manifestUrl = "{$baseUrl}/manifest.json";
-            $sigUrl = "{$baseUrl}/manifest.sig";
-
-            $this->log($update, "Downloading assets from $baseUrl...");
-
-            // Download files - uncommented and active
-            try {
-                // Try to download manifest first to check existence
-                // $this->downloadFile($manifestUrl, "$tempDir/manifest.json"); 
-                // Ignoring manifest for now to ensure we just get the zip if it exists
                 $this->downloadFile($assetUrl, "$tempDir/update.zip");
             } catch (\Exception $e) {
-                // If update.zip fails, try source code zip? 
-                // For now, fail if update.zip is missing, or maybe the user provided a different logic.
-                // Reverting to original logic: must have update.zip
-                throw new \Exception("Failed to download update.zip: " . $e->getMessage());
+                throw new \Exception("Failed to download update source: " . $e->getMessage());
             }
 
             // 2. Verification (SHA256 & Signature)
@@ -145,7 +123,6 @@ class SystemInstallUpdate extends Command
                 throw new \Exception("Failed to unzip update.");
             }
 
-<<<<<<< HEAD
             // Handle GitHub Source Zip structure (nested top-level folder)
             // GitHub source zips usually extract into a folder named "repo-tag"
             $extractedItems = array_diff(scandir($extractPath), ['.', '..']);
@@ -169,18 +146,6 @@ class SystemInstallUpdate extends Command
 
             // intelligent copy: overwrite files, but be careful with .env
             $this->copyDirectory($sourceDir, $targetDir);
-=======
-            // 4. Install (In-Place / Overlay)
-            $this->log($update, "Installing files...");
-
-            // Determine if we are in atomic or flat structure
-            // For this fix, we force "Overlay" logic which works for both (mostly) but specifically fixes Flat.
-
-            $targetDir = base_path();
-
-            // intelligent copy: overwrite files, but be careful with .env
-            $this->copyDirectory($extractPath, $targetDir);
->>>>>>> 8484131 (Implement In-Place update logic for flat environments)
 
             // 5. Post-Install Steps
             $this->log($update, "Running post-install migrations...");
