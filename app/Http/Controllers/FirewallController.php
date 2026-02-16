@@ -217,7 +217,17 @@ class FirewallController extends Controller
                 ->withErrors(['url' => 'Connection failed: ' . $e->getMessage()]);
         }
 
-        $firewall = Firewall::create($validated);
+        try {
+            $firewall = Firewall::create($validated);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            // Check if violation is on netgate_id
+            if (str_contains($e->getMessage(), 'firewalls_netgate_id_unique')) {
+                return back()
+                    ->withInput()
+                    ->with('error', 'This firewall is already managed by Admix Central (Duplicate Netgate ID).');
+            }
+            throw $e;
+        }
 
         if (!$firewall->netgate_id) {
             $firewall->netgate_id = (string) $firewall->id;
