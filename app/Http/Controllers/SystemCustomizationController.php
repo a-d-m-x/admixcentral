@@ -258,10 +258,25 @@ class SystemCustomizationController extends Controller
      */
     public function checkGlobal(\App\Services\UpdateService $updater)
     {
-        // Cache the result for 1 hour
-        $latest = Cache::remember('system_update_latest_v4', 3600, function () use ($updater) {
-            return $updater->checkForUpdates();
-        });
+        // Generate dynamic cache key based on VERSION file modification time
+        // This ensures that valid cache is kept, but any version change (upgrade/downgrade/touch)
+        // immediately invalidates the cache key.
+        $versionPath = base_path('VERSION');
+        $timestamp = file_exists($versionPath) ? filemtime($versionPath) : 0;
+        $cacheKey = 'system_update_latest_v5_' . $timestamp;
+
+        $latest = Cache::get($cacheKey);
+
+        if (!$latest) {
+            $latest = $updater->checkForUpdates();
+
+            // Only cache if we got a valid response. 
+            // If the API call failed (returns null), we don't want to cache "no update found" 
+            // effectively blocking retries for an hour.
+            if ($latest) {
+                Cache::put($cacheKey, $latest, 3600);
+            }
+        }
 
         if (!$latest) {
             return response()->json(['update_available' => false]);
@@ -334,6 +349,13 @@ class SystemCustomizationController extends Controller
     {
         try {
             \App\Models\SystemUpdate::truncate();
+
+            // Clear current dynamic cache key
+            $versionPath = base_path('VERSION');
+            $timestamp = file_exists($versionPath) ? filemtime($versionPath) : 0;
+            Cache::forget('system_update_latest_v5_' . $timestamp);
+
+            // Clear legacy key
             \Illuminate\Support\Facades\Cache::forget('system_update_latest_v4');
             return response()->json(['status' => 'success', 'message' => 'Update state reset and cache cleared successfully.']);
         } catch (\Exception $e) {
