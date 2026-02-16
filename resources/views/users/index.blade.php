@@ -10,7 +10,8 @@
     <div class="py-12">
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             {{-- Stats Widgets --}}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div
+                class="grid grid-cols-1 md:grid-cols-2 {{ auth()->user()->isGlobalAdmin() ? 'lg:grid-cols-4' : 'lg:grid-cols-2' }} gap-4 mb-6">
                 <!-- Total Users -->
                 <div
                     class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex justify-between items-center">
@@ -29,21 +30,23 @@
                 </div>
 
                 <!-- Users -->
-                <div
-                    class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex justify-between items-center">
-                    <div>
-                        <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Standard Users</div>
-                        <div class="mt-2 text-3xl font-bold text-gray-900 dark:text-white">{{ $stats['users'] }}</div>
+                @if(auth()->user()->isGlobalAdmin())
+                    <div
+                        class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex justify-between items-center">
+                        <div>
+                            <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Standard Users</div>
+                            <div class="mt-2 text-3xl font-bold text-gray-900 dark:text-white">{{ $stats['users'] }}</div>
+                        </div>
+                        <div class="p-3 rounded-full bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                            </svg>
+                        </div>
                     </div>
-                    <div class="p-3 rounded-full bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                            stroke="currentColor" class="w-6 h-6">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                        </svg>
-                    </div>
-                </div>
+                @endif
 
                 <!-- Admins -->
                 <div
@@ -64,24 +67,26 @@
                 </div>
 
                 <!-- Global Admins -->
-                <div
-                    class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex justify-between items-center">
-                    <div>
-                        <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Global Admins</div>
-                        <div class="mt-2 text-3xl font-bold text-purple-600 dark:text-purple-400">
-                            {{ $stats['global_admins'] }}
+                @if(auth()->user()->isGlobalAdmin())
+                    <div
+                        class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex justify-between items-center">
+                        <div>
+                            <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Global Admins</div>
+                            <div class="mt-2 text-3xl font-bold text-purple-600 dark:text-purple-400">
+                                {{ $stats['global_admins'] }}
+                            </div>
+                        </div>
+                        <div
+                            class="p-3 rounded-full bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+                            </svg>
                         </div>
                     </div>
-                    <div
-                        class="p-3 rounded-full bg-purple-100 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                            stroke="currentColor" class="w-6 h-6">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
-                        </svg>
-                    </div>
-                </div>
+                @endif
             </div>
 
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
@@ -103,18 +108,18 @@
                 
                 init() {
                     this.users = {{ json_encode($users->map(fn($u) => [
-                        'id' => $u->id,
-                        'name' => $u->name,
-                        'email' => $u->email,
-                        'role' => $u->role,
-                        'role_type' => ($u->role === 'admin' && !$u->company_id) ? 'global_admin' : (($u->role === 'admin') ? 'company_admin' : 'user'),
-                        'role_label' => ($u->role === 'admin' && !$u->company_id) ? 'Global Admin' : (($u->role === 'admin') ? 'Company Admin' : 'User'),
-                        'company_id' => $u->company_id,
-                        'company_name' => $u->company ? $u->company->name : 'MSP / Global',
-                        'company_url' => $u->company ? route('companies.show', $u->company) : null,
-                        'edit_url' => route('users.edit', $u),
-                        'delete_url' => route('users.destroy', $u)
-                    ])) }};
+    'id' => $u->id,
+    'name' => $u->name,
+    'email' => $u->email,
+    'role' => $u->role,
+    'role_type' => ($u->role === 'admin' && !$u->company_id) ? 'global_admin' : (($u->role === 'admin') ? 'company_admin' : 'user'),
+    'role_label' => ($u->role === 'admin' && !$u->company_id) ? 'Global Admin' : (($u->role === 'admin') ? 'Company Admin' : 'User'),
+    'company_id' => $u->company_id,
+    'company_name' => $u->company ? $u->company->name : 'MSP / Global',
+    'company_url' => $u->company ? route('companies.show', $u->company) : null,
+    'edit_url' => route('users.edit', $u),
+    'delete_url' => route('users.destroy', $u)
+])) }};
                 },
 
                 get filteredRows() {
@@ -205,15 +210,17 @@
                                 <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
                                     {{ __('Managed Users') }}
                                 </h3>
-                                <a href="{{ route('users.create') }}"
-                                    class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-medium text-sm text-white hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                        xmlns="http://www.w3.org/2000/svg">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M12 4v16m8-8H4"></path>
-                                    </svg>
-                                    Add User
-                                </a>
+                                @if(!auth()->user()->isUser())
+                                    <a href="{{ route('users.create') }}"
+                                        class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-medium text-sm text-white hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                        Add User
+                                    </a>
+                                @endif
                             </div>
 
                             <!-- Toolbar -->
@@ -300,14 +307,16 @@
                                     <span class="text-sm text-gray-500 whitespace-nowrap hidden xl:inline">With
                                         selected:</span>
                                     <div class="flex gap-2 w-full">
-                                        <select x-model="bulkAction"
-                                            class="block w-full lg:w-40 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300 sm:text-sm">
-                                            <option value="">Actions...</option>
-                                            <option value="delete">Delete</option>
-                                        </select>
-                                        <x-secondary-button type="button" @click="submitBulkAction" class="rounded-lg">
-                                            Apply
-                                        </x-secondary-button>
+                                        @if(!auth()->user()->isUser())
+                                            <select x-model="bulkAction"
+                                                class="block w-full lg:w-40 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300 sm:text-sm">
+                                                <option value="">Actions...</option>
+                                                <option value="delete">Delete</option>
+                                            </select>
+                                            <x-secondary-button type="button" @click="submitBulkAction" class="rounded-lg">
+                                                Apply
+                                            </x-secondary-button>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
@@ -317,8 +326,10 @@
                                     <thead class="bg-gray-50 dark:bg-gray-700">
                                         <tr>
                                             <th class="px-6 py-3 text-left">
-                                                <input type="checkbox" @click="toggleAll"
-                                                    :checked="selectedIds.length > 0 && allFilteredIds.length > 0 && allFilteredIds.every(id => selectedIds.includes(id))">
+                                                @if(!auth()->user()->isUser())
+                                                    <input type="checkbox" @click="toggleAll"
+                                                        :checked="selectedIds.length > 0 && allFilteredIds.length > 0 && allFilteredIds.every(id => selectedIds.includes(id))">
+                                                @endif
                                             </th>
                                             <th scope="col"
                                                 class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none group"
@@ -382,13 +393,15 @@
                                         <template x-for="user in filteredRows" :key="user.id">
                                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    <div x-show="user.id !== authUserId">
-                                                        <input type="checkbox" :value="user.id" x-model="selectedIds">
-                                                    </div>
-                                                    <div x-show="user.id === authUserId">
-                                                        <input type="checkbox" disabled
-                                                            class="opacity-50 cursor-not-allowed">
-                                                    </div>
+                                                    @if(!auth()->user()->isUser())
+                                                        <div x-show="user.id !== authUserId">
+                                                            <input type="checkbox" :value="user.id" x-model="selectedIds">
+                                                        </div>
+                                                        <div x-show="user.id === authUserId">
+                                                            <input type="checkbox" disabled
+                                                                class="opacity-50 cursor-not-allowed">
+                                                        </div>
+                                                    @endif
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
                                                     <div class="font-medium text-gray-900 dark:text-white"
@@ -422,18 +435,24 @@
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                     <div class="flex justify-end gap-2">
-                                                        <a :href="user.edit_url"
-                                                            class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900">Edit</a>
+                                                        @if(!auth()->user()->isUser())
+                                                            <a :href="user.edit_url"
+                                                                class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900">Edit</a>
 
-                                                        <template x-if="user.id !== authUserId">
-                                                            <form :action="user.delete_url" method="POST"
-                                                                @submit.prevent="if(confirm('Are you sure you want to delete ' + user.name + '?')) $el.submit()">
-                                                                <input type="hidden" name="_token" :value="csrfToken">
-                                                                <input type="hidden" name="_method" value="DELETE">
-                                                                <button type="submit"
-                                                                    class="text-red-600 dark:text-red-400 hover:text-red-900">Delete</button>
-                                                            </form>
-                                                        </template>
+                                                            <template x-if="user.id !== authUserId">
+                                                                <form :action="user.delete_url" method="POST"
+                                                                    @submit.prevent="if(confirm('Are you sure you want to delete ' + user.name + '?')) $el.submit()">
+                                                                    <input type="hidden" name="_token" :value="csrfToken">
+                                                                    <input type="hidden" name="_method" value="DELETE">
+                                                                    <button type="submit"
+                                                                        class="text-red-600 dark:text-red-400 hover:text-red-900">Delete</button>
+                                                                </form>
+                                                            </template>
+                                                        @else
+                                                            <span
+                                                                class="text-gray-400 dark:text-gray-500 text-xs italic">Read
+                                                                Only</span>
+                                                        @endif
                                                     </div>
                                                 </td>
                                             </tr>

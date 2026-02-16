@@ -18,7 +18,7 @@ class UserController extends Controller
 
         if ($currentUser->isGlobalAdmin()) {
             $users = User::with('company')->get();
-        } elseif ($currentUser->isCompanyAdmin()) {
+        } elseif ($currentUser->isCompanyAdmin() || $currentUser->isUser()) {
             $users = User::where('company_id', $currentUser->company_id)->with('company')->get();
         } else {
             abort(403);
@@ -43,6 +43,7 @@ class UserController extends Controller
         if ($currentUser->isGlobalAdmin()) {
             $companies = Company::all();
         } elseif ($currentUser->isCompanyAdmin()) {
+            // Standard users cannot create users
             $companies = collect([$currentUser->company]);
         } else {
             abort(403);
@@ -87,12 +88,16 @@ class UserController extends Controller
         ]);
 
         // Role enforcement logic
+        // Role enforcement logic
+        // Role enforcement logic
         if ($currentUser->isCompanyAdmin()) {
             // Company Admin can only create users for their own company
             $validated['company_id'] = $currentUser->company_id;
-            // Company Admin cannot create Global Admins (no company_id)
+
+
+            // Cannot create Global Admins
             if (empty($validated['company_id'])) {
-                abort(403, 'Company Admins must assign users to their company.');
+                abort(403, 'Must assign users to your company.');
             }
         } elseif ($currentUser->isGlobalAdmin()) {
             // Global Admin logic
@@ -101,7 +106,7 @@ class UserController extends Controller
             } elseif (!empty($validated['company_id'])) {
                 // Creating a Company Admin or User
             } else {
-                // Creating a user without company? Allow for now, maybe unassigned
+                // Creating a user without company? Allow for now
             }
         } else {
             abort(403);
@@ -142,6 +147,11 @@ class UserController extends Controller
         // Role enforcement logic for update
         if ($currentUser->isCompanyAdmin()) {
             $validated['company_id'] = $currentUser->company_id;
+
+            // Regular Users cannot promote to Admin
+            if ($currentUser->isUser() && $validated['role'] === 'admin') {
+                abort(403, 'Users cannot create/promote to Admin.');
+            }
         }
 
         $data = [

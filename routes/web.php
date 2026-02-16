@@ -125,9 +125,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/firewalls/bulk/create/{type}', [App\Http\Controllers\FirewallBulkController::class, 'create'])->name('firewalls.bulk.create');
     Route::post('/firewalls/bulk/store/{type}', [App\Http\Controllers\FirewallBulkController::class, 'store'])->name('firewalls.bulk.store');
 
-    // Companies (admin only)
+    // Companies (admin + user)
     Route::resource('companies', App\Http\Controllers\CompanyController::class)
-        ->middleware('can:admin');
+        ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user']);
 
     Route::post('/firewalls/refresh-all', [App\Http\Controllers\FirewallController::class, 'refreshAll'])->name('firewalls.refresh-all');
     Route::post('/firewalls/status', [App\Http\Controllers\FirewallController::class, 'getCachedStatus'])->name('firewalls.status');
@@ -289,51 +289,51 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/users/check-email', [App\Http\Controllers\UserController::class, 'checkEmail'])->name('users.check-email');
     Route::post('/users/bulk-action', [App\Http\Controllers\UserController::class, 'bulkAction'])->name('users.bulk-action');
     Route::resource('users', App\Http\Controllers\UserController::class)
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin']);
+        ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user']);
 
     // System Settings (Global Admin)
     Route::get('/system/settings', [App\Http\Controllers\SystemCustomizationController::class, 'index'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.settings.index');
     Route::post('/system/settings', [App\Http\Controllers\SystemCustomizationController::class, 'update'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.settings.update');
     Route::post('/system/settings/restore', [App\Http\Controllers\SystemCustomizationController::class, 'restore'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.settings.restore');
 
     Route::post('/system/settings/test-email', [App\Http\Controllers\SystemCustomizationController::class, 'testEmail'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.settings.test-email');
 
     Route::post('/system/ssl/install', [App\Http\Controllers\SystemSslController::class, 'store'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.ssl.install');
 
     Route::delete('/system/ssl/uninstall', [App\Http\Controllers\SystemSslController::class, 'destroy'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.ssl.uninstall');
 
     // Global System Backups
     Route::get('/system/backups', [App\Http\Controllers\SystemBackupController::class, 'index'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.backups.index');
     Route::post('/system/backups', [App\Http\Controllers\SystemBackupController::class, 'store'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.backups.store');
     Route::post('/system/backups/restore', [App\Http\Controllers\SystemBackupController::class, 'restore'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.backups.restore');
     Route::get('/system/backups/download/{filename}', [App\Http\Controllers\SystemBackupController::class, 'download'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.backups.download');
     Route::delete('/system/backups/{filename}', [App\Http\Controllers\SystemBackupController::class, 'destroy'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.backups.destroy');
 
     // System Updates (Settings Card)
     Route::post('/system/settings/updates/check', [App\Http\Controllers\SystemCustomizationController::class, 'checkUpdates'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.updates.check');
     Route::post('/system/settings/updates/install', [App\Http\Controllers\SystemCustomizationController::class, 'installUpdate'])
         ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
@@ -360,7 +360,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
     Route::get('/firewall/{firewall}/system/rest-api', [App\Http\Controllers\SystemRestApiController::class, 'index'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.rest-api.index');
     Route::post('/firewall/{firewall}/system/rest-api', [App\Http\Controllers\SystemRestApiController::class, 'update'])
         ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])

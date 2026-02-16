@@ -183,22 +183,58 @@
                             </div>
                         </div>
 
-                        <!-- Total Companies Widget -->
-                        <div
-                            class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex items-center">
+                        @if($adminLabel === 'Global Admin')
+                            <!-- Total Companies Widget -->
                             <div
-                                class="p-3 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-500 dark:text-indigo-300 mr-4">
-                                <svg class="h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                    stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                </svg>
+                                class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex items-center">
+                                <div
+                                    class="p-3 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-500 dark:text-indigo-300 mr-4">
+                                    <svg class="h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                        stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Companies</p>
+                                    <p class="text-4xl font-bold text-gray-900 dark:text-gray-100">{{ $totalCompanies }}</p>
+                                </div>
                             </div>
-                            <div>
-                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Companies</p>
-                                <p class="text-4xl font-bold text-gray-900 dark:text-gray-100">{{ $totalCompanies }}</p>
+                        @else
+                            <!-- Gateways Widget -->
+                            <div
+                                class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex items-center">
+                                <div
+                                    class="relative p-3 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-500 dark:text-blue-300 mr-4">
+                                    <svg class="h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                        stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Gateways</p>
+                                    <div class="flex items-center gap-2">
+                                        <p class="text-4xl font-bold text-gray-900 dark:text-gray-100">
+                                            {{ $totalGateways ?? 0 }}
+                                        </p>
+                                        @if(isset($downGateways) && $downGateways > 0)
+                                            <span
+                                                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300">
+                                                <span class="w-2 h-2 mr-1.5 bg-red-500 rounded-full animate-pulse"></span>
+                                                {{ $downGateways }} Down
+                                            </span>
+                                        @else
+                                            <span
+                                                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">
+                                                <span class="w-2 h-2 mr-1.5 bg-green-500 rounded-full"></span>
+                                                All Online
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                        @endif
 
                         <!-- Total Users Widget -->
                         <div
@@ -215,12 +251,12 @@
                                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Users</p>
                                 <div class="flex items-center gap-2">
                                     <p class="text-4xl font-bold text-gray-900 dark:text-gray-100">{{ $totalUsers }}</p>
-                                    {{-- Display badge for Global Admins (not including Company Admins) --}}
+                                    {{-- Display badge for Admins --}}
                                     @if($totalAdmins > 0)
                                         <span
                                             class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-300">
-                                            {{ $totalAdmins }}<span class="hidden sm:inline">&nbsp;Global
-                                                Admin{{ $totalAdmins > 1 ? 's' : '' }}</span>
+                                            {{ $totalAdmins }}<span
+                                                class="hidden sm:inline">&nbsp;{{ $adminLabel }}{{ $totalAdmins > 1 ? 's' : '' }}</span>
                                         </span>
                                     @endif
                                 </div>
@@ -241,69 +277,72 @@
                                     class="text-xs text-gray-500 font-normal self-start xl:self-center whitespace-nowrap xl:mr-2 hidden xl:inline"
                                     x-text="'Showing ' + filteredCount() + ' of ' + items.length + ' firewalls'"></span>
                                 <!-- Customer Filter -->
-                                @php
-                                    $uniqueCustomers = $firewallsWithStatus->pluck('company.name')->unique()->sort()->values();
-                                @endphp
-                                <div x-data="{ 
-                                    open: false, 
-                                    filter: '', 
-                                    customers: {{ json_encode($uniqueCustomers) }},
-                                    get filteredCustomers() {
-                                        if (this.filter === '') return this.customers.slice(0, 10);
-                                        return this.customers.filter(c => c.toLowerCase().includes(this.filter.toLowerCase())).slice(0, 10);
-                                    },
-                                    select(name) {
-                                        customerFilter = name;
-                                        this.open = false;
-                                        this.filter = '';
-                                    }
-                                }" class="relative w-full sm:col-span-1 xl:w-56" @keydown.escape="open = false"
-                                    @click.outside="open = false">
+                                @if(auth()->user()->isGlobalAdmin())
+                                    @php
+                                        $uniqueCustomers = $firewallsWithStatus->pluck('company.name')->unique()->sort()->values();
+                                    @endphp
+                                    <div x-data="{ 
+                                                                                    open: false, 
+                                                                                    filter: '', 
+                                                                                    customers: {{ json_encode($uniqueCustomers) }},
+                                                                                    get filteredCustomers() {
+                                                                                        if (this.filter === '') return this.customers.slice(0, 10);
+                                                                                        return this.customers.filter(c => c.toLowerCase().includes(this.filter.toLowerCase())).slice(0, 10);
+                                                                                    },
+                                                                                    select(name) {
+                                                                                        customerFilter = name;
+                                                                                        this.open = false;
+                                                                                        this.filter = '';
+                                                                                    }
+                                                                                }"
+                                        class="relative w-full sm:col-span-1 xl:w-56" @keydown.escape="open = false"
+                                        @click.outside="open = false">
 
-                                    <!-- Trigger Button -->
-                                    <button @click="open = !open" type="button"
-                                        class="flex items-center justify-between w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                        <span x-text="customerFilter === 'all' ? 'All Customers' : customerFilter"
-                                            class="truncate block text-left"></span>
-                                        <svg class="h-4 w-4 ml-2 text-gray-500 transform transition-transform duration-200"
-                                            :class="{'rotate-180': open}" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path d="M19 9l-7 7-7-7" stroke-width="2" stroke-linecap="round"
-                                                stroke-linejoin="round" />
-                                        </svg>
-                                    </button>
+                                        <!-- Trigger Button -->
+                                        <button @click="open = !open" type="button"
+                                            class="flex items-center justify-between w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition ease-in-out duration-150">
+                                            <span x-text="customerFilter === 'all' ? 'All Customers' : customerFilter"
+                                                :class="{'text-gray-500': customerFilter === 'all', 'text-gray-900 dark:text-gray-200': customerFilter !== 'all'}"></span>
+                                            <svg class="h-4 w-4 ml-2 text-gray-500 transform transition-transform duration-200"
+                                                :class="{'rotate-180': open}" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path d="M19 9l-7 7-7-7" stroke-width="2" stroke-linecap="round"
+                                                    stroke-linejoin="round" />
+                                            </svg>
+                                        </button>
 
-                                    <!-- Dropdown Menu -->
-                                    <div x-show="open" x-transition.opacity.duration.200ms
-                                        class="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl overflow-hidden">
+                                        <!-- Dropdown Menu -->
+                                        <div x-show="open" x-transition.opacity.duration.200ms style="display: none;"
+                                            class="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-md shadow-lg overflow-hidden">
 
-                                        <!-- Search Input -->
-                                        <div
-                                            class="p-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-                                            <input x-model="filter" x-ref="searchInput" type="text" placeholder="Search..."
-                                                class="w-full text-sm rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500">
+                                            <!-- Search Input -->
+                                            <div
+                                                class="p-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                                                <input x-model="filter" type="text" placeholder="Search..."
+                                                    class="w-full text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500">
+                                            </div>
+
+                                            <!-- List -->
+                                            <ul class="max-h-60 overflow-y-auto py-1">
+                                                <li @click="select('all')"
+                                                    class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm italic text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 mb-1"
+                                                    :class="{'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700': customerFilter === 'all'}">
+                                                    All Customers
+                                                </li>
+                                                <template x-for="name in filteredCustomers" :key="name">
+                                                    <li @click="select(name)"
+                                                        class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-700 dark:text-gray-300 truncate"
+                                                        :class="{'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700': customerFilter === name}"
+                                                        x-text="name">
+                                                    </li>
+                                                </template>
+                                                <li x-show="filteredCustomers.length === 0"
+                                                    class="px-4 py-2 text-sm text-gray-400 italic text-center">No matches
+                                                </li>
+                                            </ul>
                                         </div>
-
-                                        <!-- List -->
-                                        <ul class="max-h-60 overflow-y-auto py-1">
-                                            <li @click="customerFilter = 'all'; open = false; filter = ''"
-                                                class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-700 dark:text-gray-300 italic border-b border-gray-100 dark:border-gray-700">
-                                                All Customers</li>
-
-                                            <template x-for="customer in filteredCustomers" :key="customer">
-                                                <li @click="customerFilter = customer; open = false; filter = ''"
-                                                    class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-700 dark:text-gray-300 truncate"
-                                                    :class="{'bg-blue-50 dark:bg-blue-900': customerFilter === customer}"
-                                                    x-text="customer"></li>
-                                            </template>
-
-                                            <li x-show="filteredCustomers.length === 0"
-                                                class="px-4 py-2 text-sm text-gray-400 italic text-center">No matches</li>
-                                        </ul>
                                     </div>
-                                </div>
-
-                                <!-- Status Filter -->
+                                @endif<!-- Status Filter -->
                                 <select x-model="statusFilter"
                                     class="rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 text-sm focus:ring-indigo-500 focus:border-indigo-500 w-full sm:col-span-1 xl:w-auto">
                                     <option value="all">All Status</option>
@@ -365,12 +404,12 @@
                             @foreach($firewallsWithStatus as $firewall)
                                 <div x-show="matches(search) && matchesFilters(statusFilter, customerFilter)"
                                     x-data="firewallCard(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                {{ json_encode($firewall->cached_status) }}, 
-                                                                                                                                                                                                                                                                                                                                                                                                                                                '{{ strtolower($firewall->name . ' ' . $firewall->company->name . ' ' . $firewall->url . ' ' . $firewall->hostname) }}',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                '{{ route('firewall.check-status', $firewall) }}',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                {{ $firewall->id }},
-                                                                                                                                                                                                                                                                                                                                                                                                                                                '{{ $firewall->company->name }}'
-                                                                                                                                                                                                                                                                                                                                                                                                                                            )"
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        {{ json_encode($firewall->cached_status) }}, 
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        '{{ strtolower($firewall->name . ' ' . $firewall->company->name . ' ' . $firewall->url . ' ' . $firewall->hostname) }}',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        '{{ route('firewall.check-status', $firewall) }}',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        {{ $firewall->id }},
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        '{{ $firewall->company->name }}'
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    )"
                                     class="relative border border-gray-100 dark:border-gray-700 rounded-2xl p-3 sm:p-4 bg-white dark:bg-gray-800 shadow-md hover:shadow-xl transition-shadow duration-200">
 
                                     {{-- Overlay Moved to Body --}}
@@ -586,10 +625,10 @@
                                                                             :key="gateway.name">
                                                                             <div class="flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded-r bg-gray-50 dark:bg-slate-800/50 mb-1"
                                                                                 :class="{
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        'border-l-2 border-green-500': gateway.status === 'online' || gateway.status === 'none',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        'border-l-2 border-red-500': gateway.status === 'offline' || gateway.status === 'down',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        'border-l-2 border-yellow-500': gateway.status && gateway.status !== 'online' && gateway.status !== 'none' && gateway.status !== 'offline' && gateway.status !== 'down'
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    }"
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                'border-l-2 border-green-500': gateway.status === 'online' || gateway.status === 'none',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                'border-l-2 border-red-500': gateway.status === 'offline' || gateway.status === 'down',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                'border-l-2 border-yellow-500': gateway.status && gateway.status !== 'online' && gateway.status !== 'none' && gateway.status !== 'offline' && gateway.status !== 'down'
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            }"
                                                                                 :title="gateway.monitorip || gateway.srcip">
                                                                                 <div class="flex flex-col min-w-0"><span
                                                                                         class="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate"
@@ -607,10 +646,10 @@
                                                                                 <div class="flex items-center gap-1.5">
                                                                                     <div class="w-2 h-2 rounded-full"
                                                                                         :class="{
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            'bg-green-500': gateway.status === 'online' || gateway.status === 'none',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            'bg-red-500': gateway.status === 'offline' || gateway.status === 'down',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            'bg-yellow-500': gateway.status && gateway.status !== 'online' && gateway.status !== 'none' && gateway.status !== 'offline' && gateway.status !== 'down'
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }">
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    'bg-green-500': gateway.status === 'online' || gateway.status === 'none',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    'bg-red-500': gateway.status === 'offline' || gateway.status === 'down',
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    'bg-yellow-500': gateway.status && gateway.status !== 'online' && gateway.status !== 'none' && gateway.status !== 'offline' && gateway.status !== 'down'
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }">
                                                                                     </div>
                                                                                     <span
                                                                                         class="capitalize text-[10px] font-medium text-gray-500 dark:text-gray-400"
@@ -932,6 +971,8 @@
                 // Dashboard-specific properties
                 offlineCount: 0,
                 showOnlineBadge: false,
+                customerFilter: 'all',
+                statusFilter: 'all',
 
                 init() {
                     // Initialize filterable functionality

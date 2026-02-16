@@ -69,11 +69,48 @@ class DashboardController extends Controller
                 ->count();
         }
 
+        // Calculate Gateway Metrics from Cached Status
+        $totalGateways = 0;
+        $downGateways = 0;
+
+        $firewalls->each(function ($fw) use (&$totalGateways, &$downGateways) {
+            // Check structured data from 'data' key or fallback if flattened in some versions (unlikely based on job)
+            $gateways = $fw->cached_status['data']['gateways'] ?? ($fw->cached_status['gateways'] ?? null);
+
+            $gateways = $fw->cached_status['data']['gateways'] ?? ($fw->cached_status['gateways'] ?? null);
+
+            if ($gateways && is_array($gateways)) {
+                foreach ($gateways as $gw) {
+                    $totalGateways++;
+                    // Check status - valid pfSense statuses: 'online', 'none' (for some versions), or 'force_down' etc.
+                    // Usually 'online' or 'none' (if monitoring disabled).
+                    $status = isset($gw['status']) ? strtolower($gw['status']) : 'unknown';
+                    if ($status !== 'online' && $status !== 'none' && $status !== 'unknown') {
+                        // 'unknown' is tricky, let's treat it as not online if we want strict, but often initial state.
+                        // User asked for "At least 1". 
+                        // If status is not online/none, count as down.
+                        $downGateways++;
+                    } elseif ($status === 'down' || $status === 'force_down' || $status === 'loss' || $status === 'delay') {
+                        // Explicit bad statuses just in case
+                        $downGateways++;
+                    }
+                }
+            }
+        });
+
         // Total registered users
         // Total registered users
-        $totalUsers = User::count();
-        // Count Global Admins (users with role 'admin' and no specific company assignment)
-        $totalAdmins = User::where('role', 'admin')->whereNull('company_id')->count();
+        if ($user->isGlobalAdmin()) {
+            $totalUsers = User::count();
+            // Count Global Admins (users with role 'admin' and no specific company assignment)
+            $totalAdmins = User::where('role', 'admin')->whereNull('company_id')->count();
+            $adminLabel = 'Global Admin';
+        } else {
+            $totalUsers = User::where('company_id', $user->company_id)->count();
+            // Count Company Admins
+            $totalAdmins = User::where('company_id', $user->company_id)->where('role', 'admin')->count();
+            $adminLabel = 'Admin';
+        }
 
         // Calculate System Health Score based on average CPU/Memory from cached status
         $healthStatus = 'No Data';
@@ -151,7 +188,10 @@ class DashboardController extends Controller
             'avgCpu' => $avgCpu,
             'avgMemory' => $avgMemory,
             'healthStatus' => $healthStatus,
-            'healthColor' => $healthColor
+            'healthColor' => $healthColor,
+            'adminLabel' => $adminLabel,
+            'totalGateways' => $totalGateways,
+            'downGateways' => $downGateways
         ]);
     }
 

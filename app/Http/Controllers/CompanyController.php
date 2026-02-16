@@ -13,8 +13,9 @@ class CompanyController extends Controller
     {
         // Only Global Admins should see the full list.
         // If Company Admin accesses this, redirect to their own company page.
+        // If Company Admin or User accesses this, redirect to their own company page.
         $user = auth()->user();
-        if ($user->isCompanyAdmin()) {
+        if ($user->isCompanyAdmin() || $user->isUser()) {
             return redirect()->route('companies.show', $user->company_id);
         }
         if (!$user->isGlobalAdmin()) {
@@ -69,10 +70,10 @@ class CompanyController extends Controller
     public function show(\App\Models\Company $company)
     {
         $user = auth()->user();
-        if ($user->isCompanyAdmin() && $user->company_id !== $company->id) {
+        if (($user->isCompanyAdmin() || $user->isUser()) && $user->company_id !== $company->id) {
             abort(403);
         }
-        if (!$user->isGlobalAdmin() && !$user->isCompanyAdmin()) {
+        if (!$user->isGlobalAdmin() && !$user->isCompanyAdmin() && !$user->isUser()) {
             abort(403);
         }
 

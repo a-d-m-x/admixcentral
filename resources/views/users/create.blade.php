@@ -82,6 +82,74 @@
                           }">
                         @csrf
 
+                        <!-- Company -->
+                        <div class="mb-4">
+                            @if($companies->count() > 1 || auth()->user()->isGlobalAdmin())
+                                <label for="company_id"
+                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Company</label>
+                                <input type="hidden" name="company_id" :value="companyId === 'global' ? '' : companyId">
+
+                                <div class="relative" @click.outside="companyOpen = false"
+                                    @keydown.escape="companyOpen = false">
+                                    <!-- Trigger Button -->
+                                    <button @click="companyOpen = !companyOpen" type="button"
+                                        class="flex items-center justify-between w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 text-left focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition ease-in-out duration-150">
+                                        <span x-text="selectedCompanyName"
+                                            :class="{'text-gray-500': companyId === '' || companyId === 'global' && false, 'text-gray-900 dark:text-gray-300': companyId !== ''}"></span>
+                                        <svg class="h-4 w-4 ml-2 text-gray-500 transform transition-transform duration-200"
+                                            :class="{'rotate-180': companyOpen}" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path d="M19 9l-7 7-7-7" stroke-width="2" stroke-linecap="round"
+                                                stroke-linejoin="round" />
+                                        </svg>
+                                    </button>
+
+                                    <!-- Dropdown Menu -->
+                                    <div x-show="companyOpen" x-transition.opacity.duration.200ms style="display: none;"
+                                        class="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg overflow-hidden">
+
+                                        <!-- Search Input -->
+                                        <div
+                                            class="p-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                                            <input x-model="companySearch" x-ref="companySearchInput" type="text"
+                                                placeholder="Search..."
+                                                class="w-full text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500">
+                                        </div>
+
+                                        <!-- List -->
+                                        <ul class="max-h-60 overflow-y-auto py-1">
+                                            <!-- All Companies Option -->
+                                            <li @click="selectCompany('global')"
+                                                class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm italic text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 mb-1"
+                                                :class="{'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700': companyId === 'global'}">
+                                                All Companies (Global Admin)
+                                            </li>
+
+                                            <template x-for="company in filteredCompanies" :key="company.id">
+                                                <li @click="selectCompany(company.id)"
+                                                    class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-700 dark:text-gray-300 truncate"
+                                                    :class="{'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700': companyId == company.id}"
+                                                    x-text="company.name">
+                                                </li>
+                                            </template>
+
+                                            <li x-show="filteredCompanies.length === 0"
+                                                class="px-4 py-2 text-sm text-gray-400 italic text-center">No matches</li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                            @else
+                                <!-- Single company available (Company Admin) -->
+                                <input type="hidden" name="company_id" value="{{ $companies->first()->id }}"
+                                    x-init="companyId = '{{ $companies->first()->id }}'">
+                                <!-- Hidden for clean UI as per request -->
+                            @endif
+                            @error('company_id')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+
                         <!-- Name -->
                         <div class="mb-4">
                             <label for="name"
@@ -196,75 +264,7 @@
                             </p>
                         </div>
 
-                        <!-- Company -->
-                        <div class="mb-4">
-                            <label for="company_id"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Company</label>
-                            @if($companies->count() > 1 || auth()->user()->isGlobalAdmin())
-                                <input type="hidden" name="company_id" :value="companyId === 'global' ? '' : companyId">
-                                <input type="hidden" name="company_id" :value="companyId === 'global' ? '' : companyId">
 
-                                <div class="relative" @click.outside="companyOpen = false"
-                                    @keydown.escape="companyOpen = false">
-                                    <!-- Trigger Button -->
-                                    <button @click="companyOpen = !companyOpen" type="button"
-                                        class="flex items-center justify-between w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm px-3 py-2 text-left focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition ease-in-out duration-150">
-                                        <span x-text="selectedCompanyName"
-                                            :class="{'text-gray-500': companyId === '' || companyId === 'global' && false, 'text-gray-900 dark:text-gray-300': companyId !== ''}"></span>
-                                        <svg class="h-4 w-4 ml-2 text-gray-500 transform transition-transform duration-200"
-                                            :class="{'rotate-180': companyOpen}" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path d="M19 9l-7 7-7-7" stroke-width="2" stroke-linecap="round"
-                                                stroke-linejoin="round" />
-                                        </svg>
-                                    </button>
-
-                                    <!-- Dropdown Menu -->
-                                    <div x-show="companyOpen" x-transition.opacity.duration.200ms style="display: none;"
-                                        class="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg overflow-hidden">
-
-                                        <!-- Search Input -->
-                                        <div
-                                            class="p-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-                                            <input x-model="companySearch" x-ref="companySearchInput" type="text"
-                                                placeholder="Search..."
-                                                class="w-full text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 px-2 py-1 focus:ring-indigo-500 focus:border-indigo-500">
-                                        </div>
-
-                                        <!-- List -->
-                                        <ul class="max-h-60 overflow-y-auto py-1">
-                                            <!-- All Companies Option -->
-                                            <li @click="selectCompany('global')"
-                                                class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm italic text-gray-800 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700 mb-1"
-                                                :class="{'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700': companyId === 'global'}">
-                                                All Companies (Global Admin)
-                                            </li>
-
-                                            <template x-for="company in filteredCompanies" :key="company.id">
-                                                <li @click="selectCompany(company.id)"
-                                                    class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-700 dark:text-gray-300 truncate"
-                                                    :class="{'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700': companyId == company.id}"
-                                                    x-text="company.name">
-                                                </li>
-                                            </template>
-
-                                            <li x-show="filteredCompanies.length === 0"
-                                                class="px-4 py-2 text-sm text-gray-400 italic text-center">No matches</li>
-                                        </ul>
-                                    </div>
-                                </div>
-
-                            @else
-                                <!-- Single company available (Company Admin) -->
-                                <input type="hidden" name="company_id" value="{{ $companies->first()->id }}"
-                                    x-init="companyId = '{{ $companies->first()->id }}'">
-                                <input type="text" disabled value="{{ $companies->first()->name }}"
-                                    class="mt-1 block w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-700 dark:text-gray-400">
-                            @endif
-                            @error('company_id')
-                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
 
                         <!-- Role -->
                         <div class="mb-4">
