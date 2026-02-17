@@ -23,6 +23,7 @@ class DashboardController extends Controller
      */
     public function index(Request $request)
     {
+        \Illuminate\Support\Facades\Log::info("!!! ARRAY STRATEGY ACTIVE - TIMESTAMP: " . now() . " !!!");
         $user = $request->user();
 
         // Get firewalls based on user role
@@ -34,19 +35,26 @@ class DashboardController extends Controller
             $firewalls = Firewall::where('company_id', $user->company_id)->orderBy('name')->get();
         }
 
-        // Check if status caching is enabled
-        $cacheSetting = \App\Models\SystemSetting::where('key', 'enable_status_cache')->value('value');
-        $useCache = $cacheSetting !== null ? filter_var($cacheSetting, FILTER_VALIDATE_BOOLEAN) : true;
+        // Always use status cache for dashboard to ensure gateway counts are accurate and performant.
+        // This decouples dashboard display from the legacy system setting.
+        $useCache = true;
+
+        // Store status in an array keyed by firewall ID to ensure persistence across loops
+        $firewallStatuses = [];
 
         // Attach cached status data to each firewall instance for display.
         // This avoids N+1 API calls on the dashboard load.
-        $firewalls->each(function ($firewall) use ($useCache) {
-            $cached = $useCache ? Cache::get('firewall_status_' . $firewall->id) : null;
+        $firewalls->each(function ($firewall) use ($useCache, &$firewallStatuses) {
+            $key = 'firewall_status_' . $firewall->id;
+            $cached = $useCache ? Cache::get($key) : null;
+
             if ($cached) {
                 // Store the full wrapper
                 $firewall->cached_status = $cached;
+                $firewallStatuses[$firewall->id] = $cached;
             } else {
                 $firewall->cached_status = null;
+                $firewallStatuses[$firewall->id] = null;
             }
         });
 
@@ -73,13 +81,20 @@ class DashboardController extends Controller
         $totalGateways = 0;
         $downGateways = 0;
 
-        $firewalls->each(function ($fw) use (&$totalGateways, &$downGateways) {
-            // Check structured data from 'data' key or fallback if flattened in some versions (unlikely based on job)
-            $gateways = $fw->cached_status['data']['gateways'] ?? ($fw->cached_status['gateways'] ?? null);
+        $firewalls->each(function ($fw) use (&$totalGateways, &$downGateways, $firewallStatuses) {
 
-            $gateways = $fw->cached_status['data']['gateways'] ?? ($fw->cached_status['gateways'] ?? null);
+            // Retrieve status from the persistent array using ID
+            $cachedStatus = $firewallStatuses[$fw->id] ?? null;
+
+            // Check structured data from 'data' key or fallback if flattened in some versions
+            $gateways = $cachedStatus['data']['gateways'] ?? ($cachedStatus['gateways'] ?? null);
 
             if ($gateways && is_array($gateways)) {
+                // Fix for Issue #38: Normalize single gateway response (associative array) to list
+                if (array_keys($gateways) !== range(0, count($gateways) - 1)) {
+                    $gateways = [$gateways];
+                }
+
                 foreach ($gateways as $gw) {
                     $totalGateways++;
                     // Check status - valid pfSense statuses: 'online', 'none' (for some versions), or 'force_down' etc.
@@ -220,6 +235,9 @@ class DashboardController extends Controller
                 'api_version' => $dynamicStatus['api_version'] ?? null,
                 'updated_at' => now()->toIso8601String()
             ];
+
+            // Cache the FULL wrapper to match Background Job format
+            \Illuminate\Support\Facades\Cache::put('firewall_status_' . $firewall->id, $statusEventData, now()->addMinutes(10));
 
             event(new \App\Events\DeviceStatusUpdateEvent($firewall, $statusEventData));
 

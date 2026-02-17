@@ -1784,6 +1784,15 @@ class PfSenseApiService
                 $configData = $rawConfig['data'];
             }
 
+            // Fix for Issue #38: Normalize single gateway response to list
+            if (!empty($statusData) && array_keys($statusData) !== range(0, count($statusData) - 1)) {
+                $statusData = [$statusData];
+            }
+
+            if (!empty($configData) && array_keys($configData) !== range(0, count($configData) - 1)) {
+                $configData = [$configData];
+            }
+
             foreach ($statusData as &$gateway) {
                 $config = collect($configData)->firstWhere('name', $gateway['name']);
                 if ($config) {
