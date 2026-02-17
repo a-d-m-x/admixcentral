@@ -50,25 +50,28 @@
             // Handle source
             if (typeof rule.source === 'object') {
                 this.form.src = rule.source.address || (rule.source.network ? 'network' : 'any');
-                this.form.srcport = rule.source.port || '';
+                this.form.srcport = rule.source_port || rule.source.port || '';
             } else {
+                // If mixed flat/nested, prefer flat source_port
                 this.form.src = rule.source || 'any';
+                this.form.srcport = rule.source_port || '';
             }
 
             // Handle dest
             if (typeof rule.destination === 'object') {
                 this.form.dst = rule.destination.address || (rule.destination.network ? 'network' : 'any');
-                this.form.dstport = rule.destination.port || '';
+                this.form.dstport = rule.destination_port || rule.destination.port || '';
             } else {
                 this.form.dst = rule.destination || 'any';
+                this.form.dstport = rule.destination_port || '';
             }
 
             this.form.target = rule.target || '';
-            this.form.local_port = rule['local-port'] || '';
+            this.form.local_port = rule.local_port || rule['local-port'] || '';
             this.form.descr = rule.descr || '';
             this.form.disabled = !!rule.disabled;
             this.form.natreflection = rule.natreflection || 'enable';
-            this.form.associated_rule_id = rule['associated-rule-id'] || 'pass';
+            this.form.associated_rule_id = rule['associated-rule-id'] || rule['associated_rule_id'] || 'pass';
             
             this.showModal = true;
         },
@@ -99,6 +102,10 @@
                             <thead class="bg-gray-50 dark:bg-gray-700">
                                 <tr>
                                     <th scope="col"
+                                        class="px-3 py-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                                        style="width: 40px;">
+                                        Status</th>
+                                    <th scope="col"
                                         class="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                         Interface</th>
                                     <th scope="col"
@@ -126,13 +133,39 @@
                                         class="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                         Description</th>
                                     <th scope="col"
-                                        class="px-3 py-2 text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                        class="px-3 py-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                         Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                 @forelse($rules as $index => $rule)
-                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition {{ isset($rule['disabled']) ? 'opacity-50' : '' }}">
+                                    <tr
+                                        class="hover:bg-gray-50 dark:hover:bg-gray-700 transition {{ !empty($rule['disabled']) ? 'opacity-50' : '' }}">
+                                        <td class="px-3 py-2 whitespace-nowrap text-center">
+                                            <form
+                                                action="{{ route('firewall.nat.port-forward.toggle', ['firewall' => $firewall, 'id' => $index]) }}"
+                                                method="POST" class="inline-block">
+                                                @csrf
+                                                @method('PATCH')
+                                                <button type="submit" class="focus:outline-none" title="Toggle Status">
+                                                    @if(!empty($rule['disabled']))
+                                                        <svg class="w-5 h-5 text-red-500 mx-auto hover:text-red-700 transition"
+                                                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2"
+                                                                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                    @else
+                                                        <svg class="w-5 h-5 text-green-500 mx-auto hover:text-green-700 transition"
+                                                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                stroke-width="2"
+                                                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                    @endif
+                                                </button>
+                                            </form>
+                                        </td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                             {{ strtoupper($rule['interface'] ?? '') }}
                                         </td>
@@ -140,28 +173,136 @@
                                             {{ strtoupper($rule['protocol'] ?? '') }}
                                         </td>
                                         <td class="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">
-                                            {{ is_array($rule['source']) ? ($rule['source']['any'] ? '*' : ($rule['source']['address'] ?? ($rule['source']['network'] ?? ''))) : $rule['source'] }}
+                                            @php
+                                                $val = is_array($rule['source']) ? ($rule['source']['any'] ? '*' : ($rule['source']['address'] ?? ($rule['source']['network'] ?? ''))) : $rule['source'];
+                                                $isAlias = isset($aliasMap[$val]);
+                                            @endphp
+                                            @if($isAlias)
+                                                                                <a href="{{ route('firewall.aliases.edit', [$firewall, $aliasMap[$val]['id']]) }}"
+                                                                                    class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium inline-flex items-center">
+                                                                                    {{ $val }}
+                                                                                    <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide
+                                                                                                                                                                                                                                                                                                                                                                                        {{ match ($aliasMap[$val]['type']) {
+                                                    'host' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+                                                    'network' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+                                                    'port' => 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+                                                    'url' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+                                                    default => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                                                } }}">
+                                                                                        {{ $aliasMap[$val]['type'] }}
+                                                                                    </span>
+                                                                                </a>
+                                            @else
+                                                {{ $val }}
+                                            @endif
                                         </td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                            {{ is_array($rule['source']) && isset($rule['source']['port']) ? $rule['source']['port'] : '*' }}
+                                            @php
+                                                $val = $rule['source_port'] ?? (is_array($rule['source']) && isset($rule['source']['port']) ? $rule['source']['port'] : '*');
+                                                $isAlias = isset($aliasMap[$val]);
+                                            @endphp
+                                            @if($isAlias)
+                                                <a href="{{ route('firewall.aliases.edit', [$firewall, $aliasMap[$val]['id']]) }}"
+                                                    class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium inline-flex items-center">
+                                                    {{ $val }}
+                                                    <span
+                                                        class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                                        {{ $aliasMap[$val]['type'] }}
+                                                    </span>
+                                                </a>
+                                            @else
+                                                {{ $val }}
+                                            @endif
                                         </td>
                                         <td class="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">
-                                            {{ is_array($rule['destination']) ? ($rule['destination']['any'] ? '*' : ($rule['destination']['address'] ?? ($rule['destination']['network'] ?? ''))) : $rule['destination'] }}
+                                            @php
+                                                $val = is_array($rule['destination']) ? ($rule['destination']['any'] ? '*' : ($rule['destination']['address'] ?? ($rule['destination']['network'] ?? ''))) : $rule['destination'];
+                                                $isAlias = isset($aliasMap[$val]);
+                                            @endphp
+                                            @if($isAlias)
+                                                                                <a href="{{ route('firewall.aliases.edit', [$firewall, $aliasMap[$val]['id']]) }}"
+                                                                                    class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium inline-flex items-center">
+                                                                                    {{ $val }}
+                                                                                    <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide
+                                                                                                                                                                                                                                                                                                                                                                                        {{ match ($aliasMap[$val]['type']) {
+                                                    'host' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+                                                    'network' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+                                                    'port' => 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+                                                    'url' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+                                                    default => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                                                } }}">
+                                                                                        {{ $aliasMap[$val]['type'] }}
+                                                                                    </span>
+                                                                                </a>
+                                            @else
+                                                {{ $val }}
+                                            @endif
                                         </td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                            {{ is_array($rule['destination']) && isset($rule['destination']['port']) ? $rule['destination']['port'] : '*' }}
+                                            @php
+                                                $val = $rule['destination_port'] ?? (is_array($rule['destination']) && isset($rule['destination']['port']) ? $rule['destination']['port'] : '*');
+                                                $isAlias = isset($aliasMap[$val]);
+                                            @endphp
+                                            @if($isAlias)
+                                                <a href="{{ route('firewall.aliases.edit', [$firewall, $aliasMap[$val]['id']]) }}"
+                                                    class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium inline-flex items-center">
+                                                    {{ $val }}
+                                                    <span
+                                                        class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                                        {{ $aliasMap[$val]['type'] }}
+                                                    </span>
+                                                </a>
+                                            @else
+                                                {{ $val }}
+                                            @endif
                                         </td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                            {{ $rule['target'] ?? '' }}
+                                            @php
+                                                $val = $rule['target'] ?? '';
+                                                $isAlias = isset($aliasMap[$val]);
+                                            @endphp
+                                            @if($isAlias)
+                                                                                <a href="{{ route('firewall.aliases.edit', [$firewall, $aliasMap[$val]['id']]) }}"
+                                                                                    class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium inline-flex items-center">
+                                                                                    {{ $val }}
+                                                                                    <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide
+                                                                                                                                                                                                                                                                                                                                                                                        {{ match ($aliasMap[$val]['type']) {
+                                                    'host' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+                                                    'network' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+                                                    'port' => 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+                                                    'url' => 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+                                                    default => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                                                } }}">
+                                                                                        {{ $aliasMap[$val]['type'] }}
+                                                                                    </span>
+                                                                                </a>
+                                            @else
+                                                {{ $val }}
+                                            @endif
                                         </td>
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                            {{ $rule['local-port'] ?? '' }}
+                                            @php
+                                                $val = $rule['local_port'] ?? ($rule['local-port'] ?? '');
+                                                $isAlias = isset($aliasMap[$val]);
+                                            @endphp
+                                            @if($isAlias)
+                                                <a href="{{ route('firewall.aliases.edit', [$firewall, $aliasMap[$val]['id']]) }}"
+                                                    class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium inline-flex items-center">
+                                                    {{ $val }}
+                                                    <span
+                                                        class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                                        {{ $aliasMap[$val]['type'] }}
+                                                    </span>
+                                                </a>
+                                            @else
+                                                {{ $val }}
+                                            @endif
                                         </td>
                                         <td class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
                                             {{ $rule['descr'] ?? '' }}
                                         </td>
-                                        <td class="px-3 py-2 whitespace-nowrap text-right text-sm font-medium">
-                                            <div class="flex justify-end items-center space-x-2">
+                                        <td class="px-3 py-2 whitespace-nowrap text-center text-sm font-medium">
+                                            <div class="flex justify-center items-center space-x-2">
                                                 <button @click="editRule({{ json_encode($rule) }}, {{ $index }})"
                                                     class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                                                     title="Edit">
@@ -213,7 +354,7 @@
                 <div x-show="showModal"
                     class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
                     <form
-                        :action="isEdit ? '{{ url('firewall/' . $firewall->id . '/nat/port-forward') }}/' + form.id : '{{ route('firewall.nat.port-forward.store', $firewall) }}'"
+                        :action="isEdit ? '{{ url('firewall/' . $firewall->getRouteKey() . '/nat/port-forward') }}/' + form.id : '{{ route('firewall.nat.port-forward.store', $firewall) }}'"
                         method="POST">
                         @csrf
                         <template x-if="isEdit">
@@ -256,24 +397,37 @@
 
                                 {{-- Protocol --}}
                                 <div class="sm:col-span-3">
-                                    <label for="protocol"
-                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300">Protocol</label>
-                                    <select id="protocol" name="protocol" x-model="form.protocol"
-                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
-                                        <option value="tcp">TCP</option>
-                                        <option value="udp">UDP</option>
-                                        <option value="tcp/udp">TCP/UDP</option>
-                                        <option value="icmp">ICMP</option>
-                                        <option value="esp">ESP</option>
-                                        <option value="ah">AH</option>
-                                        <option value="gre">GRE</option>
-                                        <option value="ipv6">IPv6</option>
-                                        <option value="igmp">IGMP</option>
-                                        <option value="pim">PIM</option>
-                                        <option value="ospf">OSPF</option>
-                                        <option value="sctp">SCTP</option>
-                                        <option value="any">Any</option>
                                     </select>
+                                </div>
+
+                                {{-- Source Address --}}
+                                <div class="sm:col-span-3">
+                                    <label for="src"
+                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300">Source
+                                        Address</label>
+                                    <input type="text" name="src" id="src" x-model="form.src"
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm"
+                                        placeholder="any, ip, or alias">
+                                </div>
+
+                                {{-- Source Port --}}
+                                <div class="sm:col-span-3">
+                                    <label for="srcport"
+                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300">Source
+                                        Port</label>
+                                    <input type="text" name="srcport" id="srcport" x-model="form.srcport"
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm"
+                                        placeholder="any or port">
+                                </div>
+
+                                {{-- Dest Address --}}
+                                <div class="sm:col-span-3">
+                                    <label for="dst"
+                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300">Dest.
+                                        Address</label>
+                                    <input type="text" name="dst" id="dst" x-model="form.dst"
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm"
+                                        placeholder="any, ip, or alias">
                                 </div>
 
                                 {{-- Destination Port --}}
@@ -282,7 +436,8 @@
                                         class="block text-sm font-medium text-gray-700 dark:text-gray-300">Dest. Port
                                         Range</label>
                                     <input type="text" name="dstport" id="dstport" x-model="form.dstport"
-                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm" placeholder="80 or 80-90">
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm"
+                                        placeholder="80 or 80-90">
                                 </div>
 
                                 {{-- Target IP --}}
@@ -291,7 +446,8 @@
                                         class="block text-sm font-medium text-gray-700 dark:text-gray-300">Redirect
                                         Target IP</label>
                                     <input type="text" name="target" id="target" x-model="form.target"
-                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm" placeholder="192.168.1.x">
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm"
+                                        placeholder="192.168.1.x">
                                 </div>
 
                                 {{-- Target Port --}}
@@ -300,7 +456,8 @@
                                         class="block text-sm font-medium text-gray-700 dark:text-gray-300">Redirect
                                         Target Port</label>
                                     <input type="text" name="local_port" id="local_port" x-model="form.local_port"
-                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm" placeholder="80">
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm"
+                                        placeholder="80">
                                 </div>
 
                                 {{-- Description --}}
@@ -317,8 +474,9 @@
                                 <label for="associated_rule_id"
                                     class="block text-sm font-medium text-gray-700 dark:text-gray-300">Filter rule
                                     association</label>
-                                    <select id="associated_rule_id" name="associated_rule_id"
-                                        x-model="form.associated_rule_id" class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                <select id="associated_rule_id" name="associated_rule_id"
+                                    x-model="form.associated_rule_id"
+                                    class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
                                     <option value="pass">Add associated filter rule</option>
                                     <option value="block">Block</option>
                                     <option value="reject">Reject</option>
@@ -328,11 +486,12 @@
                         </div>
 
                         <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                            <button type="submit" class="w-full sm:w-auto sm:ml-3 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition">
+                            <button type="submit"
+                                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
                                 Save
                             </button>
                             <button type="button" @click="showModal = false"
-                                class="mt-3 w-full sm:mt-0 sm:ml-3 sm:w-auto bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition">
+                                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
                                 Cancel
                             </button>
                         </div>
@@ -385,7 +544,7 @@
                             </button>
                         </form>
                         <button type="button" @click="showDeleteModal = false"
-                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
                             Cancel
                         </button>
                     </div>

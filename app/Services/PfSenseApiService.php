@@ -607,7 +607,7 @@ class PfSenseApiService
             $data['interface'] = [$data['interface']];
         }
 
-        Log::info('Creating firewall rule payload:', $data);
+
 
         $response = $this->post('/firewall/rule', $data);
         $this->markSubsystemDirty('filter');

@@ -121,7 +121,8 @@
                                 </div>
                             </div>
                             <div>
-                                <x-link-button-add href="{{ route('firewall.rules.create', $firewall) }}?interface={{ $selectedInterface ?? 'wan' }}">
+                                <x-link-button-add
+                                    href="{{ route('firewall.rules.create', $firewall) }}?interface={{ $selectedInterface ?? 'wan' }}">
                                     Add Rule
                                 </x-link-button-add>
                             </div>
@@ -141,6 +142,11 @@
                                         <th scope="col"
                                             class="px-2 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                                             style="width: 60px;">
+                                        </th>
+                                        <th scope="col"
+                                            class="px-2 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                                            style="width: 40px;">
+                                            Status
                                         </th>
                                         <th scope="col"
                                             class="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -174,7 +180,8 @@
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                     @forelse($filteredRules as $index => $rule)
-                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition {{ !empty($rule['disabled']) ? 'opacity-50' : '' }}">
+                                        <tr
+                                            class="hover:bg-gray-50 dark:hover:bg-gray-700 transition {{ !empty($rule['disabled']) ? 'opacity-50' : '' }}">
                                             {{-- Bulk Checkbox --}}
                                             <td class="px-2 py-2 whitespace-nowrap text-center">
                                                 <input type="checkbox" value="{{ $rule['tracker'] }}" x-model="selected"
@@ -183,7 +190,7 @@
 
                                             {{-- Order Arrows --}}
                                             <td class="px-2 py-2 whitespace-nowrap text-center">
-                                                <div class="flex flex-col space-y-1">
+                                                <div class="flex flex-col space-y-1 items-center justify-center">
                                                     @if($index > 0)
                                                         <form method="POST"
                                                             action="{{ route('firewall.rules.move', ['firewall' => $firewall, 'tracker' => $rule['tracker']]) }}">
@@ -219,6 +226,22 @@
                                                         </form>
                                                     @endif
                                                 </div>
+                                            </td>
+
+                                            <td class="px-2 py-2 whitespace-nowrap text-center">
+                                                @if(!empty($rule['disabled']))
+                                                    <svg class="w-5 h-5 text-red-500 mx-auto" fill="none" stroke="currentColor"
+                                                        viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                @else
+                                                    <svg class="w-5 h-5 text-green-500 mx-auto" fill="none"
+                                                        stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                @endif
                                             </td>
 
                                             <td class="px-3 py-2 whitespace-nowrap text-sm">

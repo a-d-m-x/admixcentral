@@ -237,6 +237,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::delete('/rules/{tracker}', [App\Http\Controllers\FirewallRuleController::class, 'destroy'])->name('rules.destroy');
                 Route::post('/rules/bulk-action', [App\Http\Controllers\FirewallRuleController::class, 'bulkAction'])->name('rules.bulk-action');
                 Route::post('/rules/{tracker}/move', [App\Http\Controllers\FirewallRuleController::class, 'move'])->name('rules.move');
+                Route::patch('/rules/{tracker}/toggle', [App\Http\Controllers\FirewallRuleController::class, 'toggle'])->name('rules.toggle');
                 Route::post('/apply', [App\Http\Controllers\FirewallApplyController::class, 'apply'])->name('apply');
 
                 // Aliases
@@ -253,11 +254,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::post('/nat/port-forward', [App\Http\Controllers\FirewallNatController::class, 'storePortForward'])->name('nat.port-forward.store');
                 Route::put('/nat/port-forward/{id}', [App\Http\Controllers\FirewallNatController::class, 'updatePortForward'])->name('nat.port-forward.update');
                 Route::delete('/nat/port-forward/{id}', [App\Http\Controllers\FirewallNatController::class, 'destroyPortForward'])->name('nat.port-forward.destroy');
+                Route::patch('/nat/port-forward/{id}/toggle', [App\Http\Controllers\FirewallNatController::class, 'togglePortForward'])->name('nat.port-forward.toggle');
                 Route::get('/nat/outbound', [App\Http\Controllers\FirewallNatController::class, 'outbound'])->name('nat.outbound');
+                Route::get('/nat/outbound/create', [App\Http\Controllers\FirewallNatController::class, 'createOutbound'])->name('nat.outbound.create');
+                Route::post('/nat/outbound', [App\Http\Controllers\FirewallNatController::class, 'storeOutbound'])->name('nat.outbound.store');
+                Route::get('/nat/outbound/{id}/edit', [App\Http\Controllers\FirewallNatController::class, 'editOutbound'])->name('nat.outbound.edit');
+                Route::put('/nat/outbound/{id}', [App\Http\Controllers\FirewallNatController::class, 'updateOutbound'])->name('nat.outbound.update');
+                Route::patch('/nat/outbound/{id}/toggle', [App\Http\Controllers\FirewallNatController::class, 'toggleOutbound'])->name('nat.outbound.toggle');
+                Route::delete('/nat/outbound/{id}', [App\Http\Controllers\FirewallNatController::class, 'destroyOutbound'])->name('nat.outbound.destroy');
                 Route::patch('/nat/outbound/mode', [App\Http\Controllers\FirewallNatController::class, 'updateOutboundMode'])->name('nat.outbound.mode');
                 Route::get('/nat/one-to-one', [App\Http\Controllers\FirewallNatController::class, 'oneToOne'])->name('nat.one-to-one');
                 Route::post('/nat/one-to-one', [App\Http\Controllers\FirewallNatController::class, 'storeOneToOne'])->name('nat.one-to-one.store');
                 Route::put('/nat/one-to-one/{id}', [App\Http\Controllers\FirewallNatController::class, 'updateOneToOne'])->name('nat.one-to-one.update');
+                Route::patch('/nat/one-to-one/{id}/toggle', [App\Http\Controllers\FirewallNatController::class, 'toggleOneToOne'])->name('nat.one-to-one.toggle');
                 Route::delete('/nat/one-to-one/{id}', [App\Http\Controllers\FirewallNatController::class, 'destroyOneToOne'])->name('nat.one-to-one.destroy');
 
                 // Schedules

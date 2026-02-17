@@ -50,12 +50,12 @@ class FirewallRuleController extends Controller
 
     public function create(Firewall $firewall)
     {
-        Log::info('FirewallRuleController@create called');
+
         try {
             $api = new PfSenseApiService($firewall);
             $interfacesResponse = $api->getInterfaces();
             $interfaces = $interfacesResponse['data'] ?? [];
-            Log::info('Interfaces data:', $interfaces);
+
 
             // Empty rule for create with defaults
             $rule = [
@@ -72,7 +72,7 @@ class FirewallRuleController extends Controller
 
             return view('firewall.rules.edit', compact('firewall', 'rule', 'interfaces'));
         } catch (\Exception $e) {
-            Log::error('FirewallRuleController@create failed: ' . $e->getMessage());
+
             return back()->with('error', 'Failed to prepare rule creation: ' . $e->getMessage());
         }
     }
@@ -81,21 +81,21 @@ class FirewallRuleController extends Controller
     {
         $data = $this->prepareRuleData($request);
 
-        Log::info('Attempting to create firewall rule with data:', $data);
+
 
         try {
             $api = new PfSenseApiService($firewall);
             $response = $api->createFirewallRule($data);
 
-            Log::info('Firewall rule created successfully. Response:', $response);
+
 
             $firewall->update(['is_dirty' => true]);
 
             return redirect()->route('firewall.rules.index', ['firewall' => $firewall, 'interface' => $data['interface']])
                 ->with('success', 'Firewall rule created successfully. Please apply changes.');
         } catch (\Exception $e) {
-            Log::error('FirewallRuleController@store failed: ' . $e->getMessage());
-            Log::error('Failed data payload:', $data);
+
+
             return back()->with('error', 'Failed to create rule: ' . $e->getMessage())->withInput();
         }
     }
@@ -148,7 +148,7 @@ class FirewallRuleController extends Controller
             return redirect()->route('firewall.rules.index', ['firewall' => $firewall, 'interface' => $data['interface']])
                 ->with('success', 'Firewall rule updated successfully. Please apply changes.');
         } catch (\Exception $e) {
-            Log::error('FirewallRuleController@update failed: ' . $e->getMessage());
+
             return back()->with('error', 'Failed to update rule: ' . $e->getMessage())->withInput();
         }
     }
@@ -172,7 +172,7 @@ class FirewallRuleController extends Controller
             return redirect()->route('firewall.rules.index', ['firewall' => $firewall, 'interface' => $interface])
                 ->with('success', 'Firewall rule deleted successfully. Please apply changes.');
         } catch (\Exception $e) {
-            Log::error('FirewallRuleController@destroy failed: ' . $e->getMessage());
+
             return back()->with('error', 'Failed to delete rule: ' . $e->getMessage());
         }
     }
@@ -240,7 +240,7 @@ class FirewallRuleController extends Controller
                 ->with('success', "Successfully processed {$count} rules. Please apply changes.");
 
         } catch (\Exception $e) {
-            Log::error('FirewallRuleController@bulkAction failed: ' . $e->getMessage());
+
             return back()->with('error', 'Bulk action failed: ' . $e->getMessage());
         }
     }
@@ -337,7 +337,7 @@ class FirewallRuleController extends Controller
                 ->with('success', 'Rule moved successfully. Please apply changes.');
 
         } catch (\Exception $e) {
-            Log::error('FirewallRuleController@move failed: ' . $e->getMessage());
+
             return back()->with('error', 'Failed to move rule: ' . $e->getMessage());
         }
     }
@@ -442,5 +442,40 @@ class FirewallRuleController extends Controller
         }
 
         return null;
+    }
+
+    public function toggle(Firewall $firewall, $tracker)
+    {
+        try {
+            $api = new PfSenseApiService($firewall);
+
+            // Find the index of the rule with this tracker
+            $index = $this->getRuleIndexByTracker($api, $tracker);
+
+            if ($index === null) {
+                return back()->with('error', 'Rule not found.');
+            }
+
+            $rulesResponse = $api->getFirewallRules();
+            $rules = $rulesResponse['data'] ?? [];
+            $ruleData = $rules[$index];
+
+            // Determine new state (strict boolean)
+            $isCurrentlyDisabled = !empty($ruleData['disabled']);
+            $newState = !$isCurrentlyDisabled;
+
+            // Update local data
+            $ruleData['disabled'] = $newState;
+
+            // Update the rule at the specific index
+            $api->updateFirewallRule($index, $ruleData);
+
+            $firewall->update(['is_dirty' => true]);
+
+            return back()->with('success', 'Firewall rule status toggled successfully.');
+        } catch (\Exception $e) {
+            // Log::error('FirewallRuleController@toggle failed: ' . $e->getMessage());
+            return back()->with('error', 'Failed to toggle rule: ' . $e->getMessage());
+        }
     }
 }

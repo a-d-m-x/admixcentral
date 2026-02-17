@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Controller;
 use App\Models\Firewall;
 use App\Services\PfSenseApiService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class FirewallNatController extends Controller
 {
@@ -21,7 +23,20 @@ class FirewallNatController extends Controller
             $interfacesResponse = $api->getInterfaces();
             $interfaces = $interfacesResponse['data'] ?? [];
 
-            return view('firewall.nat.port-forward', compact('firewall', 'rules', 'interfaces'));
+            // Get Aliases for highlighting
+            $aliasesResponse = $api->getAliases();
+            $aliasesData = $aliasesResponse['data'] ?? [];
+            $aliasMap = collect($aliasesData)->mapWithKeys(function ($item, $key) {
+                return [
+                    $item['name'] => [
+                        'type' => $item['type'] ?? 'unknown',
+                        'descr' => $item['descr'] ?? '',
+                        'id' => $item['id'] ?? $key
+                    ]
+                ];
+            })->toArray();
+
+            return view('firewall.nat.port-forward', compact('firewall', 'rules', 'interfaces', 'aliasMap'));
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to fetch port forward rules: ' . $e->getMessage());
         }
@@ -164,9 +179,9 @@ class FirewallNatController extends Controller
                         if (isset($fwRule['tracker']) && (string) $fwRule['tracker'] === (string) $cleanId) {
                             try {
                                 $api->deleteFirewallRule($fwIndex);
-                                \Illuminate\Support\Facades\Log::info("Deleted associated firewall rule with tracker: $cleanId at index: $fwIndex");
+
                             } catch (\Exception $e) {
-                                \Illuminate\Support\Facades\Log::error("Failed to delete associated firewall rule: " . $e->getMessage());
+
                             }
                             break;
                         }
@@ -181,6 +196,50 @@ class FirewallNatController extends Controller
                 ->with('success', 'Port forward rule deleted successfully. Please apply changes.');
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to delete port forward: ' . $e->getMessage());
+        }
+    }
+
+    public function togglePortForward(Firewall $firewall, $id)
+    {
+        try {
+            $api = new PfSenseApiService($firewall);
+            $rules = $api->getNatPortForwards()['data'] ?? [];
+
+            if (!isset($rules[$id])) {
+                return back()->with('error', 'Port forward rule not found.');
+            }
+
+            $currentRule = $rules[$id];
+
+            // Determine new state (strict boolean)
+            // If currently disabled (true), we want to enable (false).
+            // If currently enabled (missing or false), we want to disable (true).
+            $isCurrentlyDisabled = !empty($currentRule['disabled']);
+            $newState = !$isCurrentlyDisabled;
+
+
+
+            // Construct minimal PATCH payload
+            // Per API docs: disabled is boolean, nullable: false
+            $payload = [
+                'disabled' => $newState
+            ];
+
+            $response = $api->updateNatPortForward((int) $id, $payload);
+
+
+
+            $firewall->update(['is_dirty' => true]);
+
+            // Check response for errors
+            if (isset($response['status']) && $response['status'] === 'error') {
+                throw new \Exception($response['message'] ?? 'Unknown API error');
+            }
+
+            return back()->with('success', 'Port forward rule status toggled successfully.');
+        } catch (\Exception $e) {
+
+            return back()->with('error', 'Failed to toggle port forward rule: ' . $e->getMessage());
         }
     }
 
@@ -348,6 +407,58 @@ class FirewallNatController extends Controller
         }
     }
 
+    public function editOutbound(Firewall $firewall, $id)
+    {
+        try {
+            $api = new PfSenseApiService($firewall);
+            $rules = $api->getNatOutboundRules()['data'] ?? [];
+
+            if (!isset($rules[$id])) {
+                return response()->json(['error' => 'Rule not found'], 404);
+            }
+
+            return response()->json($rules[$id]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function toggleOutbound(Firewall $firewall, $id)
+    {
+        try {
+            $api = new PfSenseApiService($firewall);
+            $rules = $api->getNatOutboundRules()['data'] ?? [];
+
+            if (!isset($rules[$id])) {
+                return back()->with('error', 'Outbound NAT rule not found.');
+            }
+
+            $currentRule = $rules[$id];
+
+            // Determine new state (strict boolean)
+            $isCurrentlyDisabled = !empty($currentRule['disabled']);
+            $newState = !$isCurrentlyDisabled;
+
+            // Construct minimal PATCH payload
+            $payload = [
+                'disabled' => $newState
+            ];
+
+            // Add ID if the API method requires it in payload (though updateNatOutboundRule takes ID as arg)
+            $payload['id'] = (int) $id;
+
+
+
+            $api->updateNatOutboundRule((int) $id, $payload);
+            $firewall->update(['is_dirty' => true]);
+
+            return back()->with('success', 'Outbound NAT rule status toggled successfully.');
+        } catch (\Exception $e) {
+
+            return back()->with('error', 'Failed to toggle outbound NAT rule: ' . $e->getMessage());
+        }
+    }
+
     // 1:1 NAT
     public function oneToOne(Firewall $firewall)
     {
@@ -462,6 +573,39 @@ class FirewallNatController extends Controller
                 ->with('success', '1:1 NAT rule deleted successfully. Please apply changes.');
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to delete 1:1 NAT rule: ' . $e->getMessage());
+        }
+    }
+
+    public function toggleOneToOne(Firewall $firewall, $id)
+    {
+        try {
+            $api = new PfSenseApiService($firewall);
+            $rules = $api->getNatOneToOneRules()['data'] ?? [];
+
+            if (!isset($rules[$id])) {
+                return back()->with('error', '1:1 NAT rule not found.');
+            }
+
+            $currentRule = $rules[$id];
+
+            // Determine new state (strict boolean)
+            $isCurrentlyDisabled = !empty($currentRule['disabled']);
+            $newState = !$isCurrentlyDisabled;
+
+            // Construct minimal PATCH payload
+            $payload = [
+                'disabled' => $newState
+            ];
+            // ID is required for updateNatOneToOneRule method logic but typically patching by ID in URL handled by service
+            // The service method: updateNatOneToOneRule(int $id, array $data) -> patch("/firewall/nat/one_to_one/mapping", $data + ['id' => $id])
+            // So we just pass the payload.
+
+            $api->updateNatOneToOneRule((int) $id, $payload);
+            $firewall->update(['is_dirty' => true]);
+
+            return back()->with('success', '1:1 NAT rule status toggled successfully.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to toggle 1:1 NAT rule: ' . $e->getMessage());
         }
     }
 }
