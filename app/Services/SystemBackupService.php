@@ -105,85 +105,29 @@ class SystemBackupService
 
             // 2. Restore Users (Granular Logic)
             if (isset($data['users'])) {
-                // Determine which users to DELETE (i.e. NOT preserve)
-                $query = User::query();
+                // Logic: Delete specific groups UNLESS excluded (preserved).
 
-                // If excluding (keeping) Global Admins, DO NOT delete them.
-                if ($options['exclude_global_admins'] ?? false) {
-                    // Start by selecting everything that IS NOT a global admin for potential deletion
-                    // Global Admin: role == 'admin' AND company_id IS NULL
-                    $query->where(function ($q) {
+                // Group 1: Global Admins
+                if (!($options['exclude_global_admins'] ?? false)) {
+                    // Delete Global Admins
+                    User::where('role', 'admin')
+                        ->whereNull('company_id')
+                        ->delete();
+                }
+
+                // Group 2: End Users & Company Admins
+                if (!($options['exclude_end_users'] ?? false)) {
+                    // Delete everyone else (Not Global Admin)
+                    User::where(function ($q) {
                         $q->where('role', '!=', 'admin')
                             ->orWhereNotNull('company_id');
-                    });
+                    })->delete();
                 }
-
-                // If excluding (keeping) End Users & Company Admins, DO NOT delete them.
-                if ($options['exclude_end_users'] ?? false) {
-                    // Helper logic:
-                    // End User: role == 'user'
-                    // Company Admin: role == 'admin' AND company_id IS NOT NULL
-                    // effectively: anyone with company_id NOT NULL OR role == 'user'
-
-                    // So we only want to delete Global Admins (if not preserved above)
-                    // If we are preserving standard users, we narrow the delete scope.
-
-                    // Simplest approach: Delete ALL vs Delete NONE vs Delete Subset.
-                    // But we might have a mix.
-
-                    // Let's invert: what do we keep?
-                    // $keepIds = [];
-                    // if (exclude_global) $keepIds += GlobalAdmins->pluck('id')
-                    // if (exclude_end) $keepIds += EndUsers->pluck('id')
-                    // User::whereNotIn('id', $keepIds)->delete();
-
-                    // However, constructing huge ID lists is inefficient.
-                    // Let's use logic.
-
-                    $query->where(function ($q) {
-                        // We are inside a "Delete These" query.
-                        // So we want to filter out the "Keep These" rows.
-
-                        // Exclude Global Admins from deletion?
-                        // i.e. "where NOT (Global Admin)"
-                        // (role != 'admin' OR company_id != null)
-
-                        // Exclude End/Company Users from deletion?
-                        // i.e. "where NOT (End or Company Admin)"
-                        // (role == 'admin' AND company_id == null) <- this IS a global admin
-
-                        // Let's re-build the query carefully.
-                    });
-                }
-
-                // Let's rethink. Explicit Logic:
-                $deleteQuery = User::query();
-
-                if ($options['exclude_global_admins'] ?? false) {
-                    // Do NOT delete Global Admins.
-                    // So only delete where (role != admin OR company_id != null)
-                    $deleteQuery->where(function ($q) {
-                        $q->where('role', '!=', 'admin')
-                            ->orWhereNotNull('company_id');
-                    });
-                }
-
-                if ($options['exclude_end_users'] ?? false) {
-                    // Do NOT delete End/Company Users.
-                    // So only delete where (role == admin AND company_id == null) -> effectively deletes Global Admins
-                    $deleteQuery->where(function ($q) {
-                        $q->where('role', 'admin')
-                            ->whereNull('company_id');
-                    });
-                }
-
-                $deleteQuery->delete();
-
 
                 // Now Insert from Backup (Skipping preserved types)
                 foreach ($data['users'] as $record) {
                     $isGlobalArg = ($record['role'] === 'admin' && is_null($record['company_id']));
-                    $isEndOrCompanyArg = !$isGlobalArg; // Simplified definition per user request (End + Company vs Global)
+                    $isEndOrCompanyArg = !$isGlobalArg;
 
                     // If we are keeping Global Admins, skip restoring Global Admins from backup
                     if (($options['exclude_global_admins'] ?? false) && $isGlobalArg) {
@@ -195,20 +139,6 @@ class SystemBackupService
                         continue;
                     }
 
-                    // For preserved users, we might have ID conflicts if we insert blindly.
-                    // Since we used 'delete()' based on criteria, the "slot" for a kept user is occupied.
-                    // If the backup has a user with same ID as a kept user, and we skipped it above, we are good.
-                    // If we didn't skip it (logic error), forceCreate might fail on ID unique constraint.
-                    // But our skip logic aligns exacty with the keep logic.
-                    // (Keep Global -> Skip Backup Global).
-
-                    // Possible Edge case: ID collision between a "Deleted End User" (from database) and a "Restored Global Admin" (from backup).
-                    // If we kept Global Admins (IDs 1, 2), and deleted End User (ID 3).
-                    // Backup has Global Admin (ID 3).
-                    // We try to insert ID 3. It works.
-                    // Backup has Global Admin (ID 1). We skip.
-
-                    // So `forceCreate` should be safe provided our skip logic matches the delete logic.
                     User::forceCreate($record);
                 }
             }
@@ -227,9 +157,16 @@ class SystemBackupService
 
             // 4. Restore System Settings
             if (isset($data['system_settings'])) {
-                SystemSetting::query()->delete();
+                // Conditional Delete: If excluding hostname, do NOT delete site_url/site_protocol
+                $settingsQuery = SystemSetting::query();
+                if ($options['exclude_hostname'] ?? false) {
+                    $settingsQuery->whereNotIn('key', ['site_url', 'site_protocol']);
+                }
+                $settingsQuery->delete();
+
                 foreach ($data['system_settings'] as $record) {
-                    // Check for hostname exclusion
+                    // Check for hostname exclusion failure safety (though delete logic above handles preservation)
+                    // If we preserved it, we must NOT overwrite it with backup data logic
                     if (($options['exclude_hostname'] ?? false) && in_array($record['key'], ['site_url', 'site_protocol'])) {
                         continue;
                     }
