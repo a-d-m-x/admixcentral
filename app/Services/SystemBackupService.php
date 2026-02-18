@@ -91,7 +91,7 @@ class SystemBackupService
 
     protected function restoreSystemData(array $data, array $options = [])
     {
-        DB::transaction(function () use ($data) {
+        DB::transaction(function () use ($data, $options) {
             // Disable foreign key checks to avoid constraint violations during truncate
             Schema::disableForeignKeyConstraints();
 
@@ -157,17 +157,20 @@ class SystemBackupService
 
             // 4. Restore System Settings
             if (isset($data['system_settings'])) {
-                // Conditional Delete: If excluding hostname, do NOT delete site_url/site_protocol
-                $settingsQuery = SystemSetting::query();
+                // Keys to ALWAYS preserve (Branding) + Optional (Hostname)
+                $keysToPreserve = ['logo_path', 'favicon_path'];
+
                 if ($options['exclude_hostname'] ?? false) {
-                    $settingsQuery->whereNotIn('key', ['site_url', 'site_protocol']);
+                    $keysToPreserve[] = 'site_url';
+                    $keysToPreserve[] = 'site_protocol';
                 }
-                $settingsQuery->delete();
+
+                // Delete all settings EXCEPT those we are preserving
+                SystemSetting::whereNotIn('key', $keysToPreserve)->delete();
 
                 foreach ($data['system_settings'] as $record) {
-                    // Check for hostname exclusion failure safety (though delete logic above handles preservation)
-                    // If we preserved it, we must NOT overwrite it with backup data logic
-                    if (($options['exclude_hostname'] ?? false) && in_array($record['key'], ['site_url', 'site_protocol'])) {
+                    // Skip restoration for preserved keys
+                    if (in_array($record['key'], $keysToPreserve)) {
                         continue;
                     }
                     SystemSetting::forceCreate($record);
