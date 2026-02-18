@@ -41,7 +41,7 @@ class EnsureTenantScope
                     ? $companyParam->id
                     : $companyParam;
 
-                if ($companyId != $user->company_id) {
+                if ($companyId !== $user->company_id) {
 
                     abort(403, 'Unauthorized access to this company.');
                 }

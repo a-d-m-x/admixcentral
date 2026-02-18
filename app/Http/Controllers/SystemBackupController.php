@@ -52,7 +52,13 @@ class SystemBackupController extends Controller
 
     public function download($filename)
     {
+        $filename = basename($filename);
+        if (!preg_match('/^backup-[\w\W]+\.json\.enc$/', $filename)) {
+            return back()->with('error', 'Invalid filename.');
+        }
+
         if (!Storage::exists('backups/' . $filename)) {
+            // Check default path
             return back()->with('error', 'Backup file not found.');
         }
 
@@ -84,7 +90,11 @@ class SystemBackupController extends Controller
                 unlink($fullPath);
             } else {
                 // Restore from local file
-                $filename = $request->local_filename;
+                $filename = basename($request->local_filename);
+                if (!preg_match('/^backup-[\w\W]+\.json\.enc$/', $filename)) {
+                    throw new \Exception("Invalid filename security check.");
+                }
+
                 if (!Storage::exists('backups/' . $filename)) {
                     return back()->with('error', 'Local backup file not found.');
                 }
@@ -100,6 +110,11 @@ class SystemBackupController extends Controller
 
     public function destroy($filename)
     {
+        $filename = basename($filename);
+        if (!preg_match('/^backup-[\w\W]+\.json\.enc$/', $filename)) {
+            return back()->with('error', 'Invalid filename.');
+        }
+
         if (Storage::exists('backups/' . $filename)) {
             Storage::delete('backups/' . $filename);
             return back()->with('success', 'Backup deleted successfully.');

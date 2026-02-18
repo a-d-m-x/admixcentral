@@ -267,7 +267,7 @@ class UserController extends Controller
             return response($response->body())
                 ->header('Content-Type', 'application/json');
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Geocoding internal error: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Geocoding internal error.'], 500);
         }
     }
 }

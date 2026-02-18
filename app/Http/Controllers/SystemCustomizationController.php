@@ -59,8 +59,21 @@ class SystemCustomizationController extends Controller
 
         $url = $request->input('url');
 
+        // Fix CRIT-04: SSRF Protection
+        $parsed = parse_url($url);
+        $host = $parsed['host'] ?? '';
+
+        // Resolve hostname to IP
+        $ip = gethostbyname($host);
+
+        // Filter out private/reserved ranges
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+            return response()->json(['status' => 'error', 'message' => 'Internal network access denied.'], 403);
+        }
+
         try {
-            $client = new \GuzzleHttp\Client(['timeout' => 5, 'verify' => false]);
+            // Enable TLS verification
+            $client = new \GuzzleHttp\Client(['timeout' => 5, 'verify' => true]);
             $response = $client->get($url . '/system/check-hostname');
 
             if ($response->getStatusCode() === 200) {
@@ -69,7 +82,9 @@ class SystemCustomizationController extends Controller
 
             return response()->json(['status' => 'error', 'message' => 'Status: ' . $response->getStatusCode()], 400);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 400);
+            // Fix LOW-02: Verbose Error Messages (Log instead of return)
+            \Illuminate\Support\Facades\Log::error('Proxy check failed', ['error' => $e->getMessage(), 'url' => $url]);
+            return response()->json(['status' => 'error', 'message' => 'Connection failed.'], 400);
         }
     }
 
@@ -219,7 +234,7 @@ class SystemCustomizationController extends Controller
             \Illuminate\Support\Facades\Mail::to($request->test_email)->send(new \App\Mail\TestEmail());
             return response()->json(['success' => true, 'message' => 'Test email sent successfully!']);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'Failed to send test email.'], 500);
         }
     }
 

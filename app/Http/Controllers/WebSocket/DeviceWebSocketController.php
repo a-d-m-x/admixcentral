@@ -53,6 +53,10 @@ class DeviceWebSocketController extends Controller
             ], 401);
         }
 
+        // Generate short-lived auth token for the connect endpoint
+        $authToken = \Illuminate\Support\Str::random(60);
+        \Illuminate\Support\Facades\Cache::put("device_auth_{$firewall->id}", $authToken, 60); // 60 seconds validity
+
         // Return WebSocket connection details
         return response()->json([
             'success' => true,
@@ -66,6 +70,7 @@ class DeviceWebSocketController extends Controller
                 'channel' => 'private-device.' . $firewall->id,
             ],
             'firewall_id' => $firewall->id,
+            'auth_token' => $authToken,
         ]);
     }
 
@@ -77,7 +82,15 @@ class DeviceWebSocketController extends Controller
         $validated = $request->validate([
             'firewall_id' => 'required|exists:firewalls,id',
             'socket_id' => 'required|string',
+            'auth_token' => 'required|string',
         ]);
+
+        // Verify auth token
+        $storedToken = \Illuminate\Support\Facades\Cache::get("device_auth_{$validated['firewall_id']}");
+        if (!$storedToken || hash_equals($storedToken, $validated['auth_token']) === false) {
+            return response()->json(['error' => 'Invalid or expired auth token'], 401);
+        }
+        \Illuminate\Support\Facades\Cache::forget("device_auth_{$validated['firewall_id']}");
 
         $firewall = Firewall::find($validated['firewall_id']);
 

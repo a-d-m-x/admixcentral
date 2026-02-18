@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Broadcast;
 // Register broadcasting authentication routes
 // Broadcast::routes(['middleware' => ['web', 'auth']]);
 
-Route::post('/login/magic', [App\Http\Controllers\Auth\MagicLoginController::class, 'send'])->name('login.magic');
+Route::post('/login/magic', [App\Http\Controllers\Auth\MagicLoginController::class, 'send'])->middleware('throttle:3,1')->name('login.magic');
 Route::get('/login/magic/{id}', [App\Http\Controllers\Auth\MagicLoginController::class, 'verify'])->name('login.magic.verify');
 
 Route::get('/', function () {
@@ -58,9 +58,7 @@ Route::get('/manifest.json', function () {
 
 
 
-Route::get('/test-routing', function () {
-    return 'Routing Works';
-});
+
 
 // Setup Wizard (protected by CheckSystemSetup middleware to only be accessible when no users exist)
 Route::get('/setup', [App\Http\Controllers\SetupController::class, 'welcome'])->name('setup.welcome');
@@ -150,60 +148,62 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('firewall.dashboard');
 
     // Interfaces (Assignments, VLANs) - Must be before generic interface routes
-    Route::prefix('firewall/{firewall}/interfaces')->name('interfaces.')->group(function () {
-        // Assignments
-        Route::get('/assignments', [App\Http\Controllers\InterfacesController::class, 'assignments'])->name('assignments');
-        Route::post('/assignments', [App\Http\Controllers\InterfacesController::class, 'storeAssignment'])->name('assignments.store');
-        Route::delete('/assignments/{id}', [App\Http\Controllers\InterfacesController::class, 'destroyAssignment'])->name('assignments.destroy');
+    Route::prefix('firewall/{firewall}/interfaces')
+        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->name('interfaces.')->group(function () {
+            // Assignments
+            Route::get('/assignments', [App\Http\Controllers\InterfacesController::class, 'assignments'])->name('assignments');
+            Route::post('/assignments', [App\Http\Controllers\InterfacesController::class, 'storeAssignment'])->name('assignments.store');
+            Route::delete('/assignments/{id}', [App\Http\Controllers\InterfacesController::class, 'destroyAssignment'])->name('assignments.destroy');
 
-        // VLANs
-        Route::get('/vlans', [App\Http\Controllers\InterfacesController::class, 'vlans'])->name('vlans.index');
-        Route::get('/vlans/create', [App\Http\Controllers\InterfacesController::class, 'createVlan'])->name('vlans.create');
-        Route::post('/vlans', [App\Http\Controllers\InterfacesController::class, 'storeVlan'])->name('vlans.store');
-        Route::get('/vlans/{id}/edit', [App\Http\Controllers\InterfacesController::class, 'editVlan'])->name('vlans.edit');
-        Route::patch('/vlans/{id}', [App\Http\Controllers\InterfacesController::class, 'updateVlan'])->name('vlans.update');
-        Route::delete('/vlans/{id}', [App\Http\Controllers\InterfacesController::class, 'destroyVlan'])->name('vlans.destroy');
+            // VLANs
+            Route::get('/vlans', [App\Http\Controllers\InterfacesController::class, 'vlans'])->name('vlans.index');
+            Route::get('/vlans/create', [App\Http\Controllers\InterfacesController::class, 'createVlan'])->name('vlans.create');
+            Route::post('/vlans', [App\Http\Controllers\InterfacesController::class, 'storeVlan'])->name('vlans.store');
+            Route::get('/vlans/{id}/edit', [App\Http\Controllers\InterfacesController::class, 'editVlan'])->name('vlans.edit');
+            Route::patch('/vlans/{id}', [App\Http\Controllers\InterfacesController::class, 'updateVlan'])->name('vlans.update');
+            Route::delete('/vlans/{id}', [App\Http\Controllers\InterfacesController::class, 'destroyVlan'])->name('vlans.destroy');
 
-        // Bridges
-        Route::get('/bridges', [App\Http\Controllers\InterfacesBridgeController::class, 'index'])->name('bridges.index');
-        Route::get('/bridges/create', [App\Http\Controllers\InterfacesBridgeController::class, 'create'])->name('bridges.create');
-        Route::post('/bridges', [App\Http\Controllers\InterfacesBridgeController::class, 'store'])->name('bridges.store');
-        Route::get('/bridges/{id}/edit', [App\Http\Controllers\InterfacesBridgeController::class, 'edit'])->name('bridges.edit');
-        Route::patch('/bridges/{id}', [App\Http\Controllers\InterfacesBridgeController::class, 'update'])->name('bridges.update');
-        Route::delete('/bridges/{id}', [App\Http\Controllers\InterfacesBridgeController::class, 'destroy'])->name('bridges.destroy');
+            // Bridges
+            Route::get('/bridges', [App\Http\Controllers\InterfacesBridgeController::class, 'index'])->name('bridges.index');
+            Route::get('/bridges/create', [App\Http\Controllers\InterfacesBridgeController::class, 'create'])->name('bridges.create');
+            Route::post('/bridges', [App\Http\Controllers\InterfacesBridgeController::class, 'store'])->name('bridges.store');
+            Route::get('/bridges/{id}/edit', [App\Http\Controllers\InterfacesBridgeController::class, 'edit'])->name('bridges.edit');
+            Route::patch('/bridges/{id}', [App\Http\Controllers\InterfacesBridgeController::class, 'update'])->name('bridges.update');
+            Route::delete('/bridges/{id}', [App\Http\Controllers\InterfacesBridgeController::class, 'destroy'])->name('bridges.destroy');
 
-        // LAGGs
-        Route::get('/laggs', [App\Http\Controllers\InterfacesLaggController::class, 'index'])->name('laggs.index');
-        Route::get('/laggs/create', [App\Http\Controllers\InterfacesLaggController::class, 'create'])->name('laggs.create');
-        Route::post('/laggs', [App\Http\Controllers\InterfacesLaggController::class, 'store'])->name('laggs.store');
-        Route::get('/laggs/{id}/edit', [App\Http\Controllers\InterfacesLaggController::class, 'edit'])->name('laggs.edit');
-        Route::patch('/laggs/{id}', [App\Http\Controllers\InterfacesLaggController::class, 'update'])->name('laggs.update');
-        Route::delete('/laggs/{id}', [App\Http\Controllers\InterfacesLaggController::class, 'destroy'])->name('laggs.destroy');
+            // LAGGs
+            Route::get('/laggs', [App\Http\Controllers\InterfacesLaggController::class, 'index'])->name('laggs.index');
+            Route::get('/laggs/create', [App\Http\Controllers\InterfacesLaggController::class, 'create'])->name('laggs.create');
+            Route::post('/laggs', [App\Http\Controllers\InterfacesLaggController::class, 'store'])->name('laggs.store');
+            Route::get('/laggs/{id}/edit', [App\Http\Controllers\InterfacesLaggController::class, 'edit'])->name('laggs.edit');
+            Route::patch('/laggs/{id}', [App\Http\Controllers\InterfacesLaggController::class, 'update'])->name('laggs.update');
+            Route::delete('/laggs/{id}', [App\Http\Controllers\InterfacesLaggController::class, 'destroy'])->name('laggs.destroy');
 
-        // GRE
-        Route::get('/gre', [App\Http\Controllers\InterfacesGreController::class, 'index'])->name('gre.index');
-        Route::get('/gre/create', [App\Http\Controllers\InterfacesGreController::class, 'create'])->name('gre.create');
-        Route::post('/gre', [App\Http\Controllers\InterfacesGreController::class, 'store'])->name('gre.store');
-        Route::get('/gre/{id}/edit', [App\Http\Controllers\InterfacesGreController::class, 'edit'])->name('gre.edit');
-        Route::patch('/gre/{id}', [App\Http\Controllers\InterfacesGreController::class, 'update'])->name('gre.update');
-        Route::delete('/gre/{id}', [App\Http\Controllers\InterfacesGreController::class, 'destroy'])->name('gre.destroy');
+            // GRE
+            Route::get('/gre', [App\Http\Controllers\InterfacesGreController::class, 'index'])->name('gre.index');
+            Route::get('/gre/create', [App\Http\Controllers\InterfacesGreController::class, 'create'])->name('gre.create');
+            Route::post('/gre', [App\Http\Controllers\InterfacesGreController::class, 'store'])->name('gre.store');
+            Route::get('/gre/{id}/edit', [App\Http\Controllers\InterfacesGreController::class, 'edit'])->name('gre.edit');
+            Route::patch('/gre/{id}', [App\Http\Controllers\InterfacesGreController::class, 'update'])->name('gre.update');
+            Route::delete('/gre/{id}', [App\Http\Controllers\InterfacesGreController::class, 'destroy'])->name('gre.destroy');
 
-        // Wireless
-        Route::get('/wireless', [App\Http\Controllers\InterfacesWirelessController::class, 'index'])->name('wireless.index');
-        Route::get('/wireless/create', [App\Http\Controllers\InterfacesWirelessController::class, 'create'])->name('wireless.create');
-        Route::post('/wireless', [App\Http\Controllers\InterfacesWirelessController::class, 'store'])->name('wireless.store');
-        Route::get('/wireless/{id}/edit', [App\Http\Controllers\InterfacesWirelessController::class, 'edit'])->name('wireless.edit');
-        Route::patch('/wireless/{id}', [App\Http\Controllers\InterfacesWirelessController::class, 'update'])->name('wireless.update');
-        Route::delete('/wireless/{id}', [App\Http\Controllers\InterfacesWirelessController::class, 'destroy'])->name('wireless.destroy');
+            // Wireless
+            Route::get('/wireless', [App\Http\Controllers\InterfacesWirelessController::class, 'index'])->name('wireless.index');
+            Route::get('/wireless/create', [App\Http\Controllers\InterfacesWirelessController::class, 'create'])->name('wireless.create');
+            Route::post('/wireless', [App\Http\Controllers\InterfacesWirelessController::class, 'store'])->name('wireless.store');
+            Route::get('/wireless/{id}/edit', [App\Http\Controllers\InterfacesWirelessController::class, 'edit'])->name('wireless.edit');
+            Route::patch('/wireless/{id}', [App\Http\Controllers\InterfacesWirelessController::class, 'update'])->name('wireless.update');
+            Route::delete('/wireless/{id}', [App\Http\Controllers\InterfacesWirelessController::class, 'destroy'])->name('wireless.destroy');
 
-        // Interface Groups
-        Route::get('/groups', [App\Http\Controllers\InterfacesGroupController::class, 'index'])->name('groups.index');
-        Route::get('/groups/create', [App\Http\Controllers\InterfacesGroupController::class, 'create'])->name('groups.create');
-        Route::post('/groups', [App\Http\Controllers\InterfacesGroupController::class, 'store'])->name('groups.store');
-        Route::get('/groups/{id}/edit', [App\Http\Controllers\InterfacesGroupController::class, 'edit'])->name('groups.edit');
-        Route::patch('/groups/{id}', [App\Http\Controllers\InterfacesGroupController::class, 'update'])->name('groups.update');
-        Route::delete('/groups/{id}', [App\Http\Controllers\InterfacesGroupController::class, 'destroy'])->name('groups.destroy');
-    });
+            // Interface Groups
+            Route::get('/groups', [App\Http\Controllers\InterfacesGroupController::class, 'index'])->name('groups.index');
+            Route::get('/groups/create', [App\Http\Controllers\InterfacesGroupController::class, 'create'])->name('groups.create');
+            Route::post('/groups', [App\Http\Controllers\InterfacesGroupController::class, 'store'])->name('groups.store');
+            Route::get('/groups/{id}/edit', [App\Http\Controllers\InterfacesGroupController::class, 'edit'])->name('groups.edit');
+            Route::patch('/groups/{id}', [App\Http\Controllers\InterfacesGroupController::class, 'update'])->name('groups.update');
+            Route::delete('/groups/{id}', [App\Http\Controllers\InterfacesGroupController::class, 'destroy'])->name('groups.destroy');
+        });
 
     // Interfaces management
     Route::get('/firewall/{firewall}/interfaces/{interface}/edit', [App\Http\Controllers\InterfaceController::class, 'edit'])
@@ -294,9 +294,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 
     // User Management
-    Route::get('/users/geocode', [App\Http\Controllers\UserController::class, 'geocode'])->name('users.geocode');
-    Route::post('/users/check-email', [App\Http\Controllers\UserController::class, 'checkEmail'])->name('users.check-email');
-    Route::post('/users/bulk-action', [App\Http\Controllers\UserController::class, 'bulkAction'])->name('users.bulk-action');
+    Route::get('/users/geocode', [App\Http\Controllers\UserController::class, 'geocode'])
+        ->middleware(['throttle:10,1', App\Http\Middleware\CheckRole::class . ':admin,user'])
+        ->name('users.geocode');
+    Route::post('/users/check-email', [App\Http\Controllers\UserController::class, 'checkEmail'])
+        ->middleware(['throttle:6,1', App\Http\Middleware\CheckRole::class . ':admin,user'])
+        ->name('users.check-email');
+    Route::post('/users/bulk-action', [App\Http\Controllers\UserController::class, 'bulkAction'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user'])
+        ->name('users.bulk-action');
     Route::resource('users', App\Http\Controllers\UserController::class)
         ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user']);
 
@@ -581,11 +587,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/wireguard', [App\Http\Controllers\VpnWireGuardController::class, 'index'])->name('wireguard.index');
     });
 
-    Route::get('/debug-interfaces', function () {
-        $firewall = \App\Models\Firewall::first();
-        $api = new \App\Services\PfSenseApiService($firewall);
-        dd($api->get('/interfaces'));
-    });
+
 
     // Status
     Route::prefix('firewall/{firewall}/status')->name('status.')->group(function () {

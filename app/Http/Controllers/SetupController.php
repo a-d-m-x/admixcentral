@@ -16,6 +16,11 @@ class SetupController extends Controller
 
     public function store(Request $request, \App\Services\SystemConfigurationService $configService)
     {
+        // Fix CRIT-03: Prevent setup if admin already exists
+        if (User::exists()) {
+            abort(403, 'Setup has already been completed.');
+        }
+
         $request->validate([
             'hostname' => ['required', 'string', 'max:255', 'regex:/^(?!:\/\/)(?=.{1,255}$)((.{1,63}\.){1,127}(?![0-9]*$)[a-z0-9-]+\.?)$/i'], // Basic hostname validation
             'name' => ['required', 'string', 'max:255'],

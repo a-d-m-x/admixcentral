@@ -22,6 +22,11 @@ class SslManagerService
      */
     public function install(string $domain, string $email): array
     {
+        // Strict domain validation to prevent Nginx config injection
+        if (!preg_match('/^(?!:\/\/)(?=.{1,255}$)((.{1,63}\.){1,127}(?![0-9]*$)[a-z0-9-]+\.?)$/i', $domain) || preg_match('/[;{}\n\r]/', $domain)) {
+            throw new \Exception("Invalid domain format.");
+        }
+
         try {
             // 1. Request Certificate
             $this->requestCertificate($domain, $email);
@@ -72,10 +77,10 @@ class SslManagerService
             throw new \Exception('Certbot is not installed. Please run the installer script.');
         }
 
-        // Run certbot
+        // Run certbot safely
         // --webroot using public dir as root for challenges
-        $cmd = "sudo certbot certonly --webroot -w " . public_path() .
-            " -d {$domain} --non-interactive --agree-tos -m {$email} --deploy-hook ''";
+        $cmd = "sudo certbot certonly --webroot -w " . escapeshellarg(public_path()) .
+            " -d " . escapeshellarg($domain) . " --non-interactive --agree-tos -m " . escapeshellarg($email) . " --deploy-hook ''";
 
         $result = Process::run($cmd);
 
@@ -87,13 +92,11 @@ class SslManagerService
         // Note: www-data cannot read /etc/letsencrypt/live directly, causing false negatives.
     }
 
-
-
     public function deleteCertificate(string $domain): void
     {
-        // Delete certificate using certbot
+        // Delete certificate using certbot safely
         // --cert-name matches the domain by default when creating standard certs
-        $cmd = "sudo certbot delete --cert-name {$domain} --non-interactive";
+        $cmd = "sudo certbot delete --cert-name " . escapeshellarg($domain) . " --non-interactive";
 
         $result = Process::run($cmd);
 
@@ -180,7 +183,7 @@ server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
 
-    server_name 10.100.200.152 {$domain};
+    server_name _;
 
     root /var/www/admixcentral/public;
 
@@ -239,7 +242,7 @@ NGINX;
 server {
     listen 80;
     listen [::]:80;
-    server_name 10.100.200.152 {$domain};
+    server_name _;
 
     root /var/www/admixcentral/public;
 

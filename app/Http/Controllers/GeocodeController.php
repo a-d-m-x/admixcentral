@@ -19,7 +19,7 @@ class GeocodeController extends Controller
         }
 
         try {
-            $response = Http::withoutVerifying()->get('https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/suggest', [
+            $response = Http::get('https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/suggest', [
                 'f' => 'json',
                 'text' => $query,
                 'maxSuggestions' => 5,
@@ -37,28 +37,28 @@ class GeocodeController extends Controller
     public function retrieve(Request $request)
     {
         $magicKey = $request->input('magicKey');
-        
+
         if (empty($magicKey)) {
-             return response()->json(['error' => 'Magic Key required'], 400);
+            return response()->json(['error' => 'Magic Key required'], 400);
         }
 
         try {
-            $response = Http::withoutVerifying()->get('https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates', [
+            $response = Http::get('https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates', [
                 'f' => 'json',
                 'magicKey' => $magicKey,
                 'maxLocations' => 1,
             ]);
 
             $data = $response->json();
-            
+
             if (!empty($data['candidates'][0])) {
                 return response()->json($data['candidates'][0]);
             }
-            
+
             return response()->json(['error' => 'Location not found'], 404);
 
         } catch (\Exception $e) {
-             return response()->json(['error' => 'Geocoding service unavailable'], 500);
+            return response()->json(['error' => 'Geocoding service unavailable'], 500);
         }
     }
 }
