@@ -65,13 +65,22 @@ class SystemBackupController extends Controller
             'password' => 'required',
             'backup_file' => 'required_without:local_filename|file',
             'local_filename' => 'required_without:backup_file|string',
+            'exclude_global_admins' => 'nullable|boolean',
+            'exclude_end_users' => 'nullable|boolean',
+            'exclude_hostname' => 'nullable|boolean',
         ]);
+
+        $options = [
+            'exclude_global_admins' => $request->boolean('exclude_global_admins'),
+            'exclude_end_users' => $request->boolean('exclude_end_users'), // Covers both End Users and Company Admins per request
+            'exclude_hostname' => $request->boolean('exclude_hostname'),
+        ];
 
         try {
             if ($request->hasFile('backup_file')) {
                 $path = $request->file('backup_file')->storeAs('temp_restores', 'restore_' . time() . '.json');
                 $fullPath = Storage::path($path);
-                $this->backupService->restoreFromPath($fullPath, $request->password);
+                $this->backupService->restoreFromPath($fullPath, $request->password, $options);
                 unlink($fullPath);
             } else {
                 // Restore from local file
@@ -80,7 +89,7 @@ class SystemBackupController extends Controller
                     return back()->with('error', 'Local backup file not found.');
                 }
                 $content = Storage::get('backups/' . $filename);
-                $this->backupService->restoreFromContent($content, $request->password);
+                $this->backupService->restoreFromContent($content, $request->password, $options);
             }
 
             return back()->with('success', 'System restored successfully.');

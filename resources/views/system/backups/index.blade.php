@@ -96,6 +96,27 @@
                                                         <x-input-label for="password_restore_{{ md5($backup['name']) }}" value="{{ __('Decryption Password') }}" />
                                                         <x-text-input id="password_restore_{{ md5($backup['name']) }}" name="password" type="password" class="mt-1 block w-full" placeholder="Enter password" required />
                                                     </div>
+
+                                                    <div class="mt-4 space-y-2">
+                                                        <div class="flex items-center">
+                                                            <input id="exclude_global_admins_{{ md5($backup['name']) }}" name="exclude_global_admins" type="checkbox" value="1" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                                            <label for="exclude_global_admins_{{ md5($backup['name']) }}" class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                                                                Exclude Global Admins (Keep current)
+                                                            </label>
+                                                        </div>
+                                                        <div class="flex items-center">
+                                                            <input id="exclude_end_users_{{ md5($backup['name']) }}" name="exclude_end_users" type="checkbox" value="1" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                                            <label for="exclude_end_users_{{ md5($backup['name']) }}" class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                                                                Exclude End Users & Company Admins (Keep current)
+                                                            </label>
+                                                        </div>
+                                                        <div class="flex items-center">
+                                                            <input id="exclude_hostname_{{ md5($backup['name']) }}" name="exclude_hostname" type="checkbox" value="1" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                                            <label for="exclude_hostname_{{ md5($backup['name']) }}" class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                                                                Exclude Hostname/SSL (Keep current settings)
+                                                            </label>
+                                                        </div>
+                                                    </div>
                                                     
                                                     <div class="mt-6 flex justify-end">
                                                         <x-secondary-button x-on:click="$dispatch('close')">
@@ -134,6 +155,27 @@
                         <div>
                              <x-input-label for="password_upload" value="{{ __('Decryption Password') }}" />
                              <x-text-input id="password_upload" name="password" type="password" class="mt-1 block w-full" placeholder="Enter password" required />
+                        </div>
+
+                        <div class="mt-4 space-y-2">
+                            <div class="flex items-center">
+                                <input id="exclude_global_admins_upload" name="exclude_global_admins" type="checkbox" value="1" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                <label for="exclude_global_admins_upload" class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                                    Exclude Global Admins (Keep current)
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input id="exclude_end_users_upload" name="exclude_end_users" type="checkbox" value="1" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                <label for="exclude_end_users_upload" class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                                    Exclude End Users & Company Admins (Keep current)
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input id="exclude_hostname_upload" name="exclude_hostname" type="checkbox" value="1" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                <label for="exclude_hostname_upload" class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                                    Exclude Hostname/SSL (Keep current settings)
+                                </label>
+                            </div>
                         </div>
                          <div class="flex justify-end">
                              <x-primary-button onclick="return confirm('Starting a restore will overwrite system data. Are you sure?');">

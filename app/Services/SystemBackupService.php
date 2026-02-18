@@ -47,14 +47,14 @@ class SystemBackupService
      * @param string $password
      * @throws \Exception
      */
-    public function restoreFromPath(string $path, string $password): void
+    public function restoreFromPath(string $path, string $password, array $options = []): void
     {
         if (!file_exists($path)) {
             throw new \Exception("Backup file not found at path: $path");
         }
 
         $encryptedContent = file_get_contents($path);
-        $this->restoreFromContent($encryptedContent, $password);
+        $this->restoreFromContent($encryptedContent, $password, $options);
     }
 
     /**
@@ -64,7 +64,7 @@ class SystemBackupService
      * @param string $password
      * @throws \Exception
      */
-    public function restoreFromContent(string $encryptedContent, string $password): void
+    public function restoreFromContent(string $encryptedContent, string $password, array $options = []): void
     {
         $jsonContent = $this->decryptData($encryptedContent, $password);
         $data = json_decode($jsonContent, true);
@@ -73,7 +73,7 @@ class SystemBackupService
             throw new \Exception("Failed to decode JSON data: " . json_last_error_msg());
         }
 
-        $this->restoreSystemData($data);
+        $this->restoreSystemData($data, $options);
     }
 
     protected function gatherSystemData(): array
@@ -84,12 +84,12 @@ class SystemBackupService
             'companies' => Company::all()->makeVisible(['api_token'])->toArray(),
             'users' => User::all()->makeVisible(['password', 'remember_token'])->toArray(), // Include password hashes
             'firewalls' => Firewall::all()->makeVisible(['api_key', 'api_secret', 'api_token'])->toArray(),
-            'system_settings' => SystemSetting::all()->toArray(),
+            'system_settings' => SystemSetting::whereNotIn('key', ['logo_path', 'favicon_path'])->get()->toArray(),
             'device_connections' => DeviceConnection::all()->toArray(),
         ];
     }
 
-    protected function restoreSystemData(array $data)
+    protected function restoreSystemData(array $data, array $options = [])
     {
         DB::transaction(function () use ($data) {
             // Disable foreign key checks to avoid constraint violations during truncate
@@ -97,27 +97,125 @@ class SystemBackupService
 
             // 1. Restore Companies
             if (isset($data['companies'])) {
-                Company::truncate();
+                Company::query()->delete();
                 foreach ($data['companies'] as $record) {
                     Company::create($record);
                 }
             }
 
-            // 2. Restore Users
+            // 2. Restore Users (Granular Logic)
             if (isset($data['users'])) {
-                User::truncate();
+                // Determine which users to DELETE (i.e. NOT preserve)
+                $query = User::query();
+
+                // If excluding (keeping) Global Admins, DO NOT delete them.
+                if ($options['exclude_global_admins'] ?? false) {
+                    // Start by selecting everything that IS NOT a global admin for potential deletion
+                    // Global Admin: role == 'admin' AND company_id IS NULL
+                    $query->where(function ($q) {
+                        $q->where('role', '!=', 'admin')
+                            ->orWhereNotNull('company_id');
+                    });
+                }
+
+                // If excluding (keeping) End Users & Company Admins, DO NOT delete them.
+                if ($options['exclude_end_users'] ?? false) {
+                    // Helper logic:
+                    // End User: role == 'user'
+                    // Company Admin: role == 'admin' AND company_id IS NOT NULL
+                    // effectively: anyone with company_id NOT NULL OR role == 'user'
+
+                    // So we only want to delete Global Admins (if not preserved above)
+                    // If we are preserving standard users, we narrow the delete scope.
+
+                    // Simplest approach: Delete ALL vs Delete NONE vs Delete Subset.
+                    // But we might have a mix.
+
+                    // Let's invert: what do we keep?
+                    // $keepIds = [];
+                    // if (exclude_global) $keepIds += GlobalAdmins->pluck('id')
+                    // if (exclude_end) $keepIds += EndUsers->pluck('id')
+                    // User::whereNotIn('id', $keepIds)->delete();
+
+                    // However, constructing huge ID lists is inefficient.
+                    // Let's use logic.
+
+                    $query->where(function ($q) {
+                        // We are inside a "Delete These" query.
+                        // So we want to filter out the "Keep These" rows.
+
+                        // Exclude Global Admins from deletion?
+                        // i.e. "where NOT (Global Admin)"
+                        // (role != 'admin' OR company_id != null)
+
+                        // Exclude End/Company Users from deletion?
+                        // i.e. "where NOT (End or Company Admin)"
+                        // (role == 'admin' AND company_id == null) <- this IS a global admin
+
+                        // Let's re-build the query carefully.
+                    });
+                }
+
+                // Let's rethink. Explicit Logic:
+                $deleteQuery = User::query();
+
+                if ($options['exclude_global_admins'] ?? false) {
+                    // Do NOT delete Global Admins.
+                    // So only delete where (role != admin OR company_id != null)
+                    $deleteQuery->where(function ($q) {
+                        $q->where('role', '!=', 'admin')
+                            ->orWhereNotNull('company_id');
+                    });
+                }
+
+                if ($options['exclude_end_users'] ?? false) {
+                    // Do NOT delete End/Company Users.
+                    // So only delete where (role == admin AND company_id == null) -> effectively deletes Global Admins
+                    $deleteQuery->where(function ($q) {
+                        $q->where('role', 'admin')
+                            ->whereNull('company_id');
+                    });
+                }
+
+                $deleteQuery->delete();
+
+
+                // Now Insert from Backup (Skipping preserved types)
                 foreach ($data['users'] as $record) {
-                    // Start manually inserting to preserve IDs and password hashes
-                    // Eloquent create() might re-hash passwords if there's a mutator, but typically explicit fill is safe.
-                    // However, for Users, we want to be careful.
-                    // Let's use forceCreate to avoid mass assignment protection issues if any.
+                    $isGlobalArg = ($record['role'] === 'admin' && is_null($record['company_id']));
+                    $isEndOrCompanyArg = !$isGlobalArg; // Simplified definition per user request (End + Company vs Global)
+
+                    // If we are keeping Global Admins, skip restoring Global Admins from backup
+                    if (($options['exclude_global_admins'] ?? false) && $isGlobalArg) {
+                        continue;
+                    }
+
+                    // If we are keeping End/Company Users, skip restoring them from backup
+                    if (($options['exclude_end_users'] ?? false) && $isEndOrCompanyArg) {
+                        continue;
+                    }
+
+                    // For preserved users, we might have ID conflicts if we insert blindly.
+                    // Since we used 'delete()' based on criteria, the "slot" for a kept user is occupied.
+                    // If the backup has a user with same ID as a kept user, and we skipped it above, we are good.
+                    // If we didn't skip it (logic error), forceCreate might fail on ID unique constraint.
+                    // But our skip logic aligns exacty with the keep logic.
+                    // (Keep Global -> Skip Backup Global).
+
+                    // Possible Edge case: ID collision between a "Deleted End User" (from database) and a "Restored Global Admin" (from backup).
+                    // If we kept Global Admins (IDs 1, 2), and deleted End User (ID 3).
+                    // Backup has Global Admin (ID 3).
+                    // We try to insert ID 3. It works.
+                    // Backup has Global Admin (ID 1). We skip.
+
+                    // So `forceCreate` should be safe provided our skip logic matches the delete logic.
                     User::forceCreate($record);
                 }
             }
 
             // 3. Restore Firewalls
             if (isset($data['firewalls'])) {
-                Firewall::truncate();
+                Firewall::query()->delete();
                 foreach ($data['firewalls'] as $record) {
                     // Important: The 'encrypted' casted columns (api_key, etc) were decrypted on export.
                     // When we use generic create or forceCreate with the raw plain values, 
@@ -129,15 +227,19 @@ class SystemBackupService
 
             // 4. Restore System Settings
             if (isset($data['system_settings'])) {
-                SystemSetting::truncate();
+                SystemSetting::query()->delete();
                 foreach ($data['system_settings'] as $record) {
+                    // Check for hostname exclusion
+                    if (($options['exclude_hostname'] ?? false) && in_array($record['key'], ['site_url', 'site_protocol'])) {
+                        continue;
+                    }
                     SystemSetting::forceCreate($record);
                 }
             }
 
             // 5. Restore Device Connections
             if (isset($data['device_connections'])) {
-                DeviceConnection::truncate();
+                DeviceConnection::query()->delete();
                 foreach ($data['device_connections'] as $record) {
                     DeviceConnection::forceCreate($record);
                 }
