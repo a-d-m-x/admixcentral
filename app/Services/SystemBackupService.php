@@ -173,7 +173,15 @@ class SystemBackupService
                     if (in_array($record['key'], $keysToPreserve)) {
                         continue;
                     }
-                    SystemSetting::forceCreate($record);
+
+                    // Prevent ID collision with preserved settings (IDs are not stable for settings)
+                    unset($record['id']);
+
+                    // Use updateOrInsert to be safe against ghost records, relying on 'key'
+                    SystemSetting::updateOrInsert(
+                        ['key' => $record['key']],
+                        $record
+                    );
                 }
             }
 
