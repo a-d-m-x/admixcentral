@@ -177,6 +177,14 @@ class SystemBackupService
                     // Prevent ID collision with preserved settings (IDs are not stable for settings)
                     unset($record['id']);
 
+                    // Sanitize dates for Query Builder (updateOrInsert doesn't use Eloquent casting)
+                    if (isset($record['created_at'])) {
+                        $record['created_at'] = \Carbon\Carbon::parse($record['created_at'])->toDateTimeString();
+                    }
+                    if (isset($record['updated_at'])) {
+                        $record['updated_at'] = \Carbon\Carbon::parse($record['updated_at'])->toDateTimeString();
+                    }
+
                     // Use updateOrInsert to be safe against ghost records, relying on 'key'
                     SystemSetting::updateOrInsert(
                         ['key' => $record['key']],
