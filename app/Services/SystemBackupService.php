@@ -99,7 +99,13 @@ class SystemBackupService
             if (isset($data['companies'])) {
                 Company::query()->delete();
                 foreach ($data['companies'] as $record) {
-                    Company::create($record);
+                    // Sanitize dates
+                    if (isset($record['created_at']))
+                        $record['created_at'] = \Carbon\Carbon::parse($record['created_at'])->toDateTimeString();
+                    if (isset($record['updated_at']))
+                        $record['updated_at'] = \Carbon\Carbon::parse($record['updated_at'])->toDateTimeString();
+
+                    Company::forceCreate($record);
                 }
             }
 
@@ -139,6 +145,14 @@ class SystemBackupService
                         continue;
                     }
 
+                    // Sanitize dates
+                    if (isset($record['created_at']))
+                        $record['created_at'] = \Carbon\Carbon::parse($record['created_at'])->toDateTimeString();
+                    if (isset($record['updated_at']))
+                        $record['updated_at'] = \Carbon\Carbon::parse($record['updated_at'])->toDateTimeString();
+                    if (isset($record['email_verified_at']))
+                        $record['email_verified_at'] = \Carbon\Carbon::parse($record['email_verified_at'])->toDateTimeString();
+
                     User::forceCreate($record);
                 }
             }
@@ -148,9 +162,12 @@ class SystemBackupService
                 Firewall::query()->delete();
                 foreach ($data['firewalls'] as $record) {
                     // Important: The 'encrypted' casted columns (api_key, etc) were decrypted on export.
-                    // When we use generic create or forceCreate with the raw plain values, 
-                    // the model's 'encrypted' cast SHOULD automatically encrypt them with the NEW app key.
-                    // We must ensure 'api_key', 'api_secret' are passed as plain text here, which they are from json_decode.
+                    // Firewalls need explicit date sanitization too just in case
+                    if (isset($record['created_at']))
+                        $record['created_at'] = \Carbon\Carbon::parse($record['created_at'])->toDateTimeString();
+                    if (isset($record['updated_at']))
+                        $record['updated_at'] = \Carbon\Carbon::parse($record['updated_at'])->toDateTimeString();
+
                     Firewall::forceCreate($record);
                 }
             }
@@ -174,18 +191,15 @@ class SystemBackupService
                         continue;
                     }
 
-                    // Prevent ID collision with preserved settings (IDs are not stable for settings)
+                    // Prevent ID collision with preserved settings
                     unset($record['id']);
 
-                    // Sanitize dates for Query Builder (updateOrInsert doesn't use Eloquent casting)
-                    if (isset($record['created_at'])) {
+                    // Sanitize dates for Query Builder
+                    if (isset($record['created_at']))
                         $record['created_at'] = \Carbon\Carbon::parse($record['created_at'])->toDateTimeString();
-                    }
-                    if (isset($record['updated_at'])) {
+                    if (isset($record['updated_at']))
                         $record['updated_at'] = \Carbon\Carbon::parse($record['updated_at'])->toDateTimeString();
-                    }
 
-                    // Use updateOrInsert to be safe against ghost records, relying on 'key'
                     SystemSetting::updateOrInsert(
                         ['key' => $record['key']],
                         $record
@@ -197,6 +211,12 @@ class SystemBackupService
             if (isset($data['device_connections'])) {
                 DeviceConnection::query()->delete();
                 foreach ($data['device_connections'] as $record) {
+                    // Sanitize dates
+                    if (isset($record['created_at']))
+                        $record['created_at'] = \Carbon\Carbon::parse($record['created_at'])->toDateTimeString();
+                    if (isset($record['updated_at']))
+                        $record['updated_at'] = \Carbon\Carbon::parse($record['updated_at'])->toDateTimeString();
+
                     DeviceConnection::forceCreate($record);
                 }
             }
