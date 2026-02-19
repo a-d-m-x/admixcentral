@@ -72,7 +72,21 @@
                                             
                                             <button type="button" @click="$dispatch('open-modal', 'restore-backup-modal-{{ md5($backup['name']) }}')" class="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300">Restore</button>
                                             
-                                            <form action="{{ route('system.backups.destroy', $backup['name']) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this backup?');">
+                                            <form action="{{ route('system.backups.destroy', $backup['name']) }}" method="POST" class="inline" @submit.prevent="
+                                                Swal.fire({
+                                                    title: 'Are you sure?',
+                                                    text: 'You will not be able to recover this backup!',
+                                                    icon: 'warning',
+                                                    showCancelButton: true,
+                                                    confirmButtonColor: '#d33',
+                                                    cancelButtonColor: '#3085d6',
+                                                    confirmButtonText: 'Yes, delete it!'
+                                                }).then((result) => {
+                                                    if (result.isConfirmed) {
+                                                        $el.submit();
+                                                    }
+                                                })
+                                            ">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">Delete</button>
@@ -146,7 +160,21 @@
             <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
                  <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Restore from Upload</h3>
                  <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
-                     <form method="POST" action="{{ route('system.backups.restore') }}" enctype="multipart/form-data" class="space-y-4">
+                     <form method="POST" action="{{ route('system.backups.restore') }}" enctype="multipart/form-data" class="space-y-4" @submit.prevent="
+                        Swal.fire({
+                            title: 'Are you sure?',
+                            text: 'Starting a restore will overwrite system data! This action cannot be undone.',
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonColor: '#d33',
+                            cancelButtonColor: '#3085d6',
+                            confirmButtonText: 'Yes, restore it!'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                $el.submit();
+                            }
+                        })
+                     ">
                         @csrf
                         <div>
                             <x-input-label for="backup_file" value="{{ __('Backup File (.enc)') }}" />
@@ -178,7 +206,7 @@
                             </div>
                         </div>
                          <div class="flex justify-end">
-                             <x-primary-button onclick="return confirm('Starting a restore will overwrite system data. Are you sure?');">
+                             <x-primary-button>
                                 {{ __('Upload & Restore') }}
                             </x-primary-button>
                         </div>
