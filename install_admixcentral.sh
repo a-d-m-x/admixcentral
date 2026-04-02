@@ -30,6 +30,8 @@ DB_PASS="${DB_PASS:-}"
 
 OS_FAMILY=""
 DB_SERVICE_NAME="mysql"
+RUNTIME_WEB_USER=""
+RUNTIME_WEB_GROUP=""
 
 os_detect() {
   log "Detecting Operating System"
@@ -37,7 +39,7 @@ os_detect() {
     . /etc/os-release
     local id_like="${ID_LIKE:-}"
     local id="${ID:-}"
-    
+
     if [[ "$id" == "debian" || "$id" == "ubuntu" || "$id_like" == *"debian"* || "$id_like" == *"ubuntu"* ]]; then
       OS_FAMILY="debian"
       DB_SERVICE_NAME="mysql"
@@ -51,7 +53,7 @@ os_detect() {
       DB_SERVICE_NAME="mariadb"
       if [[ "${WEB_USER}" == "www-data" ]]; then WEB_USER="http"; fi
       if [[ "${WEB_GROUP}" == "www-data" ]]; then WEB_GROUP="http"; fi
-    elif [[ "$id" == "suse" || "$id" == "opensuse"* || "$id_like" == *"suse"* ]]; then
+    elif [[ "$id" == "suse" || "$id" == opensuse* || "$id_like" == *"suse"* ]]; then
       OS_FAMILY="suse"
       DB_SERVICE_NAME="mariadb"
       if [[ "${WEB_USER}" == "www-data" ]]; then WEB_USER="nginx"; fi
@@ -117,7 +119,7 @@ install_node() {
     npm -v || true
     return 0
   fi
-  
+
   if [[ "$OS_FAMILY" == "debian" ]]; then
     curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash -
     pkg_install nodejs
@@ -127,7 +129,7 @@ install_node() {
   else
     pkg_install nodejs npm
   fi
-  
+
   node -v || true
   npm -v || true
 }
@@ -205,7 +207,7 @@ db_preflight_test() {
 detect_php_fpm_sock() {
   local preferred="/var/run/php/php${PHP_VER}-fpm.sock"
   [[ -S "$preferred" ]] && { echo "$preferred"; return 0; }
-  
+
   local found
   found="$(ls -1 /var/run/php/php*-fpm.sock /run/php-fpm/www.sock /run/php-fpm/php-fpm.sock /run/php-fpm.sock /var/run/php-fpm.sock 2>/dev/null | head -n 1 || true)"
   [[ -n "$found" ]] || die "No PHP-FPM socket found in standard directories"
@@ -233,6 +235,124 @@ configure_arch_php() {
       done
     fi
   fi
+}
+
+detect_runtime_web_user_group() {
+  local app_user=""
+  local app_group=""
+  local fpm_conf=""
+
+  for f in /etc/php-fpm.d/www.conf /etc/php*/php-fpm.d/www.conf; do
+    if [[ -f "$f" ]]; then
+      fpm_conf="$f"
+      break
+    fi
+  done
+
+  if [[ -n "$fpm_conf" ]]; then
+    app_user="$(awk -F= '/^[[:space:]]*user[[:space:]]*=/{gsub(/[[:space:]]+/,"",$2); print $2; exit}' "$fpm_conf" || true)"
+    app_group="$(awk -F= '/^[[:space:]]*group[[:space:]]*=/{gsub(/[[:space:]]+/,"",$2); print $2; exit}' "$fpm_conf" || true)"
+  fi
+
+  if [[ -z "$app_user" ]]; then
+    app_user="$(ps -eo user,comm | awk '$2=="php-fpm" && $1!="root"{print $1; exit}' || true)"
+  fi
+
+  if [[ -z "$app_group" && -n "$app_user" ]]; then
+    app_group="$(id -gn "$app_user" 2>/dev/null || true)"
+  fi
+
+  if [[ -z "$app_user" ]]; then
+    if id nginx >/dev/null 2>&1; then
+      app_user="nginx"
+    elif id apache >/dev/null 2>&1; then
+      app_user="apache"
+    elif id www-data >/dev/null 2>&1; then
+      app_user="www-data"
+    elif id http >/dev/null 2>&1; then
+      app_user="http"
+    else
+      die "Could not determine PHP-FPM runtime user"
+    fi
+  fi
+
+  if [[ -z "$app_group" ]]; then
+    app_group="$(id -gn "$app_user" 2>/dev/null || true)"
+  fi
+
+  [[ -n "$app_user" ]] || die "Could not determine runtime user"
+  [[ -n "$app_group" ]] || die "Could not determine runtime group"
+
+  RUNTIME_WEB_USER="$app_user"
+  RUNTIME_WEB_GROUP="$app_group"
+
+  log "Detected PHP-FPM runtime user/group: ${RUNTIME_WEB_USER}:${RUNTIME_WEB_GROUP}"
+}
+
+final_fix_permissions() {
+  log "Running embedded final permissions fix"
+
+  [[ -n "${RUNTIME_WEB_USER}" ]] || detect_runtime_web_user_group
+  [[ -n "${RUNTIME_WEB_GROUP}" ]] || detect_runtime_web_user_group
+
+  mkdir -p "${INSTALL_DIR}/storage/framework/cache" \
+           "${INSTALL_DIR}/storage/framework/sessions" \
+           "${INSTALL_DIR}/storage/framework/views" \
+           "${INSTALL_DIR}/bootstrap/cache" \
+           "${INSTALL_DIR}/public/build" \
+           "${INSTALL_DIR}/storage/logs"
+
+  chown -R "${RUNTIME_WEB_USER}:${RUNTIME_WEB_GROUP}" \
+    "${INSTALL_DIR}/storage" \
+    "${INSTALL_DIR}/bootstrap/cache" \
+    "${INSTALL_DIR}/public/build"
+
+  find "${INSTALL_DIR}/storage" -type d -exec chmod 2775 {} \;
+  find "${INSTALL_DIR}/storage" -type f -exec chmod 0664 {} \;
+
+  find "${INSTALL_DIR}/bootstrap/cache" -type d -exec chmod 2775 {} \;
+  find "${INSTALL_DIR}/bootstrap/cache" -type f -exec chmod 0664 {} \;
+
+  find "${INSTALL_DIR}/public/build" -type d -exec chmod 2775 {} \; 2>/dev/null || true
+  find "${INSTALL_DIR}/public/build" -type f -exec chmod 0664 {} \; 2>/dev/null || true
+
+  if command -v getenforce >/dev/null 2>&1; then
+    if [[ "$(getenforce || true)" != "Disabled" ]]; then
+      log "Applying SELinux contexts"
+      if ! command -v semanage >/dev/null 2>&1; then
+        if [[ "$OS_FAMILY" == "redhat" ]]; then
+          dnf install -y policycoreutils-python-utils || true
+        fi
+      fi
+
+      if command -v semanage >/dev/null 2>&1; then
+        semanage fcontext -a -t httpd_sys_rw_content_t "${INSTALL_DIR}/storage(/.*)?" 2>/dev/null || true
+        semanage fcontext -a -t httpd_sys_rw_content_t "${INSTALL_DIR}/bootstrap/cache(/.*)?" 2>/dev/null || true
+        semanage fcontext -a -t httpd_sys_rw_content_t "${INSTALL_DIR}/public/build(/.*)?" 2>/dev/null || true
+      fi
+
+      restorecon -Rv "${INSTALL_DIR}/storage" "${INSTALL_DIR}/bootstrap/cache" "${INSTALL_DIR}/public/build" 2>/dev/null || true
+      setsebool -P httpd_unified 1 2>/dev/null || true
+      setsebool -P httpd_can_network_connect 1 2>/dev/null || true
+    fi
+  fi
+
+  if [[ -f "${INSTALL_DIR}/artisan" ]]; then
+    sudo -u "${RUNTIME_WEB_USER}" php "${INSTALL_DIR}/artisan" view:clear || true
+    sudo -u "${RUNTIME_WEB_USER}" php "${INSTALL_DIR}/artisan" cache:clear || true
+    sudo -u "${RUNTIME_WEB_USER}" php "${INSTALL_DIR}/artisan" config:clear || true
+    sudo -u "${RUNTIME_WEB_USER}" php "${INSTALL_DIR}/artisan" route:clear || true
+  fi
+
+  systemctl restart nginx || true
+
+  local php_svc="php${PHP_VER}-fpm"
+  if [[ "$OS_FAMILY" == "redhat" || "$OS_FAMILY" == "arch" ]]; then
+    php_svc="php-fpm"
+  elif [[ "$OS_FAMILY" == "suse" ]]; then
+    php_svc="php8-fpm"
+  fi
+  systemctl restart "$php_svc" || true
 }
 
 main() {
@@ -295,7 +415,7 @@ main() {
 
   log "Enabling services"
   systemctl enable --now nginx || true
-  
+
   local php_svc="php${PHP_VER}-fpm"
   if [[ "$OS_FAMILY" == "redhat" || "$OS_FAMILY" == "arch" ]]; then
     php_svc="php-fpm"
@@ -303,6 +423,8 @@ main() {
     php_svc="php8-fpm"
   fi
   systemctl enable --now "$php_svc" || true
+
+  detect_runtime_web_user_group
 
   wait_for_mysql
   create_database
@@ -314,7 +436,7 @@ main() {
   log "Cloning repo to ${INSTALL_DIR}"
   rm -rf "$INSTALL_DIR"
   git clone "$REPO_URL" "$INSTALL_DIR"
-  chown -R "${WEB_USER}:${WEB_GROUP}" "$INSTALL_DIR" || log "Warning: chown failed, ignoring..."
+  chown -R "${WEB_USER}:${WEB_GROUP}" "$INSTALL_DIR" || log "Warning: initial chown failed, ignoring..."
 
   cd "$INSTALL_DIR"
   [[ -f artisan && -d public ]] || die "Invalid repo layout (expected artisan + public/)"
@@ -400,12 +522,12 @@ EOF
   log "Configuring Nginx (IP-safe server_name _)"
   local nginx_sites_avail="/etc/nginx/sites-available"
   local nginx_sites_en="/etc/nginx/sites-enabled"
-  
+
   if [[ "$OS_FAMILY" == "redhat" || "$OS_FAMILY" == "arch" || "$OS_FAMILY" == "suse" ]]; then
-     nginx_sites_avail="/etc/nginx/conf.d"
-     nginx_sites_en="/etc/nginx/conf.d"
+    nginx_sites_avail="/etc/nginx/conf.d"
+    nginx_sites_en="/etc/nginx/conf.d"
   fi
-  
+
   mkdir -p "$nginx_sites_avail"
   mkdir -p "$nginx_sites_en"
 
@@ -437,7 +559,7 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
-    
+
     location /apps {
         proxy_pass http://127.0.0.1:8080;
         proxy_http_version 1.1;
@@ -475,34 +597,32 @@ EOF
   fi
   mkdir -p "$supv_conf_dir"
 
-  # Queue Worker
   cat >"${supv_conf_dir}/admix-worker.ini" <<EOF
 [program:admix-worker]
 process_name=%(program_name)s_%(process_num)02d
 command=php ${INSTALL_DIR}/artisan queue:work --sleep=3 --tries=3 --max-time=3600
 autostart=true
 autorestart=true
-user=${WEB_USER}
+user=${RUNTIME_WEB_USER}
 numprocs=2
 redirect_stderr=true
 stdout_logfile=${INSTALL_DIR}/storage/logs/worker.log
 stopwaitsecs=3600
 EOF
 
-  # Reverb Server
   cat >"${supv_conf_dir}/admix-reverb.ini" <<EOF
 [program:admix-reverb]
 command=php ${INSTALL_DIR}/artisan reverb:start
 autostart=true
 autorestart=true
-user=${WEB_USER}
+user=${RUNTIME_WEB_USER}
 numprocs=1
 redirect_stderr=true
 stdout_logfile=${INSTALL_DIR}/storage/logs/reverb.log
 EOF
 
   mkdir -p "${INSTALL_DIR}/storage/logs"
-  chown -R "${WEB_USER}:${WEB_GROUP}" "${INSTALL_DIR}/storage" || true
+  chown -R "${RUNTIME_WEB_USER}:${RUNTIME_WEB_GROUP}" "${INSTALL_DIR}/storage" || true
   chmod -R ug+rwX "${INSTALL_DIR}/storage" || true
 
   log "Starting Supervisor services..."
@@ -518,16 +638,7 @@ EOF
 
   unset DB_PASS
 
-  log "Running final permissions fix..."
-  export INSTALL_DIR
-  export WEB_USER
-  export WEB_GROUP
-  
-  if [[ -f "${INSTALL_DIR}/scripts/fix-perms.sh" ]]; then
-    bash "${INSTALL_DIR}/scripts/fix-perms.sh"
-  else
-    log "Warning: scripts/fix-perms.sh not found. Skipping final permissions fix."
-  fi
+  final_fix_permissions
 
   log "INSTALL COMPLETE"
   echo
@@ -535,6 +646,7 @@ EOF
   echo "AdmixCentral installed at: ${INSTALL_DIR}"
   echo "Browse: http://<server-ip>/"
   echo "Log: ${LOG_FILE}"
+  echo "Detected runtime user/group: ${RUNTIME_WEB_USER}:${RUNTIME_WEB_GROUP}"
   echo "============================================================"
 }
 
