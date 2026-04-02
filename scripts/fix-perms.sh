@@ -1,8 +1,20 @@
 #!/bin/bash
 
 PROJECT_DIR="${INSTALL_DIR:-/var/www/admixcentral}"
-APP_USER="${WEB_USER:-administrator}"
-WEB_GROUP="${WEB_GROUP:-www-data}"
+
+# Auto-detect OS defaults for web user
+DEFAULT_USER="www-data"
+if [[ -f /etc/os-release ]]; then
+  . /etc/os-release
+  if [[ "$ID" == "fedora" || "$ID_LIKE" == *"rhel"* || "$ID_LIKE" == *"centos"* || "$ID" == "suse"* || "$ID_LIKE" == *"suse"* ]]; then
+    DEFAULT_USER="nginx"
+  elif [[ "$ID" == "arch" || "$ID_LIKE" == *"arch"* ]]; then
+    DEFAULT_USER="http"
+  fi
+fi
+
+APP_USER="${WEB_USER:-$DEFAULT_USER}"
+WEB_GROUP="${WEB_GROUP:-$DEFAULT_USER}"
 
 echo "Fixing permissions for $PROJECT_DIR"
 
