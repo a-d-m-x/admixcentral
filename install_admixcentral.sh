@@ -32,6 +32,8 @@ OS_FAMILY=""
 DB_SERVICE_NAME="mysql"
 RUNTIME_WEB_USER=""
 RUNTIME_WEB_GROUP=""
+WEB_HOME=""
+PHP_SERVICE=""
 
 os_detect() {
   log "Detecting Operating System"
@@ -43,24 +45,30 @@ os_detect() {
     if [[ "$id" == "debian" || "$id" == "ubuntu" || "$id_like" == *"debian"* || "$id_like" == *"ubuntu"* ]]; then
       OS_FAMILY="debian"
       DB_SERVICE_NAME="mysql"
+      PHP_SERVICE="php${PHP_VER}-fpm"
     elif [[ "$id" == "fedora" || "$id" == "rhel" || "$id" == "centos" || "$id_like" == *"fedora"* || "$id_like" == *"rhel"* || "$id_like" == *"centos"* ]]; then
       OS_FAMILY="redhat"
       DB_SERVICE_NAME="mariadb"
+      PHP_SERVICE="php-fpm"
       if [[ "${WEB_USER}" == "www-data" ]]; then WEB_USER="nginx"; fi
       if [[ "${WEB_GROUP}" == "www-data" ]]; then WEB_GROUP="nginx"; fi
     elif [[ "$id" == "arch" || "$id_like" == *"arch"* ]]; then
       OS_FAMILY="arch"
       DB_SERVICE_NAME="mariadb"
+      PHP_SERVICE="php-fpm"
       if [[ "${WEB_USER}" == "www-data" ]]; then WEB_USER="http"; fi
       if [[ "${WEB_GROUP}" == "www-data" ]]; then WEB_GROUP="http"; fi
     elif [[ "$id" == "suse" || "$id" == opensuse* || "$id_like" == *"suse"* ]]; then
       OS_FAMILY="suse"
       DB_SERVICE_NAME="mariadb"
+      PHP_SERVICE="php8-fpm"
       if [[ "${WEB_USER}" == "www-data" ]]; then WEB_USER="nginx"; fi
       if [[ "${WEB_GROUP}" == "www-data" ]]; then WEB_GROUP="nginx"; fi
     else
       log "Warning: Unknown OS $id or $id_like, defaulting to debian strategy"
       OS_FAMILY="debian"
+      DB_SERVICE_NAME="mysql"
+      PHP_SERVICE="php${PHP_VER}-fpm"
     fi
   else
     die "Cannot detect OS: /etc/os-release missing"
@@ -69,8 +77,8 @@ os_detect() {
 }
 
 wait_for_pkg_locks() {
-  log "Waiting for package manager locks to clear"
   if [[ "$OS_FAMILY" == "debian" ]]; then
+    log "Waiting for package manager locks to clear"
     local i=0
     while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 \
        || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 \
@@ -285,8 +293,173 @@ detect_runtime_web_user_group() {
 
   RUNTIME_WEB_USER="$app_user"
   RUNTIME_WEB_GROUP="$app_group"
+  WEB_HOME="$(getent passwd "$RUNTIME_WEB_USER" | cut -d: -f6 || true)"
+
+  if [[ -z "$WEB_HOME" ]]; then
+    case "$RUNTIME_WEB_USER" in
+      http) WEB_HOME="/srv/http" ;;
+      nginx) WEB_HOME="/var/lib/nginx" ;;
+      apache) WEB_HOME="/usr/share/httpd" ;;
+      www-data) WEB_HOME="/var/www" ;;
+      *) WEB_HOME="/tmp/${RUNTIME_WEB_USER}" ;;
+    esac
+  fi
 
   log "Detected PHP-FPM runtime user/group: ${RUNTIME_WEB_USER}:${RUNTIME_WEB_GROUP}"
+  log "Detected runtime home: ${WEB_HOME}"
+}
+
+fix_arch_nginx_main_config() {
+  [[ "$OS_FAMILY" == "arch" ]] || return 0
+
+  log "Fixing Arch nginx main config to load conf.d and remove default welcome site"
+
+  cat >/etc/nginx/nginx.conf <<'EOF'
+#user http;
+worker_processes  1;
+
+#error_log  logs/error.log;
+#error_log  logs/error.log  notice;
+#error_log  logs/error.log  info;
+
+#pid        logs/nginx.pid;
+
+# Load all installed modules
+include modules.d/*.conf;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    #log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+    #                  '$status $body_bytes_sent "$http_referer" '
+    #                  '"$http_user_agent" "$http_x_forwarded_for"';
+
+    #access_log  logs/access.log  main;
+
+    sendfile        on;
+    #tcp_nopush     on;
+
+    keepalive_timeout 65;
+
+    #gzip  on;
+
+    include /etc/nginx/conf.d/*.conf;
+}
+EOF
+}
+
+configure_nginx_site() {
+  log "Configuring Nginx"
+
+  local nginx_sites_avail="/etc/nginx/sites-available"
+  local nginx_sites_en="/etc/nginx/sites-enabled"
+
+  if [[ "$OS_FAMILY" == "redhat" || "$OS_FAMILY" == "arch" || "$OS_FAMILY" == "suse" ]]; then
+    nginx_sites_avail="/etc/nginx/conf.d"
+    nginx_sites_en="/etc/nginx/conf.d"
+  fi
+
+  mkdir -p "$nginx_sites_avail"
+  mkdir -p "$nginx_sites_en"
+
+  rm -f "${nginx_sites_en}/default" || true
+  rm -f "${nginx_sites_en}/default.conf" || true
+  rm -f /etc/nginx/conf.d/default.conf /etc/nginx/conf.d/example_ssl.conf 2>/dev/null || true
+
+  if [[ "$OS_FAMILY" == "arch" ]]; then
+    fix_arch_nginx_main_config
+  fi
+
+  local php_sock
+  php_sock="$(detect_php_fpm_sock)"
+
+  cat >"${nginx_sites_avail}/admixcentral.conf" <<EOF
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    root ${INSTALL_DIR}/public;
+
+    index index.php index.html;
+
+    location / {
+        try_files \$uri \$uri/ /index.php?\$query_string;
+    }
+
+    location /app {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    location /apps {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass unix:${php_sock};
+        fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
+        fastcgi_param DOCUMENT_ROOT \$realpath_root;
+    }
+
+    location ~ /\.(?!well-known).* { deny all; }
+}
+EOF
+
+  if [[ "$nginx_sites_avail" != "$nginx_sites_en" ]]; then
+    ln -sf "${nginx_sites_avail}/admixcentral.conf" "${nginx_sites_en}/admixcentral.conf" || true
+  fi
+
+  nginx -t || die "Nginx config test failed"
+  systemctl reload nginx || systemctl restart nginx || true
+}
+
+run_as_runtime_user() {
+  local cmd="$1"
+  sudo -u "${RUNTIME_WEB_USER}" -H env HOME="${WEB_HOME}" npm_config_cache="${WEB_HOME}/.npm" bash -lc "$cmd"
+}
+
+install_frontend_clean() {
+  log "Fixing npm cache ownership + ensuring clean frontend install"
+
+  mkdir -p "${WEB_HOME}/.npm"
+  chown -R "${RUNTIME_WEB_USER}:${RUNTIME_WEB_GROUP}" "${WEB_HOME}" || true
+  chown -R "${RUNTIME_WEB_USER}:${RUNTIME_WEB_GROUP}" "${WEB_HOME}/.npm" || true
+
+  rm -rf "${INSTALL_DIR}/node_modules" || true
+  chown -R "${RUNTIME_WEB_USER}:${RUNTIME_WEB_GROUP}" "${INSTALL_DIR}" || true
+
+  log "Installing frontend deps + building (as ${RUNTIME_WEB_USER}, HOME=${WEB_HOME})"
+  run_as_runtime_user "
+    set -Eeuo pipefail
+    cd '${INSTALL_DIR}'
+    npm cache clean --force || true
+    npm cache verify || true
+    if [[ -f package-lock.json ]]; then
+      npm ci
+    else
+      npm install
+    fi
+    npm run build
+  "
 }
 
 final_fix_permissions() {
@@ -338,21 +511,18 @@ final_fix_permissions() {
   fi
 
   if [[ -f "${INSTALL_DIR}/artisan" ]]; then
-    sudo -u "${RUNTIME_WEB_USER}" php "${INSTALL_DIR}/artisan" view:clear || true
-    sudo -u "${RUNTIME_WEB_USER}" php "${INSTALL_DIR}/artisan" cache:clear || true
-    sudo -u "${RUNTIME_WEB_USER}" php "${INSTALL_DIR}/artisan" config:clear || true
-    sudo -u "${RUNTIME_WEB_USER}" php "${INSTALL_DIR}/artisan" route:clear || true
+    run_as_runtime_user "
+      cd '${INSTALL_DIR}'
+      php artisan view:clear || true
+      php artisan cache:clear || true
+      php artisan config:clear || true
+      php artisan route:clear || true
+      php artisan storage:link || true
+    "
   fi
 
+  systemctl restart "${PHP_SERVICE}" || true
   systemctl restart nginx || true
-
-  local php_svc="php${PHP_VER}-fpm"
-  if [[ "$OS_FAMILY" == "redhat" || "$OS_FAMILY" == "arch" ]]; then
-    php_svc="php-fpm"
-  elif [[ "$OS_FAMILY" == "suse" ]]; then
-    php_svc="php8-fpm"
-  fi
-  systemctl restart "$php_svc" || true
 }
 
 main() {
@@ -415,14 +585,7 @@ main() {
 
   log "Enabling services"
   systemctl enable --now nginx || true
-
-  local php_svc="php${PHP_VER}-fpm"
-  if [[ "$OS_FAMILY" == "redhat" || "$OS_FAMILY" == "arch" ]]; then
-    php_svc="php-fpm"
-  elif [[ "$OS_FAMILY" == "suse" ]]; then
-    php_svc="php8-fpm"
-  fi
-  systemctl enable --now "$php_svc" || true
+  systemctl enable --now "${PHP_SERVICE}" || true
 
   detect_runtime_web_user_group
 
@@ -471,122 +634,34 @@ main() {
   chown -R "${WEB_USER}:${WEB_GROUP}" "$INSTALL_DIR" || true
 
   log "Composer install"
-  sudo -u "${WEB_USER}" -H bash -lc '
-    cd "'"$INSTALL_DIR"'"
+  sudo -u "${WEB_USER}" -H env HOME="${WEB_HOME}" bash -lc "
+    cd '${INSTALL_DIR}'
     COMPOSER_NO_INTERACTION=1 composer install --no-dev --prefer-dist --no-progress
-  ' || bash -lc "cd $INSTALL_DIR && COMPOSER_NO_INTERACTION=1 composer install --no-dev --prefer-dist --no-progress"
+  "
 
   log "Running AdmixCentral install wizard (interactive): php artisan install"
-  sudo -u "${WEB_USER}" -H bash -lc '
-    cd "'"$INSTALL_DIR"'"
+  sudo -u "${WEB_USER}" -H env HOME="${WEB_HOME}" bash -lc "
+    cd '${INSTALL_DIR}'
     php artisan install
-  ' || bash -lc "cd $INSTALL_DIR && php artisan install"
+  "
 
-  log "Fixing npm cache ownership + ensuring clean frontend install"
-  mkdir -p /var/www/.npm
-  chown -R "${WEB_USER}:${WEB_GROUP}" /var/www/.npm || true
-  rm -rf /root/.npm || true
-  rm -rf "${INSTALL_DIR}/node_modules" || true
-
-  log "Installing frontend deps + building (as ${WEB_USER})"
-  sudo -u "${WEB_USER}" -H bash -lc '
-    set -e
-    cd "'"$INSTALL_DIR"'"
-    npm config set cache "$HOME/.npm" --global >/dev/null 2>&1 || true
-    npm cache clean --force || true
-    npm cache verify || true
-
-    if [[ -f package-lock.json ]]; then
-      npm ci
-    else
-      npm install
-    fi
-
-    npm run build
-  ' || bash -lc "cd $INSTALL_DIR && npm ci && npm run build"
+  install_frontend_clean
 
   log "Laravel post-setup"
-  sudo -u "${WEB_USER}" -H bash -lc '
-    cd "'"$INSTALL_DIR"'"
+  run_as_runtime_user "
+    cd '${INSTALL_DIR}'
     php artisan storage:link || true
     php artisan config:clear || true
     php artisan cache:clear || true
-  ' || bash -lc "cd $INSTALL_DIR && php artisan storage:link && php artisan cache:clear"
+  "
 
   log "Configuring sudoers for SSL management (Certbot)"
   cat >/etc/sudoers.d/admixcentral <<EOF
-${WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot, /usr/sbin/nginx, /usr/bin/systemctl reload nginx, /usr/bin/tee /etc/nginx/sites-available/admixcentral, /usr/bin/tee /etc/nginx/conf.d/admixcentral.conf
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot, /usr/sbin/nginx, /usr/bin/systemctl reload nginx, /usr/bin/tee /etc/nginx/sites-available/admixcentral, /usr/bin/tee /etc/nginx/conf.d/admixcentral.conf
 EOF
   chmod 0440 /etc/sudoers.d/admixcentral || true
 
-  log "Configuring Nginx (IP-safe server_name _)"
-  local nginx_sites_avail="/etc/nginx/sites-available"
-  local nginx_sites_en="/etc/nginx/sites-enabled"
-
-  if [[ "$OS_FAMILY" == "redhat" || "$OS_FAMILY" == "arch" || "$OS_FAMILY" == "suse" ]]; then
-    nginx_sites_avail="/etc/nginx/conf.d"
-    nginx_sites_en="/etc/nginx/conf.d"
-  fi
-
-  mkdir -p "$nginx_sites_avail"
-  mkdir -p "$nginx_sites_en"
-
-  rm -f "${nginx_sites_en}/default" || true
-  rm -f "${nginx_sites_en}/default.conf" || true
-  php_sock="$(detect_php_fpm_sock)"
-
-  cat >"${nginx_sites_avail}/admixcentral.conf" <<EOF
-server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    server_name _;
-    root ${INSTALL_DIR}/public;
-
-    index index.php index.html;
-
-    location / {
-        try_files \$uri \$uri/ /index.php?\$query_string;
-    }
-
-    # Laravel Reverb (WebSockets)
-    location /app {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-
-    location /apps {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-
-    location ~ \.php$ {
-        include fastcgi_params;
-        fastcgi_pass unix:${php_sock};
-        fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
-        fastcgi_param DOCUMENT_ROOT \$realpath_root;
-    }
-
-    location ~ /\.(?!well-known).* { deny all; }
-}
-EOF
-
-  if [[ "$nginx_sites_avail" != "$nginx_sites_en" ]]; then
-    ln -sf "${nginx_sites_avail}/admixcentral.conf" "${nginx_sites_en}/admixcentral.conf" || true
-  fi
-  nginx -t || log "Nginx config test failed, check config"
-  systemctl reload nginx || true
+  configure_nginx_site
 
   log "Configuring Supervisor (Worker + Reverb)"
   local supv_conf_dir="/etc/supervisor/conf.d"
@@ -647,6 +722,7 @@ EOF
   echo "Browse: http://<server-ip>/"
   echo "Log: ${LOG_FILE}"
   echo "Detected runtime user/group: ${RUNTIME_WEB_USER}:${RUNTIME_WEB_GROUP}"
+  echo "Detected runtime home: ${WEB_HOME}"
   echo "============================================================"
 }
 
