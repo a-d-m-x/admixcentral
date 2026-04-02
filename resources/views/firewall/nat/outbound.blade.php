@@ -238,7 +238,7 @@
                 <div x-show="showModal"
                     class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
                     <form
-                        :action="isEdit ? '{{ url('firewall/' . $firewall->getRouteKey() . '/nat/outbound') }}/' + form.id : '{{ route('firewall.nat.outbound.store', $firewall) }}'"
+                        :action="isEdit ? '{{ route('firewall.nat.outbound.update', ['firewall' => $firewall, 'id' => 'REPLACE_ME']) }}'.replace('REPLACE_ME', form.id) : '{{ route('firewall.nat.outbound.store', $firewall) }}'"
                         method="POST">
                         @csrf
                         <template x-if="isEdit">
@@ -281,9 +281,10 @@
                                     <label for="interface" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Interface</label>
                                     <select id="interface" name="interface" x-model="form.interface"
                                         class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
-                                        @foreach($interfaces as $iface)
-                                            <option value="{{ $iface['if'] ?? $iface['descr'] }}">
-                                                {{ $iface['descr'] ?? strtoupper($iface['if']) }}
+                                        @foreach($interfaces as $ifName => $iface)
+                                            @php $ifVal = $iface['name'] ?? (is_string($ifName) ? $ifName : ($iface['id'] ?? $iface['if'])); @endphp
+                                            <option value="{{ $ifVal }}">
+                                                {{ $iface['descr'] ?? strtoupper($ifVal) }}
                                             </option>
                                         @endforeach
                                     </select>
@@ -427,7 +428,7 @@
                     </div>
                     <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                         <form
-                            :action="'{{ url('firewall/' . $firewall->getRouteKey() . '/nat/outbound') }}/' + deleteId"
+                            :action="'{{ route('firewall.nat.outbound.destroy', ['firewall' => $firewall, 'id' => 'REPLACE_ME']) }}'.replace('REPLACE_ME', deleteId)"
                             method="POST">
                             @csrf
                             @method('DELETE')

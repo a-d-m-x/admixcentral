@@ -82,17 +82,24 @@
                                             placeholder="Port, Range or 'any'">
                                     </div>
                                 </div>
-                                <div>
-                                    <label class="pf-label" for="dstport">Destination Port (External)</label>
-                                    <input class="pf-input shadow-sm" id="dstport" type="text" name="dstport" required>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="pf-label" for="dst">Destination Address</label>
+                                        <input class="pf-input shadow-sm" id="dst" type="text" name="dst" value="wan"
+                                            placeholder="IP/Alias, 'any' or 'interface name (e.g. wan)'">
+                                    </div>
+                                    <div>
+                                        <label class="pf-label" for="dstport">Destination Port (External)</label>
+                                        <input class="pf-input shadow-sm" id="dstport" type="text" name="dstport" required>
+                                    </div>
                                 </div>
                                 <div>
                                     <label class="pf-label" for="target">Target IP (Internal)</label>
                                     <input class="pf-input shadow-sm" id="target" type="text" name="target" required>
                                 </div>
                                 <div>
-                                    <label class="pf-label" for="local-port">Target Port (Internal)</label>
-                                    <input class="pf-input shadow-sm" id="local-port" type="text" name="local-port"
+                                    <label class="pf-label" for="local_port">Target Port (Internal)</label>
+                                    <input class="pf-input shadow-sm" id="local_port" type="text" name="local_port"
                                         required>
                                 </div>
                                 <div>
@@ -107,10 +114,9 @@
                                 <div>
                                     <label class="pf-label" for="associated_rule">Filter Rule Association</label>
                                     <select class="pf-select shadow-sm" id="associated_rule" name="associated_rule">
-                                        <option value="pass">Add associated filter rule</option>
-                                        <option value="none">None</option>
-                                        <option value="block">Block</option>
-                                        <option value="reject">Reject</option>
+                                        <option value="new">Add associated filter rule</option>
+                                        <option value="pass">Add unassociated Pass rule</option>
+                                        <option value="">None (NAT Only)</option>
                                     </select>
                                 </div>
                                 <div>

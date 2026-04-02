@@ -17,7 +17,7 @@ class InterfacesController extends Controller
 
         try {
             $interfaces = $api->getInterfaces()['data'] ?? [];
-            $availablePorts = $api->getAvailableInterfaces()['data'] ?? [];
+            $availablePorts = $this->normalizeAvailablePorts($api->getAvailableInterfaces()['data'] ?? []);
         } catch (\Exception $e) {
             $error = $e->getMessage();
         }
@@ -72,7 +72,7 @@ class InterfacesController extends Controller
         $api = new PfSenseApiService($firewall);
         $interfaces = [];
         try {
-            $interfaces = $api->getAvailableInterfaces()['data'] ?? [];
+            $interfaces = $this->normalizeAvailablePorts($api->getAvailableInterfaces()['data'] ?? []);
         } catch (\Exception $e) {
             // Ignore
         }
@@ -122,7 +122,7 @@ class InterfacesController extends Controller
             // If not found by vlanif, maybe $id is the index?
             // The API deleteVlan takes 'id'.
 
-            $interfaces = $api->getAvailableInterfaces()['data'] ?? [];
+            $interfaces = $this->normalizeAvailablePorts($api->getAvailableInterfaces()['data'] ?? []);
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to fetch VLAN data: ' . $e->getMessage());
         }
@@ -194,5 +194,18 @@ class InterfacesController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to delete VLAN: ' . $e->getMessage());
         }
+    }
+
+    private function normalizeAvailablePorts(array $ports): array
+    {
+        $normalized = [];
+        foreach ($ports as $k => $v) {
+            $ifName = (is_array($v) && isset($v['if'])) ? $v['if'] : (is_string($k) ? $k : null);
+            if ($ifName) {
+                $normalized[$ifName] = is_array($v) ? $v : [];
+                $normalized[$ifName]['if'] = $ifName;
+            }
+        }
+        return $normalized;
     }
 }

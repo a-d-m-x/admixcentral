@@ -33,9 +33,10 @@
                             <div>
                                 <label for="interface" class="pf-label">Interface</label>
                                 <select name="interface" id="interface" class="pf-select" required>
-                                    @foreach($interfaces as $iface)
-                                        <option value="{{ $iface['id'] }}" {{ ($rule['interface'] ?? 'wan') === $iface['id'] ? 'selected' : '' }}>
-                                            {{ strtoupper($iface['descr'] ?? $iface['id']) }}
+                                    @foreach($interfaces as $ifName => $iface)
+                                        @php $ifVal = $iface['name'] ?? (is_string($ifName) ? $ifName : ($iface['id'] ?? $iface['if'])); @endphp
+                                        <option value="{{ $ifVal }}" {{ ($rule['interface'] ?? '') == $ifVal ? 'selected' : '' }}>
+                                            {{ $iface['descr'] ?? strtoupper($ifVal) }}
                                         </option>
                                     @endforeach
                                 </select>

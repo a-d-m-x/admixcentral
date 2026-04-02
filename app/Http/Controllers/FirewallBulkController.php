@@ -137,6 +137,7 @@ class FirewallBulkController extends Controller
                         'dstport' => 'required',
                         'target' => 'required',
                         'local_port' => 'required',
+                        'dst' => 'required',
                         'src' => 'nullable',
                         'srcport' => 'nullable',
                         'protocol' => 'nullable',
@@ -150,10 +151,12 @@ class FirewallBulkController extends Controller
                         'interface' => $validated['interface'] ?? 'wan',
                         'protocol' => $validated['protocol'] ?? 'tcp',
                         'destination_port' => $validated['dstport'],
+                        'dstport' => $validated['dstport'],
                         'target' => $validated['target'],
                         'local_port' => $validated['local_port'],
+                        'local-port' => $validated['local_port'],
                         'descr' => $validated['descr'] ?? '',
-                        'associated-rule-id' => $validated['associated_rule'] ?? 'pass',
+                        'associated_rule_id' => $validated['associated_rule'] ?? 'new',
                         'natreflection' => $validated['natreflection'] ?? 'system-default',
                     ];
 
@@ -163,12 +166,32 @@ class FirewallBulkController extends Controller
 
                     if (!empty($validated['srcport']) && $validated['srcport'] !== 'any') {
                         $data['source_port'] = $validated['srcport'];
+                        $data['srcport'] = $validated['srcport'];
                     }
 
                     // Handle Destination
-                    $data['destination'] = 'any';
+                    $dst = $validated['dst'];
+                    $data['destination'] = ($dst === 'any') ? 'any' : $dst;
 
-                    $api->createNatPortForward($data);
+                    $response = $api->createNatPortForward($data);
+
+                    // Fix pfSense API issue where dynamically generated filter rules lack destination ports
+                    if (($data['associated_rule_id'] ?? '') === 'new' && isset($response['data']['associated_rule_id'])) {
+                        $trackerId = $response['data']['associated_rule_id'];
+                        $rules = $api->getFirewallRules()['data'] ?? [];
+                        foreach ($rules as $rule) {
+                            if (($rule['associated_rule_id'] ?? '') === $trackerId) {
+                                try {
+                                    $api->updateFirewallRule($rule['id'], [
+                                        'dstport' => $validated['local_port'],
+                                    ]);
+                                } catch (\Exception $e) {
+                                    // Ignore silently on bulk failure
+                                }
+                                break;
+                            }
+                        }
+                    }
                 } elseif ($type === 'rule') {
                     // Validate
                     $validated = $request->validate([

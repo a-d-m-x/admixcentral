@@ -21,7 +21,7 @@
             descr: '',
             disabled: false,
             natreflection: 'enable',
-            associated_rule_id: 'pass'
+            associated_rule_id: 'new'
         },
         resetForm() {
             this.form = {
@@ -37,7 +37,7 @@
                 descr: '',
                 disabled: false,
                 natreflection: 'enable',
-                associated_rule_id: 'pass'
+                associated_rule_id: 'new'
             };
             this.isEdit = false;
         },
@@ -71,7 +71,7 @@
             this.form.descr = rule.descr || '';
             this.form.disabled = !!rule.disabled;
             this.form.natreflection = rule.natreflection || 'enable';
-            this.form.associated_rule_id = rule['associated-rule-id'] || rule['associated_rule_id'] || 'pass';
+            this.form.associated_rule_id = rule['associated-rule-id'] || rule['associated_rule_id'] || 'none';
             
             this.showModal = true;
         },
@@ -89,6 +89,16 @@
 
                     {{-- Tabs --}}
                     @include('firewall.nat.tabs', ['active' => 'port-forward'])
+
+                    @if($errors->any())
+                        <div class="mt-4 mb-4 px-4 py-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                            <ul class="list-disc list-inside">
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
 
                     <div class="flex justify-between items-center mb-4 mt-4">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-white">Port Forward Rules</h3>
@@ -353,9 +363,9 @@
 
                 <div x-show="showModal"
                     class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-                    <form
-                        :action="isEdit ? '{{ url('firewall/' . $firewall->getRouteKey() . '/nat/port-forward') }}/' + form.id : '{{ route('firewall.nat.port-forward.store', $firewall) }}'"
-                        method="POST">
+                    <form x-ref="form" method="POST"
+                        :action="isEdit ? '{{ route('firewall.nat.port-forward.update', ['firewall' => $firewall, 'id' => 'REPLACE_ME']) }}'.replace('REPLACE_ME', form.id) : '{{ route('firewall.nat.port-forward.store', $firewall) }}'"
+                        class="space-y-6">
                         @csrf
                         <template x-if="isEdit">
                             @method('PUT')
@@ -387,9 +397,10 @@
                                         class="block text-sm font-medium text-gray-700 dark:text-gray-300">Interface</label>
                                     <select id="interface" name="interface" x-model="form.interface"
                                         class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
-                                        @foreach($interfaces as $iface)
-                                            <option value="{{ $iface['if'] ?? $iface['descr'] }}">
-                                                {{ $iface['descr'] ?? strtoupper($iface['if']) }}
+                                        @foreach($interfaces as $ifName => $iface)
+                                            @php $ifVal = $iface['name'] ?? (is_string($ifName) ? $ifName : ($iface['id'] ?? $iface['if'])); @endphp
+                                            <option value="{{ $ifVal }}">
+                                                {{ $iface['descr'] ?? strtoupper($ifVal) }}
                                             </option>
                                         @endforeach
                                     </select>
@@ -397,6 +408,22 @@
 
                                 {{-- Protocol --}}
                                 <div class="sm:col-span-3">
+                                    <label for="protocol" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Protocol</label>
+                                    <select id="protocol" name="protocol" x-model="form.protocol"
+                                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                        <option value="tcp">TCP</option>
+                                        <option value="udp">UDP</option>
+                                        <option value="tcp/udp">TCP/UDP</option>
+                                        <option value="icmp">ICMP</option>
+                                        <option value="esp">ESP</option>
+                                        <option value="ah">AH</option>
+                                        <option value="gre">GRE</option>
+                                        <option value="ipv6">IPv6</option>
+                                        <option value="igmp">IGMP</option>
+                                        <option value="pim">PIM</option>
+                                        <option value="ospf">OSPF</option>
+                                        <option value="sctp">SCTP</option>
+                                        <option value="any">Any</option>
                                     </select>
                                 </div>
 
@@ -477,10 +504,12 @@
                                 <select id="associated_rule_id" name="associated_rule_id"
                                     x-model="form.associated_rule_id"
                                     class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
-                                    <option value="pass">Add associated filter rule</option>
-                                    <option value="block">Block</option>
-                                    <option value="reject">Reject</option>
-                                    <option value="none">None</option>
+                                    <template x-if="form.associated_rule_id && !['new','pass','none',''].includes(form.associated_rule_id)">
+                                        <option :value="form.associated_rule_id" x-text="'Linked Rule (' + form.associated_rule_id + ')'"></option>
+                                    </template>
+                                    <option value="new">Add associated filter rule</option>
+                                    <option value="pass">Pass</option>
+                                    <option value="">None</option>
                                 </select>
                             </div>
                         </div>
@@ -533,9 +562,8 @@
                         </div>
                     </div>
                     <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                        <form
-                            :action="'{{ url('firewall/' . $firewall->getRouteKey() . '/nat/port-forward') }}/' + deleteId"
-                            method="POST">
+                        <form method="POST"
+                            :action="'{{ route('firewall.nat.port-forward.destroy', ['firewall' => $firewall, 'id' => 'REPLACE_ME']) }}'.replace('REPLACE_ME', deleteId)">
                             @csrf
                             @method('DELETE')
                             <button type="submit"

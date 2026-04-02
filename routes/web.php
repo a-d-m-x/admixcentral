@@ -18,6 +18,8 @@ Route::get('/', function () {
     return redirect('/login');
 });
 
+
+
 Route::get('/manifest.json', function () {
     $settings = \App\Models\SystemSetting::pluck('value', 'key')->toArray();
     $appName = $settings['app_name'] ?? config('app.name', 'AdmixCentral');

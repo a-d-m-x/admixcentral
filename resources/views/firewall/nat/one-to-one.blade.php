@@ -86,7 +86,7 @@
                                                 <button @click="editRule({{ $index }}, {{ json_encode($rule) }})"
                                                     class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
                                                 <form
-                                                    action="{{ route('firewall.nat.one-to-one.destroy', ['firewall' => $firewall->id, 'id' => $index]) }}"
+                                                    action="{{ route('firewall.nat.one-to-one.destroy', ['firewall' => $firewall, 'id' => $index]) }}"
                                                     method="POST" class="inline-block"
                                                     onsubmit="return confirm('Are you sure you want to delete this rule?');">
                                                     @csrf
@@ -120,7 +120,7 @@
                                 <div
                                     class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
                                     <form
-                                        :action="isEdit ? '/firewall/{{ $firewall->id }}/nat/one-to-one/' + form.id : '{{ route('firewall.nat.one-to-one.store', $firewall) }}'"
+                                        :action="isEdit ? '{{ route('firewall.nat.one-to-one.update', ['firewall' => $firewall, 'id' => 'REPLACE_ME']) }}'.replace('REPLACE_ME', form.id) : '{{ route('firewall.nat.one-to-one.store', $firewall) }}'"
                                         method="POST">
                                         @csrf
                                         <template x-if="isEdit">
@@ -133,9 +133,10 @@
                                                         class="block text-sm font-medium text-gray-700 dark:text-gray-300">Interface</label>
                                                     <select name="interface" x-model="form.interface"
                                                         class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                                                        @foreach($interfaces as $iface)
-                                                            <option value="{{ $iface['if'] }}">
-                                                                {{ $iface['descr'] ?? $iface['if'] }}
+                                                        @foreach($interfaces as $ifName => $iface)
+                                                            @php $ifVal = $iface['name'] ?? (is_string($ifName) ? $ifName : ($iface['id'] ?? $iface['if'])); @endphp
+                                                            <option value="{{ $ifVal }}">
+                                                                {{ $iface['descr'] ?? strtoupper($ifVal) }}
                                                             </option>
                                                         @endforeach
                                                     </select>

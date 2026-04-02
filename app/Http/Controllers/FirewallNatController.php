@@ -44,6 +44,8 @@ class FirewallNatController extends Controller
 
     public function storePortForward(Request $request, Firewall $firewall)
     {
+        Log::info("storePortForward called", $request->all());
+
         $validated = $request->validate([
             'interface' => 'required|string',
             'protocol' => 'required|in:tcp,udp,tcp/udp,icmp,esp,ah,gre,ipv6,igmp,pim,ospf,sctp,any',
@@ -60,10 +62,6 @@ class FirewallNatController extends Controller
         ]);
 
         $interfaceValue = $validated['interface'];
-        if ($interfaceValue === 'hn0')
-            $interfaceValue = 'wan';
-        if ($interfaceValue === 'hn1')
-            $interfaceValue = 'lan';
 
         $data = [
             'interface' => $interfaceValue,
@@ -71,15 +69,30 @@ class FirewallNatController extends Controller
             'source' => ($validated['src'] ?? 'any') === 'any' ? 'any' : $validated['src'],
             'destination' => ($validated['dst'] ?? 'any') === 'any' ? 'any' : $validated['dst'],
             'destination_port' => $validated['dstport'],
+            'dstport' => $validated['dstport'],
             'target' => $validated['target'],
             'local_port' => $validated['local_port'],
+            'local-port' => $validated['local_port'],
             'descr' => $validated['descr'] ?? '',
             'natreflection' => $validated['natreflection'] ?? null,
-            'associated-rule-id' => $validated['associated_rule_id'] ?? 'pass',
         ];
+
+        if (isset($validated['associated_rule_id'])) {
+            $val = $validated['associated_rule_id'];
+            if ($val === 'linked') {
+                $data['associated_rule_id'] = 'new';
+            } elseif ($val === 'pass') {
+                $data['associated_rule_id'] = 'pass';
+            } elseif ($val === '') {
+                $data['associated_rule_id'] = '';
+            } else {
+                $data['associated_rule_id'] = $val;
+            }
+        }
 
         if (isset($validated['srcport']) && $validated['srcport'] !== 'any') {
             $data['source_port'] = $validated['srcport'];
+            $data['srcport'] = $validated['srcport'];
         }
 
         if ($request->has('disabled') && $request->boolean('disabled')) {
@@ -88,12 +101,32 @@ class FirewallNatController extends Controller
 
         try {
             $api = new PfSenseApiService($firewall);
-            $api->createNatPortForward($data);
+            $response = $api->createNatPortForward($data);
+
+            // Fix pfSense API issue where dynamically generated filter rules lack destination ports
+            if (($data['associated_rule_id'] ?? '') === 'new' && isset($response['data']['associated_rule_id'])) {
+                $trackerId = $response['data']['associated_rule_id'];
+                $rules = $api->getFirewallRules()['data'] ?? [];
+                foreach ($rules as $rule) {
+                    if (($rule['associated_rule_id'] ?? '') === $trackerId) {
+                        try {
+                            $api->updateFirewallRule($rule['id'], [
+                                'dstport' => $validated['local_port'],
+                            ]);
+                        } catch (\Exception $e) {
+                            Log::error('Failed to update associated filter rule port: ' . $e->getMessage());
+                        }
+                        break;
+                    }
+                }
+            }
+
             $firewall->update(['is_dirty' => true]);
 
             return redirect()->route('firewall.nat.port-forward', $firewall)
                 ->with('success', 'Port forward rule created successfully. Please apply changes.');
         } catch (\Exception $e) {
+            Log::error('PfSense API Error in storePortForward: ' . $e->getMessage());
             return back()->withInput()->with('error', 'Failed to create port forward: ' . $e->getMessage());
         }
     }
@@ -116,10 +149,6 @@ class FirewallNatController extends Controller
         ]);
 
         $interfaceValue = $validated['interface'];
-        if ($interfaceValue === 'hn0')
-            $interfaceValue = 'wan';
-        if ($interfaceValue === 'hn1')
-            $interfaceValue = 'lan';
 
         $data = [
             'interface' => $interfaceValue,
@@ -127,14 +156,30 @@ class FirewallNatController extends Controller
             'source' => ($validated['src'] ?? 'any') === 'any' ? 'any' : $validated['src'],
             'destination' => ($validated['dst'] ?? 'any') === 'any' ? 'any' : $validated['dst'],
             'destination_port' => $validated['dstport'],
+            'dstport' => $validated['dstport'],
             'target' => $validated['target'],
             'local_port' => $validated['local_port'],
+            'local-port' => $validated['local_port'],
             'descr' => $validated['descr'] ?? '',
             'natreflection' => $validated['natreflection'] ?? null,
         ];
 
+        if (isset($validated['associated_rule_id'])) {
+            $val = $validated['associated_rule_id'];
+            if ($val === 'linked') {
+                $data['associated_rule_id'] = 'new';
+            } elseif ($val === 'pass') {
+                $data['associated_rule_id'] = 'pass';
+            } elseif ($val === '') {
+                $data['associated_rule_id'] = '';
+            } else {
+                $data['associated_rule_id'] = $val;
+            }
+        }
+
         if (isset($validated['srcport']) && $validated['srcport'] !== 'any') {
             $data['source_port'] = $validated['srcport'];
+            $data['srcport'] = $validated['srcport'];
         }
 
         if ($request->has('disabled') && $request->boolean('disabled')) {
@@ -143,7 +188,26 @@ class FirewallNatController extends Controller
 
         try {
             $api = new PfSenseApiService($firewall);
-            $api->updateNatPortForward((int) $id, $data);
+            $response = $api->updateNatPortForward((int) $id, $data);
+
+            // Fix pfSense API issue where dynamically generated filter rules lack destination ports
+            if (($data['associated_rule_id'] ?? '') === 'new' && isset($response['data']['associated_rule_id'])) {
+                $trackerId = $response['data']['associated_rule_id'];
+                $rules = $api->getFirewallRules()['data'] ?? [];
+                foreach ($rules as $rule) {
+                    if (($rule['associated_rule_id'] ?? '') === $trackerId) {
+                        try {
+                            $api->updateFirewallRule($rule['id'], [
+                                'dstport' => $validated['local_port'],
+                            ]);
+                        } catch (\Exception $e) {
+                            Log::error('Failed to update associated filter rule port: ' . $e->getMessage());
+                        }
+                        break;
+                    }
+                }
+            }
+
             $firewall->update(['is_dirty' => true]);
 
             return redirect()->route('firewall.nat.port-forward', $firewall)
@@ -297,10 +361,6 @@ class FirewallNatController extends Controller
         ]);
 
         $interfaceValue = $validated['interface'];
-        if ($interfaceValue === 'hn0')
-            $interfaceValue = 'wan';
-        if ($interfaceValue === 'hn1')
-            $interfaceValue = 'lan';
 
         $data = [
             'interface' => $interfaceValue,
@@ -354,10 +414,6 @@ class FirewallNatController extends Controller
         ]);
 
         $interfaceValue = $validated['interface'];
-        if ($interfaceValue === 'hn0')
-            $interfaceValue = 'wan';
-        if ($interfaceValue === 'hn1')
-            $interfaceValue = 'lan';
 
         $data = [
             'interface' => $interfaceValue,
@@ -489,10 +545,6 @@ class FirewallNatController extends Controller
         ]);
 
         $interfaceValue = $validated['interface'];
-        if ($interfaceValue === 'hn0')
-            $interfaceValue = 'wan';
-        if ($interfaceValue === 'hn1')
-            $interfaceValue = 'lan';
 
         $data = [
             'interface' => $interfaceValue,
@@ -532,10 +584,6 @@ class FirewallNatController extends Controller
         ]);
 
         $interfaceValue = $validated['interface'];
-        if ($interfaceValue === 'hn0')
-            $interfaceValue = 'wan';
-        if ($interfaceValue === 'hn1')
-            $interfaceValue = 'lan';
 
         $data = [
             'interface' => $interfaceValue,
