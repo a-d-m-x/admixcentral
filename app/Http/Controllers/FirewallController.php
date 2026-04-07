@@ -234,6 +234,18 @@ class FirewallController extends Controller
             $firewall->save();
         }
 
+        // We already confirmed connectivity above via the API call, so seed the cache as online
+        // immediately. This prevents the firewall from appearing "Offline" on the list page
+        // before the background poller has had a chance to run.
+        $cacheKey = 'firewall_status_' . $firewall->id;
+        \Illuminate\Support\Facades\Cache::put($cacheKey, [
+            'online' => true,
+            'data'   => [],
+        ], now()->addMinutes(5));
+
+        // Dispatch a full status check in the background to populate version/update info.
+        \App\Jobs\CheckFirewallStatusJob::dispatch($firewall);
+
         return redirect()->route('firewalls.index')->with('success', 'Firewall created successfully.');
     }
 
