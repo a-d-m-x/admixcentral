@@ -6,14 +6,13 @@
     <div class="py-12">
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Backup Section -->
+                <!-- Backup Section — download is read-only, available to all -->
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 text-gray-900 dark:text-gray-100">
                         <h3 class="text-lg font-medium mb-4">Download Configuration</h3>
 
                         @if(session('error'))
-                            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"
-                                role="alert">
+                            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
                                 <strong class="font-bold">Error:</strong>
                                 <span class="block sm:inline">{{ session('error') }}</span>
                             </div>
@@ -30,42 +29,43 @@
                     </div>
                 </div>
 
-                <!-- Restore Section -->
+                <!-- Restore Section — write action, hidden for readonly -->
                 <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 text-gray-900 dark:text-gray-100">
                         <h3 class="text-lg font-medium mb-4">Restore Configuration</h3>
 
-                        @if(session('success'))
-                            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4"
-                                role="alert">
-                                <strong class="font-bold">Success!</strong>
-                                <span class="block sm:inline">{{ session('success') }}</span>
-                            </div>
+                        @if(!auth()->user()->isReadOnly())
+                            @if(session('success'))
+                                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+                                    <strong class="font-bold">Success!</strong>
+                                    <span class="block sm:inline">{{ session('success') }}</span>
+                                </div>
+                            @endif
+
+                            <p class="text-gray-600 dark:text-gray-400 mb-4">
+                                Upload a configuration XML file to restore. <span class="text-red-500 font-bold">Warning:
+                                    The firewall will reboot!</span>
+                            </p>
+
+                            <form action="{{ route('diagnostics.restore.upload', $firewall) }}" method="POST"
+                                enctype="multipart/form-data">
+                                @csrf
+
+                                <div class="mb-4">
+                                    <x-input-label for="config_file" :value="__('Configuration File (XML)')" />
+                                    <input type="file" id="config_file" name="config_file" accept=".xml"
+                                        class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
+                                        required>
+                                </div>
+
+                                <div class="flex justify-end">
+                                    <x-primary-button class="bg-red-600 hover:bg-red-700 focus:bg-red-700 active:bg-red-900"
+                                        onclick="return confirm('Are you sure? This will overwrite the current configuration and reboot the firewall.')">
+                                        {{ __('Restore Configuration') }}
+                                    </x-primary-button>
+                                </div>
+                            </form>
                         @endif
-
-                        <p class="text-gray-600 dark:text-gray-400 mb-4">
-                            Upload a configuration XML file to restore. <span class="text-red-500 font-bold">Warning:
-                                The firewall will reboot!</span>
-                        </p>
-
-                        <form action="{{ route('diagnostics.restore.upload', $firewall) }}" method="POST"
-                            enctype="multipart/form-data">
-                            @csrf
-
-                            <div class="mb-4">
-                                <x-input-label for="config_file" :value="__('Configuration File (XML)')" />
-                                <input type="file" id="config_file" name="config_file" accept=".xml"
-                                    class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
-                                    required>
-                            </div>
-
-                            <div class="flex justify-end">
-                                <x-primary-button class="bg-red-600 hover:bg-red-700 focus:bg-red-700 active:bg-red-900"
-                                    onclick="return confirm('Are you sure? This will overwrite the current configuration and reboot the firewall.')">
-                                    {{ __('Restore Configuration') }}
-                                </x-primary-button>
-                            </div>
-                        </form>
                     </div>
                 </div>
             </div>

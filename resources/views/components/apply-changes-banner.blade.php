@@ -17,6 +17,7 @@
                     </p>
                 </div>
             </div>
+            @if(!auth()->user()->isReadOnly())
             <div>
                 <form action="{{ $route }}" method="POST">
                     @csrf
@@ -26,6 +27,7 @@
                     </button>
                 </form>
             </div>
+            @endif
         </div>
     </div>
 @endif

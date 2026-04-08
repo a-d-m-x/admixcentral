@@ -7,7 +7,7 @@
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 dark:text-gray-100">
-                    
+
                     @if(isset($error))
                         <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
                             <strong class="font-bold">Error!</strong>
@@ -17,9 +17,11 @@
 
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">LAGG Interfaces</h3>
+                        @if(!auth()->user()->isReadOnly())
                         <x-link-button-add href="{{ route('interfaces.laggs.create', $firewall) }}">
                             Add LAGG
                         </x-link-button-add>
+                        @endif
                     </div>
 
                     @if(empty($laggs))
@@ -33,13 +35,14 @@
                                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Protocol</th>
                                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Members</th>
                                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
+                                        @if(!auth()->user()->isReadOnly())
                                         <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                     @foreach($laggs as $lagg)
                                     @php
-                                        // Handle various API return formats for members
                                         $members = $lagg['members'] ?? '';
                                         if (is_array($members)) {
                                             $members = implode(', ', $members);
@@ -50,6 +53,7 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 uppercase">{{ $lagg['proto'] ?? 'N/A' }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ $members }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ $lagg['descr'] ?? '' }}</td>
+                                        @if(!auth()->user()->isReadOnly())
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <div class="flex justify-end space-x-2">
                                                 <a href="{{ route('interfaces.laggs.edit', [$firewall, $lagg['laggif']]) }}" class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
@@ -68,6 +72,7 @@
                                                 </form>
                                             </div>
                                         </td>
+                                        @endif
                                     </tr>
                                     @endforeach
                                 </tbody>

@@ -5,6 +5,21 @@
 
     <div class="py-12">
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
+            @if(auth()->user()->isReadOnly())
+            {{-- READ-ONLY: show back link, no form --}}
+            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6">
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Rule details are not displayed in edit form for read-only users.</p>
+                    <a href="{{ route('firewall.rules.index', $firewall) }}"
+                        class="inline-flex items-center gap-1.5 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Firewall Rules
+                    </a>
+                </div>
+            </div>
+            @else
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 dark:text-gray-100">
                     <form method="POST"
@@ -388,6 +403,7 @@
                     </form>
                 </div>
             </div>
+            @endif
         </div>
     </div>
 </x-app-layout>

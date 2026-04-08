@@ -28,9 +28,11 @@
                 <div class="p-6 text-gray-900 dark:text-gray-100">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-medium">Phase 1</h3>
+                        @if(!auth()->user()->isReadOnly())
                         <x-button-add @click="showModal = true">
                             Add Phase 1
                         </x-button-add>
+                        @endif
                     </div>
                     
                     @if(empty($phase1s))
@@ -64,11 +66,13 @@
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                                 <a href="{{ route('vpn.ipsec.phase2', [$firewall, $p1['ikeid']]) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">Phase 2</a>
+                                                @if(!auth()->user()->isReadOnly())
                                                 <form action="{{ route('vpn.ipsec.phase1.destroy', [$firewall, $p1['ikeid']]) }}" method="POST" class="inline-block" onsubmit="return confirm('Are you sure you want to delete this tunnel?');">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
                                                 </form>
+                                                @endif
                                             </td>
                                         </tr>
                                     @endforeach
@@ -119,7 +123,8 @@
             </div>
         </div>
 
-        <!-- Modal -->
+        <!-- Modal — hidden for readonly -->
+        @if(!auth()->user()->isReadOnly())
         <div x-show="showModal" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
                 <div class="fixed inset-0 transition-opacity" aria-hidden="true" @click="showModal = false">
@@ -263,5 +268,6 @@
                 </div>
             </div>
         </div>
+        @endif
     </div>
 </x-app-layout>

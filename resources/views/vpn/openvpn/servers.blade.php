@@ -25,9 +25,11 @@
 
                     <div class="flex justify-between items-center mb-6">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Server List</h3>
+                        @if(!auth()->user()->isReadOnly())
                         <x-link-button-add href="{{ route('vpn.openvpn.server.create', $firewall) }}">
                             Add Server
                         </x-link-button-add>
+                        @endif
                     </div>
 
                     <div class="overflow-x-auto relative shadow-md sm:rounded-lg">
@@ -39,7 +41,9 @@
                                     <th scope="col" class="py-3 px-6">Interface</th>
                                     <th scope="col" class="py-3 px-6">Tunnel Network</th>
                                     <th scope="col" class="py-3 px-6">Description</th>
+                                    @if(!auth()->user()->isReadOnly())
                                     <th scope="col" class="py-3 px-6">Actions</th>
+                                    @endif
                                 </tr>
                             </thead>
                             <tbody>
@@ -58,6 +62,7 @@
                                         <td class="py-4 px-6">
                                             {{ $server['description'] ?? '' }}
                                         </td>
+                                        @if(!auth()->user()->isReadOnly())
                                         <td class="py-4 px-6 flex space-x-2">
                                             <a href="{{ route('vpn.openvpn.server.edit', [$firewall, $server['vpnid']]) }}"
                                                 class="font-medium text-blue-600 dark:text-blue-500 hover:underline">Edit</a>
@@ -72,6 +77,7 @@
                                                     class="font-medium text-red-600 dark:text-red-500 hover:underline">Delete</button>
                                             </form>
                                         </td>
+                                        @endif
                                     </tr>
                                 @empty
                                     <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">

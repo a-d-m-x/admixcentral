@@ -7,9 +7,11 @@
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             <x-card x-data="vipHandler()" @open-create-modal.window="openModal()">
                 <x-card-header title="Virtual IPs">
+                    @if(!auth()->user()->isReadOnly())
                     <x-button-add @click="$dispatch('open-create-modal')">
                         Add Virtual IP
                     </x-button-add>
+                    @endif
                 </x-card-header>
 
                         <div class="overflow-x-auto">
@@ -28,9 +30,11 @@
                                         <th scope="col"
                                             class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Description</th>
+                                        @if(!auth()->user()->isReadOnly())
                                         <th scope="col"
                                             class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Actions</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -55,6 +59,7 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                                                 {{ $vip['descr'] ?? '' }}
                                             </td>
+                                            @if(!auth()->user()->isReadOnly())
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <button @click="editVip({{ $index }}, {{ json_encode($vip) }})"
                                                     class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
@@ -68,10 +73,11 @@
                                                         class="text-red-600 hover:text-red-900">Delete</button>
                                                 </form>
                                             </td>
+                                            @endif
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="5"
+                                            <td colspan="{{ auth()->user()->isReadOnly() ? '4' : '5' }}"
                                                 class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-center">
                                                 No Virtual IPs found.</td>
                                         </tr>

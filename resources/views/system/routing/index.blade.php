@@ -37,12 +37,14 @@
 
                     <!-- Content -->
                     @if($tab === 'gateways')
+                        @if(!auth()->user()->isReadOnly())
                         <div class="flex justify-end mb-4">
                             <a href="{{ route('system.routing.gateways.create', $firewall->id) }}"
                                 class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 active:bg-gray-900 focus:outline-none focus:border-gray-900 focus:ring ring-gray-300 disabled:opacity-25 transition ease-in-out duration-150">
                                 Add Gateway
                             </a>
                         </div>
+                        @endif
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
@@ -62,9 +64,11 @@
                                         <th
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Description</th>
+                                        @if(!auth()->user()->isReadOnly())
                                         <th
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Actions</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
@@ -80,6 +84,7 @@
                                                 {{ $gateway['monitor'] ?? $gateway['gateway'] }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {{ $gateway['descr'] }}</td>
+                                            @if(!auth()->user()->isReadOnly())
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <a href="{{ route('system.routing.gateways.edit', [$firewall->id, $gateway['id']]) }}"
                                                     class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
@@ -94,6 +99,7 @@
                                                         class="text-red-600 hover:text-red-900">Delete</button>
                                                 </form>
                                             </td>
+                                            @endif
                                         </tr>
                                     @empty
                                         <tr>
@@ -107,12 +113,14 @@
                         </div>
 
                     @elseif($tab === 'static_routes')
+                        @if(!auth()->user()->isReadOnly())
                         <div class="flex justify-end mb-4">
                             <a href="{{ route('system.routing.static_routes.create', $firewall->id) }}"
                                 class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 active:bg-gray-900 focus:outline-none focus:border-gray-900 focus:ring ring-gray-300 disabled:opacity-25 transition ease-in-out duration-150">
                                 Add Static Route
                             </a>
                         </div>
+                        @endif
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-50">
@@ -129,9 +137,11 @@
                                         <th
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Description</th>
+                                        @if(!auth()->user()->isReadOnly())
                                         <th
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Actions</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
@@ -145,6 +155,7 @@
                                                 {{ strtoupper($route['interface'] ?? '') }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $route['descr'] }}
                                             </td>
+                                            @if(!auth()->user()->isReadOnly())
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <a href="{{ route('system.routing.static_routes.edit', [$firewall->id, $route['id']]) }}"
                                                     class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
@@ -158,6 +169,7 @@
                                                         class="text-red-600 hover:text-red-900">Delete</button>
                                                 </form>
                                             </td>
+                                            @endif
                                         </tr>
                                     @empty
                                         <tr>

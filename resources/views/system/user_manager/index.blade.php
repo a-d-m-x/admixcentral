@@ -44,9 +44,11 @@
                     @if($tab === 'users')
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Users</h3>
+                            @if(!auth()->user()->isReadOnly())
                             <x-link-button-add href="{{ route('system.user_manager.users.create', $firewall->id) }}">
                                 Add User
                             </x-link-button-add>
+                            @endif
                         </div>
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
@@ -56,7 +58,9 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Full Name</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Groups</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        @if(!auth()->user()->isReadOnly())
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
@@ -75,6 +79,7 @@
                                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Active</span>
                                                 @endif
                                             </td>
+                                            @if(!auth()->user()->isReadOnly())
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <a href="{{ route('system.user_manager.users.edit', [$firewall->id, $user['id']]) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
                                                 @if($user['name'] !== 'admin')
@@ -85,6 +90,7 @@
                                                     </form>
                                                 @endif
                                             </td>
+                                            @endif
                                         </tr>
                                     @empty
                                         <tr>
@@ -98,9 +104,11 @@
                     @elseif($tab === 'groups')
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Groups</h3>
+                            @if(!auth()->user()->isReadOnly())
                             <x-link-button-add href="{{ route('system.user_manager.groups.create', $firewall->id) }}">
                                 Add Group
                             </x-link-button-add>
+                            @endif
                         </div>
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
@@ -109,7 +117,9 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Group Name</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Member Count</th>
+                                        @if(!auth()->user()->isReadOnly())
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
@@ -118,6 +128,7 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ $group['name'] }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $group['description'] }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ count($group['member'] ?? []) }}</td>
+                                            @if(!auth()->user()->isReadOnly())
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <a href="{{ route('system.user_manager.groups.edit', [$firewall->id, $group['id']]) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
                                                 @if(!in_array($group['name'], ['all', 'admins']))
@@ -128,6 +139,7 @@
                                                     </form>
                                                 @endif
                                             </td>
+                                            @endif
                                         </tr>
                                     @empty
                                         <tr>

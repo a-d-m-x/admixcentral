@@ -22,9 +22,11 @@
                 <div class="p-6 text-gray-900 dark:text-gray-100">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-white">Schedules</h3>
+                        @if(!auth()->user()->isReadOnly())
                         <x-link-button-add href="{{ route('firewall.schedules.create', $firewall) }}">
                             Add Schedule
                         </x-link-button-add>
+                        @endif
                     </div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -39,16 +41,21 @@
                                     <th
                                         class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                         Time Ranges</th>
+                                    @if(!auth()->user()->isReadOnly())
                                     <th
                                         class="px-6 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                         Actions</th>
+                                    @endif
                                 </tr>
                             </thead>
                             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                 @forelse($schedules as $schedule)
                                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                                         <td class="px-6 py-4 whitespace-nowrap font-mono text-sm">
-                                            {{ $schedule['name'] }}
+                                            <a href="{{ route('firewall.schedules.edit', [$firewall, $schedule['id']]) }}"
+                                                class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline">
+                                                {{ $schedule['name'] }}
+                                            </a>
                                         </td>
                                         <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                                             {{ $schedule['descr'] ?? '-' }}
@@ -56,6 +63,7 @@
                                         <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                                             {{ isset($schedule['timerange']) ? count($schedule['timerange']) : 0 }} ranges
                                         </td>
+                                        @if(!auth()->user()->isReadOnly())
                                         <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                             <div class="flex justify-center items-center space-x-2">
                                                 <a href="{{ route('firewall.schedules.edit', [$firewall, $schedule['id']]) }}"
@@ -87,10 +95,11 @@
                                                 </form>
                                             </div>
                                         </td>
+                                        @endif
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="4" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                        <td colspan="{{ auth()->user()->isReadOnly() ? '3' : '4' }}" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                                             No schedules configured. Click "Add Schedule" to create one.
                                         </td>
                                     </tr>

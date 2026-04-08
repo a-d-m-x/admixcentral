@@ -31,6 +31,9 @@ class CheckRole
             if ($role === 'user' && $user->isUser()) {
                 return $next($request);
             }
+            if ($role === 'readonly' && $user->isReadOnly()) {
+                return $next($request);
+            }
             // Allow admins to access user routes if needed, or define hierarchy
             if ($role === 'admin' && ($user->isGlobalAdmin() || $user->isCompanyAdmin())) {
                 return $next($request);

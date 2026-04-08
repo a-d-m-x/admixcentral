@@ -2,9 +2,11 @@
     <x-slot name="header">
         <x-firewall-header title="{{ __('Firewall NAT: 1:1') }}" :firewall="$firewall">
             <x-slot name="actions">
+                @if(!auth()->user()->isReadOnly())
                 <x-button-add @click="$dispatch('open-create-modal')">
                     Add Mapping
                 </x-button-add>
+                @endif
             </x-slot>
         </x-firewall-header>
     </x-slot>
@@ -44,9 +46,11 @@
                                         <th scope="col"
                                             class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Description</th>
+                                        @if(!auth()->user()->isReadOnly())
                                         <th scope="col"
                                             class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Actions</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -82,6 +86,7 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                                                 {{ $rule['descr'] ?? '' }}
                                             </td>
+                                            @if(!auth()->user()->isReadOnly())
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <button @click="editRule({{ $index }}, {{ json_encode($rule) }})"
                                                     class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
@@ -95,6 +100,7 @@
                                                         class="text-red-600 hover:text-red-900">Delete</button>
                                                 </form>
                                             </td>
+                                            @endif
                                         </tr>
                                     @empty
                                         <tr>

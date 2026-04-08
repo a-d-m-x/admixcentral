@@ -40,6 +40,7 @@
                         method="POST">
                         @csrf
                         @method('PATCH')
+                        <fieldset @if(auth()->user()->isReadOnly()) disabled @endif class="[&:disabled]:opacity-60 [&:disabled]:pointer-events-none">
 
                         <div class="pf-form-container">
                             {{-- Enable --}}
@@ -230,13 +231,15 @@
                             </div>
                         </div>
 
+                        </fieldset>
                         <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                            @if(!auth()->user()->isReadOnly())
                             <button type="submit" class="btn-primary">
                                 Save
                             </button>
+                            @endif
                         </div>
-                </div>
-                </form>
+                    </form>
             </div>
         </div>
     </div>

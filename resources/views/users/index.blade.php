@@ -112,8 +112,8 @@
     'name' => $u->name,
     'email' => $u->email,
     'role' => $u->role,
-    'role_type' => ($u->role === 'admin' && !$u->company_id) ? 'global_admin' : (($u->role === 'admin') ? 'company_admin' : 'user'),
-    'role_label' => ($u->role === 'admin' && !$u->company_id) ? 'Global Admin' : (($u->role === 'admin') ? 'Company Admin' : 'User'),
+    'role_type' => ($u->role === 'admin' && !$u->company_id) ? 'global_admin' : (($u->role === 'admin') ? 'company_admin' : (($u->role === 'readonly') ? 'readonly' : 'user')),
+    'role_label' => ($u->role === 'admin' && !$u->company_id) ? 'Global Admin' : (($u->role === 'admin') ? 'Company Admin' : (($u->role === 'readonly') ? 'Read Only' : 'User')),
     'company_id' => $u->company_id,
     'company_name' => $u->company ? $u->company->name : 'MSP / Global',
     'company_url' => $u->company ? route('companies.show', $u->company) : null,
@@ -210,7 +210,7 @@
                                 <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
                                     {{ __('Managed Users') }}
                                 </h3>
-                                @if(!auth()->user()->isUser())
+                                @if(!auth()->user()->isUser() && !auth()->user()->isReadOnly())
                                     <a href="{{ route('users.create') }}"
                                         class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-medium text-sm text-white hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
                                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -261,6 +261,7 @@
                                             <option value="all">All Roles</option>
                                             <option value="admin">Admins</option>
                                             <option value="user">Users</option>
+                                            <option value="readonly">Read Only</option>
                                         </select>
 
                                         <!-- Company Filter (Only if Global Admin) -->
@@ -307,7 +308,7 @@
                                     <span class="text-sm text-gray-500 whitespace-nowrap hidden xl:inline">With
                                         selected:</span>
                                     <div class="flex gap-2 w-full">
-                                        @if(!auth()->user()->isUser())
+                                        @if(!auth()->user()->isUser() && !auth()->user()->isReadOnly())
                                             <select x-model="bulkAction"
                                                 class="block w-full lg:w-40 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300 sm:text-sm">
                                                 <option value="">Actions...</option>
@@ -326,7 +327,7 @@
                                     <thead class="bg-gray-50 dark:bg-gray-700">
                                         <tr>
                                             <th class="px-6 py-3 text-left">
-                                                @if(!auth()->user()->isUser())
+                                                @if(!auth()->user()->isUser() && !auth()->user()->isReadOnly())
                                                     <input type="checkbox" @click="toggleAll"
                                                         :checked="selectedIds.length > 0 && allFilteredIds.length > 0 && allFilteredIds.every(id => selectedIds.includes(id))">
                                                 @endif
@@ -383,9 +384,11 @@
                                                     </svg>
                                                 </div>
                                             </th>
+                                            @if(!auth()->user()->isUser() && !auth()->user()->isReadOnly())
                                             <th scope="col"
                                                 class="px-6 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                                 Actions</th>
+                                            @endif
                                         </tr>
                                     </thead>
                                     <tbody
@@ -393,7 +396,7 @@
                                         <template x-for="user in filteredRows" :key="user.id">
                                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    @if(!auth()->user()->isUser())
+                                                    @if(!auth()->user()->isUser() && !auth()->user()->isReadOnly())
                                                         <div x-show="user.id !== authUserId">
                                                             <input type="checkbox" :value="user.id" x-model="selectedIds">
                                                         </div>
@@ -416,7 +419,8 @@
                                                         :class="{
                                                         'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200': user.role_type === 'global_admin',
                                                         'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200': user.role_type === 'company_admin',
-                                                        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300': user.role_type === 'user'
+                                                        'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300': user.role_type === 'user',
+                                                        'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200': user.role_type === 'readonly'
                                                     }" x-text="user.role_label">
                                                     </span>
                                                 </td>
@@ -433,28 +437,24 @@
                                                             x-text="user.company_name"></span>
                                                     </template>
                                                 </td>
+                                                @if(!auth()->user()->isUser() && !auth()->user()->isReadOnly())
                                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                     <div class="flex justify-end gap-2">
-                                                        @if(!auth()->user()->isUser())
-                                                            <a :href="user.edit_url"
-                                                                class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900">Edit</a>
+                                                        <a :href="user.edit_url"
+                                                            class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900">Edit</a>
 
-                                                            <template x-if="user.id !== authUserId">
-                                                                <form :action="user.delete_url" method="POST"
-                                                                    @submit.prevent="if(confirm('Are you sure you want to delete ' + user.name + '?')) $el.submit()">
-                                                                    <input type="hidden" name="_token" :value="csrfToken">
-                                                                    <input type="hidden" name="_method" value="DELETE">
-                                                                    <button type="submit"
-                                                                        class="text-red-600 dark:text-red-400 hover:text-red-900">Delete</button>
-                                                                </form>
-                                                            </template>
-                                                        @else
-                                                            <span
-                                                                class="text-gray-400 dark:text-gray-500 text-xs italic">Read
-                                                                Only</span>
-                                                        @endif
+                                                        <template x-if="user.id !== authUserId">
+                                                            <form :action="user.delete_url" method="POST"
+                                                                @submit.prevent="if(confirm('Are you sure you want to delete ' + user.name + '?')) $el.submit()">
+                                                                <input type="hidden" name="_token" :value="csrfToken">
+                                                                <input type="hidden" name="_method" value="DELETE">
+                                                                <button type="submit"
+                                                                    class="text-red-600 dark:text-red-400 hover:text-red-900">Delete</button>
+                                                            </form>
+                                                        </template>
                                                     </div>
                                                 </td>
+                                                @endif
                                             </tr>
                                         </template>
                                         <tr x-show="filteredRows.length === 0">

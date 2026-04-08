@@ -7,9 +7,11 @@
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             <x-card>
                 <x-card-header title="VLAN Interfaces">
+                    @if(!auth()->user()->isReadOnly())
                     <x-link-button-add href="{{ route('interfaces.vlans.create', $firewall) }}">
                         Add VLAN
                     </x-link-button-add>
+                    @endif
                 </x-card-header>
                 
                 <div class="p-6">

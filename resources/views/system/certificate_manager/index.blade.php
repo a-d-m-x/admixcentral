@@ -35,9 +35,11 @@
 
                 @if($tab === 'cas')
                     <x-card-header title="Certificate Authorities">
+                        @if(!auth()->user()->isReadOnly())
                         <x-link-button-add href="{{ route('system.certificate_manager.cas.create', $firewall) }}">
                             Add CA
                         </x-link-button-add>
+                        @endif
                     </x-card-header>
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -55,9 +57,11 @@
                                         <th
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Certificates</th>
+                                        @if(!auth()->user()->isReadOnly())
                                         <th
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Actions</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -67,6 +71,7 @@
                                             <td class="px-6 py-4 whitespace-nowrap">{{ isset($ca['prv']) ? 'Yes' : 'No' }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap">{{ $ca['caref'] ?? 'Self-signed' }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap">{{ $ca['refcount'] ?? 0 }}</td>
+                                            @if(!auth()->user()->isReadOnly())
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <form
                                                     action="{{ route('system.certificate_manager.cas.destroy', ['firewall' => $firewall, 'id' => $ca['refid']]) }}"
@@ -78,6 +83,7 @@
                                                         class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">Delete</button>
                                                 </form>
                                             </td>
+                                            @endif
                                         </tr>
                                     @empty
                                         <tr>
@@ -90,9 +96,11 @@
                         </div>
                     @elseif($tab === 'certificates')
                         <x-card-header title="Certificates">
+                            @if(!auth()->user()->isReadOnly())
                             <x-link-button-add href="{{ route('system.certificate_manager.certificates.create', $firewall) }}">
                                 Add/Sign Certificate
                             </x-link-button-add>
+                            @endif
                         </x-card-header>
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -107,9 +115,11 @@
                                         <th
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Type</th>
+                                        @if(!auth()->user()->isReadOnly())
                                         <th
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Actions</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -119,6 +129,7 @@
                                             <td class="px-6 py-4 whitespace-nowrap">{{ $cert['caref'] ?? 'External' }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 {{ isset($cert['prv']) ? 'Server/User' : 'CA/Server' }}</td>
+                                            @if(!auth()->user()->isReadOnly())
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <form
                                                     action="{{ route('system.certificate_manager.certificates.destroy', ['firewall' => $firewall, 'id' => $cert['refid']]) }}"
@@ -130,6 +141,7 @@
                                                         class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">Delete</button>
                                                 </form>
                                             </td>
+                                            @endif
                                         </tr>
                                     @empty
                                         <tr>

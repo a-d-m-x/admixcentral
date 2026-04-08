@@ -13,6 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(\App\Http\Middleware\EnsureSystemIsSetup::class);
+        $middleware->alias([
+            'deny.readonly' => \App\Http\Middleware\DenyReadOnly::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

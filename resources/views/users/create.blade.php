@@ -280,7 +280,8 @@
                                     <span x-text="
                                         role === 'admin' && companyId === 'global' ? 'Global Admin (Full System Access)' :
                                         (role === 'admin' && companyId !== 'global' ? 'Company Admin (Full Company Access)' :
-                                        (role === 'user' ? 'End User (Standard Access)' : 'Select a user role...'))
+                                        (role === 'user' ? 'End User (Standard Access)' :
+                                        (role === 'readonly' ? 'Read Only (View Only Access)' : 'Select a user role...')))
                                     "
                                         :class="{'text-gray-500': role === '', 'text-gray-900 dark:text-gray-300': role !== ''}"></span>
                                     <svg class="h-4 w-4 ml-2 text-gray-500 transform transition-transform duration-200"
@@ -292,28 +293,43 @@
                                 </button>
 
                                 <div x-show="roleOpen" x-transition.opacity.duration.200ms style="display: none;"
-                                    class="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg overflow-hidden">
+                                    class="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg overflow-auto">
                                     <ul class="py-1">
                                         <!-- Global Admin (Only visible if All Companies selected) -->
-                                        <li x-show="companyId === 'global'" @click="role = 'admin'; roleOpen = false;"
-                                            class="px-4 py-2 cursor-pointer text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"
-                                            :class="{'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700': role === 'admin'}">
-                                            Global Admin (Full System Access)
-                                        </li>
+                                        <template x-if="companyId === 'global'">
+                                            <li @click="role = 'admin'; roleOpen = false;"
+                                                class="px-4 py-2 cursor-pointer text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"
+                                                :class="{'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700': role === 'admin'}">
+                                                Global Admin (Full System Access)
+                                            </li>
+                                        </template>
 
-                                        <!-- Customer Admin (Only visible if Specific Company selected) -->
-                                        <li x-show="companyId !== 'global'" @click="role = 'admin'; roleOpen = false;"
-                                            class="px-4 py-2 cursor-pointer text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"
-                                            :class="{'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700': role === 'admin'}">
-                                            Company Admin (Full Company Access)
-                                        </li>
+                                        <!-- Company Admin (Only visible if Specific Company selected) -->
+                                        <template x-if="companyId !== 'global' && companyId !== ''">
+                                            <li @click="role = 'admin'; roleOpen = false;"
+                                                class="px-4 py-2 cursor-pointer text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"
+                                                :class="{'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700': role === 'admin'}">
+                                                Company Admin (Full Company Access)
+                                            </li>
+                                        </template>
 
                                         <!-- End User (Only visible if Specific Company selected) -->
-                                        <li x-show="companyId !== 'global'" @click="role = 'user'; roleOpen = false;"
-                                            class="px-4 py-2 cursor-pointer text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"
-                                            :class="{'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700': role === 'user'}">
-                                            End User (Standard Access)
-                                        </li>
+                                        <template x-if="companyId !== 'global' && companyId !== ''">
+                                            <li @click="role = 'user'; roleOpen = false;"
+                                                class="px-4 py-2 cursor-pointer text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"
+                                                :class="{'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700': role === 'user'}">
+                                                End User (Standard Access)
+                                            </li>
+                                        </template>
+
+                                        <!-- Read Only (Only visible if Specific Company selected) -->
+                                        <template x-if="companyId !== 'global' && companyId !== ''">
+                                            <li @click="role = 'readonly'; roleOpen = false;"
+                                                class="px-4 py-2 cursor-pointer text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150"
+                                                :class="{'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700': role === 'readonly'}">
+                                                Read Only (View Only Access)
+                                            </li>
+                                        </template>
                                     </ul>
                                 </div>
                             </div>

@@ -349,6 +349,7 @@
                             <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
                                 {{ __('Managed Companies') }}
                             </h3>
+                            @if(!auth()->user()->isReadOnly())
                             <a href="{{ route('companies.create') }}"
                                 class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-medium text-sm text-white hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
                                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -358,6 +359,7 @@
                                 </svg>
                                 Add Company
                             </a>
+                            @endif
                         </div>
 
                         <!-- Toolbar -->
@@ -544,6 +546,7 @@
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                @if(!auth()->user()->isReadOnly())
                                                 <div class="flex justify-end gap-3">
                                                     <a :href="company.editUrl"
                                                         class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900">Edit</a>
@@ -560,6 +563,7 @@
                                                         @method('DELETE')
                                                     </form>
                                                 </div>
+                                                @endif
                                             </td>
                                         </tr>
                                     </template>

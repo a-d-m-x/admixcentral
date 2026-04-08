@@ -98,6 +98,7 @@
 
                         <div class="flex justify-between mb-4">
                             <div class="flex space-x-2">
+                                @if(!auth()->user()->isReadOnly())
                                 {{-- Bulk Actions --}}
                                 <div class="flex space-x-2">
                                     <button type="button" @click="submitAction('enable')"
@@ -119,13 +120,16 @@
                                         Delete
                                     </button>
                                 </div>
+                                @endif
                             </div>
+                            @if(!auth()->user()->isReadOnly())
                             <div>
                                 <x-link-button-add
                                     href="{{ route('firewall.rules.create', $firewall) }}?interface={{ $selectedInterface ?? 'wan' }}">
                                     Add Rule
                                 </x-link-button-add>
                             </div>
+                            @endif
                         </div>
 
                         {{-- Rules Table --}}
@@ -133,6 +137,7 @@
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead class="bg-gray-50 dark:bg-gray-700">
                                     <tr>
+                                        @if(!auth()->user()->isReadOnly())
                                         <th scope="col"
                                             class="px-2 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                                             style="width: 40px;">
@@ -143,6 +148,7 @@
                                             class="px-2 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                                             style="width: 60px;">
                                         </th>
+                                        @endif
                                         <th scope="col"
                                             class="px-2 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                                             style="width: 40px;">
@@ -173,9 +179,11 @@
                                         <th scope="col"
                                             class="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Description</th>
+                                        @if(!auth()->user()->isReadOnly())
                                         <th scope="col"
                                             class="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                                             style="width: 120px;">Actions</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -183,6 +191,7 @@
                                         <tr
                                             class="hover:bg-gray-50 dark:hover:bg-gray-700 transition {{ !empty($rule['disabled']) ? 'opacity-50' : '' }}">
                                             {{-- Bulk Checkbox --}}
+                                            @if(!auth()->user()->isReadOnly())
                                             <td class="px-2 py-2 whitespace-nowrap text-center">
                                                 <input type="checkbox" value="{{ $rule['tracker'] }}" x-model="selected"
                                                     class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
@@ -227,6 +236,7 @@
                                                     @endif
                                                 </div>
                                             </td>
+                                            @endif
 
                                             <td class="px-2 py-2 whitespace-nowrap text-center">
                                                 @if(!empty($rule['disabled']))
@@ -305,6 +315,7 @@
                                             <td class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
                                                 {{ $rule['descr'] ?? '' }}
                                             </td>
+                                            @if(!auth()->user()->isReadOnly())
                                             <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-center">
                                                 <div class="flex justify-center space-x-2">
                                                     {{-- Edit Button --}}
@@ -345,6 +356,7 @@
                                                     </button>
                                                 </div>
                                             </td>
+                                            @endif
                                         </tr>
                                     @empty
                                         <tr>
@@ -366,6 +378,7 @@
                     </form>
 
                     {{-- Hidden Delete Forms --}}
+                    @if(!auth()->user()->isReadOnly())
                     @foreach($filteredRules as $rule)
                         <form id="delete-form-{{ $rule['tracker'] }}" method="POST"
                             action="{{ route('firewall.rules.destroy', ['firewall' => $firewall, 'tracker' => $rule['tracker']]) }}"
@@ -375,6 +388,7 @@
                             <input type="hidden" name="interface" value="{{ $selectedInterface }}">
                         </form>
                     @endforeach
+                    @endif
                     {{-- Confirmation Modal --}}
                     <div x-show="confirmModal.open" style="display: none;" class="fixed inset-0 z-50 overflow-y-auto"
                         aria-labelledby="modal-title" role="dialog" aria-modal="true">

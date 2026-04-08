@@ -441,6 +441,7 @@
                             <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
                                 {{ __('Managed Firewalls') }}
                             </h3>
+                            @if(!auth()->user()->isReadOnly())
                             <a href="{{ route('firewalls.create') }}"
                                 class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-medium text-sm text-white hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
                                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -450,6 +451,7 @@
                                 </svg>
                                 {{ __('Add Firewall') }}
                             </a>
+                            @endif
                         </div>
 
                         <!-- Toolbar -->
@@ -531,6 +533,7 @@
                             </div>
 
                             <!-- Right Side: Bulk Actions -->
+                            @if(!auth()->user()->isReadOnly())
                             <div
                                 class="flex gap-2 w-full lg:w-auto items-center border-t lg:border-t-0 lg:border-l lg:pl-4 pt-4 lg:pt-0 border-gray-200 dark:border-gray-600">
                                 <span class="text-sm text-gray-500 whitespace-nowrap hidden xl:inline">With
@@ -557,6 +560,7 @@
                                     </x-secondary-button>
                                 </div>
                             </div>
+                            @endif
                         </div>
 
                         <form id="bulkForm" action="{{ route('firewalls.bulk.action') }}" method="POST">
@@ -570,7 +574,9 @@
                                 <thead class="bg-gray-50 dark:bg-gray-700">
                                     <tr>
                                         <th class="px-6 py-3 text-left">
+                                            @if(!auth()->user()->isReadOnly())
                                             <input type="checkbox" id="selectAll" onclick="toggleSelectAll()">
+                                            @endif
                                         </th>
                                         <th scope="col"
                                             class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none group"
@@ -677,8 +683,10 @@
                                     <template x-for="firewall in filteredRows" :key="firewall.id">
                                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                                             <td class="px-6 py-4 whitespace-nowrap">
+                                                @if(!auth()->user()->isReadOnly())
                                                 <input type="checkbox" name="firewall_ids[]" :value="firewall.id"
                                                     form="bulkForm" class="firewall-checkbox">
+                                                @endif
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <a :href="firewall.dashboard_url"
@@ -819,6 +827,7 @@
                                             </td>
 
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                @if(!auth()->user()->isReadOnly())
                                                 <div class="flex items-center justify-end space-x-3">
                                                     <a :href="firewall.edit_url"
                                                         class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
@@ -830,6 +839,7 @@
                                                         Delete
                                                     </button>
                                                 </div>
+                                                @endif
                                             </td>
                                         </tr>
                                     </template>

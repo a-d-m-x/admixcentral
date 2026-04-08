@@ -1,10 +1,97 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-firewall-header title="{{ isset($alias['id']) ? __('Edit Firewall Alias') : __('Add Firewall Alias') }}" :firewall="$firewall" />
+        <x-firewall-header title="{{ isset($alias['id']) ? __('Firewall Alias') : __('Add Firewall Alias') }}" :firewall="$firewall" />
     </x-slot>
 
     <div class="py-12">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+
+            @if(auth()->user()->isReadOnly())
+
+            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6 space-y-6">
+
+                    {{-- Alias Properties --}}
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Alias Properties</h3>
+                        <dl class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-4 py-3">
+                                <dt class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Name</dt>
+                                <dd class="text-sm font-mono text-gray-900 dark:text-gray-100">{{ $alias['name'] ?? '—' }}</dd>
+                            </div>
+                            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-4 py-3">
+                                <dt class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Type</dt>
+                                <dd class="text-sm text-gray-900 dark:text-gray-100">
+                                    @php
+                                        $typeLabels = [
+                                            'host'     => 'Host(s)',
+                                            'network'  => 'Network(s)',
+                                            'port'     => 'Port(s)',
+                                            'url'      => 'URL (IPs)',
+                                            'urltable' => 'URL Table (IPs)',
+                                        ];
+                                    @endphp
+                                    {{ $typeLabels[$alias['type'] ?? ''] ?? ($alias['type'] ?? '—') }}
+                                </dd>
+                            </div>
+                            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-4 py-3">
+                                <dt class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Description</dt>
+                                <dd class="text-sm text-gray-900 dark:text-gray-100">{{ $alias['descr'] ?? '—' }}</dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    {{-- Entries Table --}}
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Entries</h3>
+                        @php
+                            $addresses = $alias['address'] ?? [];
+                            $details   = $alias['detail']  ?? [];
+                        @endphp
+                        @if(count($addresses))
+                        <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                                <thead class="bg-gray-50 dark:bg-gray-700">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider w-8">#</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Value</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
+                                    @foreach($addresses as $i => $addr)
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                                        <td class="px-4 py-2.5 text-gray-400 dark:text-gray-500 font-mono text-xs">{{ $i + 1 }}</td>
+                                        <td class="px-4 py-2.5 font-mono text-gray-900 dark:text-gray-100">{{ $addr }}</td>
+                                        <td class="px-4 py-2.5 text-gray-500 dark:text-gray-400">{{ $details[$i] ?? '' }}</td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        @else
+                            <p class="text-sm text-gray-500 dark:text-gray-400 italic">No entries defined.</p>
+                        @endif
+                    </div>
+
+                    {{-- Back link --}}
+                    <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <a href="{{ route('firewall.aliases.index', $firewall) }}"
+                            class="inline-flex items-center gap-1.5 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            Back to Aliases
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+
+            @else
+            {{-- ═══════════════════════════════════════════
+                 EDITABLE FORM — normal users and admins
+            ═══════════════════════════════════════════ --}}
             @if(session('error'))
                 <div class="mb-4 px-4 py-3 bg-red-100 border border-red-400 text-red-700 rounded">
                     {{ session('error') }}
@@ -77,7 +164,7 @@
                             </div>
                         </div>
 
-                        {{-- Host(s) / Network(s) / Port(s) --}}
+                        {{-- Entries --}}
                         <div>
                             <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Entries</h3>
 
@@ -116,8 +203,7 @@
                         </div>
 
                         {{-- Actions --}}
-                        <div
-                            class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
                             <a href="{{ route('firewall.aliases.index', $firewall) }}"
                                 class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
                                 Cancel
@@ -134,12 +220,13 @@
                     </div>
                 </form>
             </div>
+            @endif
+
         </div>
     </div>
 
     <script>
         function aliasForm(addresses, details) {
-            // Ensure arrays are same length
             const maxLength = Math.max(addresses.length, details.length, 1);
             const paddedAddresses = [...addresses, ...Array(maxLength - addresses.length).fill('')];
             const paddedDetails = [...details, ...Array(maxLength - details.length).fill('')];

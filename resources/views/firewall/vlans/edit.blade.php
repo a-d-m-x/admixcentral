@@ -1,12 +1,52 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-            {{ isset($vlan['id']) ? __('Edit VLAN') : __('Add VLAN') }}
+            {{ isset($vlan['id']) ? __('VLAN') : __('Add VLAN') }}
         </h2>
     </x-slot>
 
     <div class="py-12">
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
+
+            @if(auth()->user()->isReadOnly())
+            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6 space-y-4">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">VLAN Details</h3>
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-4 py-3">
+                            <dt class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Parent Interface</dt>
+                            <dd class="text-sm font-mono text-gray-900 dark:text-gray-100">{{ $vlan['if'] ?? '—' }}</dd>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-4 py-3">
+                            <dt class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">VLAN Tag</dt>
+                            <dd class="text-sm font-mono text-gray-900 dark:text-gray-100">{{ $vlan['tag'] ?? '—' }}</dd>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-4 py-3">
+                            <dt class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Priority (PCP)</dt>
+                            <dd class="text-sm text-gray-900 dark:text-gray-100">{{ $vlan['pcp'] ?? '0 (Default)' }}</dd>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-4 py-3">
+                            <dt class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Description</dt>
+                            <dd class="text-sm text-gray-900 dark:text-gray-100">{{ $vlan['descr'] ?? '—' }}</dd>
+                        </div>
+                    </dl>
+
+                    <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <a href="{{ route('firewall.vlans.index', $firewall) }}"
+                            class="inline-flex items-center gap-1.5 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            Back to VLANs
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            @else
+            {{-- ═══════════════════════════════════════════
+                 EDITABLE FORM — normal users and admins
+            ═══════════════════════════════════════════ --}}
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 dark:text-gray-100">
                     <form method="POST"
@@ -35,9 +75,6 @@
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                 <option value="">Select Parent Interface</option>
                                 @foreach ($interfaces as $interface)
-                                    {{-- pfSense API returns interfaces as key-value pairs or objects. Adjust based on
-                                    actual structure --}}
-                                    {{-- Assuming $interface is an array with 'if' key or similar --}}
                                     @php
                                         $ifName = $interface['if'] ?? $interface['id'] ?? 'unknown';
                                         $descr = $interface['descr'] ?? $ifName;
@@ -52,8 +89,7 @@
 
                         <!-- VLAN Tag -->
                         <div class="mb-4">
-                            <label for="tag" class="block text-sm font-medium text-gray-700 dark:text-gray-300">VLAN
-                                Tag</label>
+                            <label for="tag" class="block text-sm font-medium text-gray-700 dark:text-gray-300">VLAN Tag</label>
                             <input type="number" name="tag" id="tag" min="1" max="4094"
                                 value="{{ old('tag', $vlan['tag'] ?? '') }}"
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
@@ -63,12 +99,10 @@
 
                         <!-- PCP -->
                         <div class="mb-4">
-                            <label for="pcp" class="block text-sm font-medium text-gray-700 dark:text-gray-300">VLAN
-                                Priority (PCP)</label>
+                            <label for="pcp" class="block text-sm font-medium text-gray-700 dark:text-gray-300">VLAN Priority (PCP)</label>
                             <select name="pcp" id="pcp"
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                <option value="" {{ (old('pcp', $vlan['pcp'] ?? '') === '') ? 'selected' : '' }}>Default
-                                    (0)</option>
+                                <option value="" {{ (old('pcp', $vlan['pcp'] ?? '') === '') ? 'selected' : '' }}>Default (0)</option>
                                 @foreach(range(0, 7) as $p)
                                     <option value="{{ $p }}" {{ (old('pcp', $vlan['pcp'] ?? '') == $p && (old('pcp', $vlan['pcp'] ?? '') !== '')) ? 'selected' : '' }}>{{ $p }}</option>
                                 @endforeach
@@ -78,12 +112,10 @@
 
                         <!-- Description -->
                         <div class="mb-4">
-                            <label for="descr"
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
+                            <label for="descr" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
                             <input type="text" name="descr" id="descr" value="{{ old('descr', $vlan['descr'] ?? '') }}"
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                            <p class="mt-2 text-sm text-gray-500">You may enter a description here for your reference.
-                            </p>
+                            <p class="mt-2 text-sm text-gray-500">You may enter a description here for your reference.</p>
                         </div>
 
                         <div class="flex items-center justify-end mt-4">
@@ -97,6 +129,8 @@
                     </form>
                 </div>
             </div>
+            @endif
+
         </div>
     </div>
 </x-app-layout>

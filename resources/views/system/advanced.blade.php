@@ -35,7 +35,8 @@
                             @csrf
                             <!-- Add tab as hidden input -->
                             <input type="hidden" name="tab" value="{{ $tab }}">
-                    @endif
+                            <fieldset @if(auth()->user()->isReadOnly()) disabled @endif class="[&:disabled]:opacity-60 [&:disabled]:pointer-events-none">
+                        @endif
 
                         @if($tab === 'admin')
                             <!-- ... existing admin tab content ... -->
@@ -336,10 +337,12 @@
 
                                     <div class="flex justify-between items-center mb-4">
                                         <h3 class="text-lg font-medium text-gray-900">System Tunables</h3>
+                                        @if(!auth()->user()->isReadOnly())
                                         <x-button-add
                                             @click="showModal = true; editing = false; form = { id: '', tunable: '', value: '', descr: '' }">
                                             {{ __('Add Tunable') }}
                                         </x-button-add>
+                                        @endif
                                     </div>
 
                                     <div class="overflow-x-auto">
@@ -355,9 +358,11 @@
                                                     <th scope="col"
                                                         class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                         Value</th>
+                                                    @if(!auth()->user()->isReadOnly())
                                                     <th scope="col" class="relative px-6 py-3">
                                                         <span class="sr-only">Actions</span>
                                                     </th>
+                                                    @endif
                                                 </tr>
                                             </thead>
                                             <tbody class="bg-white divide-y divide-gray-200">
@@ -373,6 +378,7 @@
                                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                             {{ $tunable['value'] ?? '' }}
                                                         </td>
+                                                        @if(!auth()->user()->isReadOnly())
                                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                             <button type="button"
                                                                 @click="showModal = true; editing = true; form = { id: '{{ $tunable['id'] ?? $tunable['tunable'] ?? '' }}', tunable: '{{ $tunable['tunable'] ?? '' }}', value: '{{ $tunable['value'] ?? '' }}', descr: '{{ $tunable['descr'] ?? '' }}' }"
@@ -381,6 +387,7 @@
                                                                 @click="deleteTunable('{{ $tunable['id'] ?? $tunable['tunable'] ?? '' }}')"
                                                                 class="text-red-600 hover:text-red-900">Delete</button>
                                                         </td>
+                                                        @endif
                                                     </tr>
                                                 @empty
                                                     <tr>
@@ -397,6 +404,8 @@
                             @endif
 
                             @if($tab !== 'tunables')
+                                </fieldset>
+                                @if(!auth()->user()->isReadOnly())
                                 <div class="flex items-center justify-end mt-4">
                                     @if($tab === 'notifications')
                                         <button type="button" id="test-smtp-btn" onclick="testSmtpSettings()"
@@ -409,12 +418,12 @@
                                         {{ __('Save') }}
                                     </x-primary-button>
                                 </div>
-                            @endif
-                            @if($tab !== 'tunables')
                                 </form>
+                                @endif
                             @endif
 
-                    <!-- Modal -->
+                    <!-- Modal — hidden for readonly -->
+                    @if(!auth()->user()->isReadOnly())
                     <div x-show="showModal" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
                         <div
                             class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -480,6 +489,7 @@
                         @csrf
                         @method('DELETE')
                     </form>
+                    @endif
                 </div>
 
 

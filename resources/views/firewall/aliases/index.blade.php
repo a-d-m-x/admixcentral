@@ -22,9 +22,11 @@
                 <div class="p-6 text-gray-900 dark:text-gray-100">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-white">Aliases</h3>
+                        @if(!auth()->user()->isReadOnly())
                         <x-link-button-add href="{{ route('firewall.aliases.create', $firewall) }}">
                             Add Alias
                         </x-link-button-add>
+                        @endif
                     </div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -42,9 +44,11 @@
                                     <th
                                         class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                         Values</th>
+                                    @if(!auth()->user()->isReadOnly())
                                     <th
                                         class="px-6 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                         Actions</th>
+                                    @endif
                                 </tr>
                             </thead>
                             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -69,6 +73,7 @@
                                         <td data-label="Values">
                                             {{ Str::limit(is_array($alias['address']) ? implode(', ', $alias['address']) : ($alias['address'] ?? ''), 50) }}
                                         </td>
+                                        @if(!auth()->user()->isReadOnly())
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <div class="flex justify-end items-center space-x-3">
                                                 <a href="{{ route('firewall.aliases.edit', [$firewall, $alias['id']]) }}"
@@ -100,6 +105,7 @@
                                                 </form>
                                             </div>
                                         </td>
+                                        @endif
                                     </tr>
                                 @empty
                                     <tr>

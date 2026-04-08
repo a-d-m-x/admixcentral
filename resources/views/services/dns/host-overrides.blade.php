@@ -34,7 +34,8 @@
                         </nav>
                     </div>
 
-                    {{-- Add New Override --}}
+                    {{-- Add New Override — hidden for readonly --}}
+                    @if(!auth()->user()->isReadOnly())
                     <div class="mb-8 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Add Host Override</h3>
                         <form action="{{ route('services.dns.host-overrides.store', $firewall) }}" method="POST">
@@ -63,6 +64,7 @@
                             </div>
                         </form>
                     </div>
+                    @endif
 
                     {{-- List --}}
                     <div class="pf-table-container">
@@ -73,7 +75,9 @@
                                     <th>Domain</th>
                                     <th>IP</th>
                                     <th>Description</th>
+                                    @if(!auth()->user()->isReadOnly())
                                     <th>Actions</th>
+                                    @endif
                                 </tr>
                             </thead>
                             <tbody>
@@ -83,15 +87,16 @@
                                         <td data-label="Domain">{{ $host['domain'] ?? '' }}</td>
                                         <td data-label="IP">{{ $host['ip'] ?? '' }}</td>
                                         <td data-label="Description">{{ $host['descr'] ?? '' }}</td>
+                                        @if(!auth()->user()->isReadOnly())
                                         <td data-label="Actions">
-                                            {{-- Delete not implemented in controller yet --}}
                                             <button class="text-red-600 hover:text-red-900 dark:text-red-400"
                                                 disabled>Delete</button>
                                         </td>
+                                        @endif
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                        <td colspan="{{ auth()->user()->isReadOnly() ? '4' : '5' }}" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                                             No host overrides defined.
                                         </td>
                                     </tr>

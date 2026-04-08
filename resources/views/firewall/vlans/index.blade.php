@@ -16,9 +16,11 @@
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             <x-card>
                 <x-card-header title="VLAN Interfaces">
+                    @if(!auth()->user()->isReadOnly())
                     <x-link-button-add href="{{ route('firewall.vlans.create', $firewall->id) }}">
                         Add VLAN
                     </x-link-button-add>
+                    @endif
                 </x-card-header>
 
 
@@ -52,9 +54,11 @@
                                     <th scope="col"
                                         class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                         Description</th>
+                                    @if(!auth()->user()->isReadOnly())
                                     <th scope="col"
                                         class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                         Actions</th>
+                                    @endif
                                 </tr>
                             </thead>
                             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -72,16 +76,18 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                             {{ $vlan['descr'] ?? '' }}
                                         </td>
+                                        @if(!auth()->user()->isReadOnly())
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <a href="{{ route('firewall.vlans.edit', [$firewall, $index]) }}"
                                                 class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-600 mr-3">Edit</a>
                                             <button @click="confirmDelete({{ $index }})"
                                                 class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-600">Delete</button>
                                         </td>
+                                        @endif
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5"
+                                        <td colspan="{{ auth()->user()->isReadOnly() ? '4' : '5' }}"
                                             class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-center">
                                             No VLANs found.
                                         </td>

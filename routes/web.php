@@ -99,19 +99,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/firewall/{firewall}/system/routing', [RoutingController::class, 'index'])->name('firewall.system.routing');
 
     // Routing: Gateways
-    Route::post('/firewall/{firewall}/system/routing/gateways', [RoutingController::class, 'storeGateway'])->name('firewall.system.routing.gateways.store');
-    Route::patch('/firewall/{firewall}/system/routing/gateways/{id}', [RoutingController::class, 'updateGateway'])->name('firewall.system.routing.gateways.update');
-    Route::delete('/firewall/{firewall}/system/routing/gateways/{id}', [RoutingController::class, 'destroyGateway'])->name('firewall.system.routing.gateways.destroy');
+    Route::post('/firewall/{firewall}/system/routing/gateways', [RoutingController::class, 'storeGateway'])->middleware('deny.readonly')->name('firewall.system.routing.gateways.store');
+    Route::patch('/firewall/{firewall}/system/routing/gateways/{id}', [RoutingController::class, 'updateGateway'])->middleware('deny.readonly')->name('firewall.system.routing.gateways.update');
+    Route::delete('/firewall/{firewall}/system/routing/gateways/{id}', [RoutingController::class, 'destroyGateway'])->middleware('deny.readonly')->name('firewall.system.routing.gateways.destroy');
 
     // Routing: Static Routes
-    Route::post('/firewall/{firewall}/system/routing/static-routes', [RoutingController::class, 'storeStaticRoute'])->name('firewall.system.routing.static-routes.store');
-    Route::patch('/firewall/{firewall}/system/routing/static-routes/{id}', [RoutingController::class, 'updateStaticRoute'])->name('firewall.system.routing.static-routes.update');
-    Route::delete('/firewall/{firewall}/system/routing/static-routes/{id}', [RoutingController::class, 'destroyStaticRoute'])->name('firewall.system.routing.static-routes.destroy');
+    Route::post('/firewall/{firewall}/system/routing/static-routes', [RoutingController::class, 'storeStaticRoute'])->middleware('deny.readonly')->name('firewall.system.routing.static-routes.store');
+    Route::patch('/firewall/{firewall}/system/routing/static-routes/{id}', [RoutingController::class, 'updateStaticRoute'])->middleware('deny.readonly')->name('firewall.system.routing.static-routes.update');
+    Route::delete('/firewall/{firewall}/system/routing/static-routes/{id}', [RoutingController::class, 'destroyStaticRoute'])->middleware('deny.readonly')->name('firewall.system.routing.static-routes.destroy');
 
     // Routing: Gateway Groups
-    Route::post('/firewall/{firewall}/system/routing/gateway-groups', [RoutingController::class, 'storeGatewayGroup'])->name('firewall.system.routing.gateway-groups.store');
-    Route::patch('/firewall/{firewall}/system/routing/gateway-groups/{id}', [RoutingController::class, 'updateGatewayGroup'])->name('firewall.system.routing.gateway-groups.update');
-    Route::delete('/firewall/{firewall}/system/routing/gateway-groups/{id}', [RoutingController::class, 'destroyGatewayGroup'])->name('firewall.system.routing.gateway-groups.destroy');
+    Route::post('/firewall/{firewall}/system/routing/gateway-groups', [RoutingController::class, 'storeGatewayGroup'])->middleware('deny.readonly')->name('firewall.system.routing.gateway-groups.store');
+    Route::patch('/firewall/{firewall}/system/routing/gateway-groups/{id}', [RoutingController::class, 'updateGatewayGroup'])->middleware('deny.readonly')->name('firewall.system.routing.gateway-groups.update');
+    Route::delete('/firewall/{firewall}/system/routing/gateway-groups/{id}', [RoutingController::class, 'destroyGatewayGroup'])->middleware('deny.readonly')->name('firewall.system.routing.gateway-groups.destroy');
 
     // System Status (Global)
     Route::get('/system/status', [App\Http\Controllers\SystemStatusController::class, 'check'])->name('system.status');
@@ -120,13 +120,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [App\Http\Controllers\DashboardController::class, 'index'])->name('dashboard');
     Route::get('/firewall/{firewall}/check-status', [App\Http\Controllers\DashboardController::class, 'checkStatus'])->name('firewall.check-status');
 
-    // Bulk Firewall Actions
-    Route::post('/firewalls/bulk/action', [App\Http\Controllers\FirewallBulkController::class, 'handle'])->name('firewalls.bulk.action');
-    Route::get('/firewalls/bulk/create/{type}', [App\Http\Controllers\FirewallBulkController::class, 'create'])->name('firewalls.bulk.create');
-    Route::post('/firewalls/bulk/store/{type}', [App\Http\Controllers\FirewallBulkController::class, 'store'])->name('firewalls.bulk.store');
+    // Bulk Firewall Actions — restricted to admin/user (not readonly)
+    Route::post('/firewalls/bulk/action', [App\Http\Controllers\FirewallBulkController::class, 'handle'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user'])
+        ->name('firewalls.bulk.action');
+    Route::get('/firewalls/bulk/create/{type}', [App\Http\Controllers\FirewallBulkController::class, 'create'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user'])
+        ->name('firewalls.bulk.create');
+    Route::post('/firewalls/bulk/store/{type}', [App\Http\Controllers\FirewallBulkController::class, 'store'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user'])
+        ->name('firewalls.bulk.store');
 
-    // Companies (admin + user)
+    // Companies — read access for readonly, write access for admin/user only
     Route::resource('companies', App\Http\Controllers\CompanyController::class)
+        ->only(['index', 'show'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user,readonly']);
+    Route::resource('companies', App\Http\Controllers\CompanyController::class)
+        ->except(['index', 'show'])
         ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user']);
 
     Route::post('/firewalls/refresh-all', [App\Http\Controllers\FirewallController::class, 'refreshAll'])->name('firewalls.refresh-all');
@@ -155,56 +165,56 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('interfaces.')->group(function () {
             // Assignments
             Route::get('/assignments', [App\Http\Controllers\InterfacesController::class, 'assignments'])->name('assignments');
-            Route::post('/assignments', [App\Http\Controllers\InterfacesController::class, 'storeAssignment'])->name('assignments.store');
-            Route::delete('/assignments/{id}', [App\Http\Controllers\InterfacesController::class, 'destroyAssignment'])->name('assignments.destroy');
+            Route::post('/assignments', [App\Http\Controllers\InterfacesController::class, 'storeAssignment'])->middleware('deny.readonly')->name('assignments.store');
+            Route::delete('/assignments/{id}', [App\Http\Controllers\InterfacesController::class, 'destroyAssignment'])->middleware('deny.readonly')->name('assignments.destroy');
 
             // VLANs
             Route::get('/vlans', [App\Http\Controllers\InterfacesController::class, 'vlans'])->name('vlans.index');
             Route::get('/vlans/create', [App\Http\Controllers\InterfacesController::class, 'createVlan'])->name('vlans.create');
-            Route::post('/vlans', [App\Http\Controllers\InterfacesController::class, 'storeVlan'])->name('vlans.store');
+            Route::post('/vlans', [App\Http\Controllers\InterfacesController::class, 'storeVlan'])->middleware('deny.readonly')->name('vlans.store');
             Route::get('/vlans/{id}/edit', [App\Http\Controllers\InterfacesController::class, 'editVlan'])->name('vlans.edit');
-            Route::patch('/vlans/{id}', [App\Http\Controllers\InterfacesController::class, 'updateVlan'])->name('vlans.update');
-            Route::delete('/vlans/{id}', [App\Http\Controllers\InterfacesController::class, 'destroyVlan'])->name('vlans.destroy');
+            Route::patch('/vlans/{id}', [App\Http\Controllers\InterfacesController::class, 'updateVlan'])->middleware('deny.readonly')->name('vlans.update');
+            Route::delete('/vlans/{id}', [App\Http\Controllers\InterfacesController::class, 'destroyVlan'])->middleware('deny.readonly')->name('vlans.destroy');
 
             // Bridges
             Route::get('/bridges', [App\Http\Controllers\InterfacesBridgeController::class, 'index'])->name('bridges.index');
             Route::get('/bridges/create', [App\Http\Controllers\InterfacesBridgeController::class, 'create'])->name('bridges.create');
-            Route::post('/bridges', [App\Http\Controllers\InterfacesBridgeController::class, 'store'])->name('bridges.store');
+            Route::post('/bridges', [App\Http\Controllers\InterfacesBridgeController::class, 'store'])->middleware('deny.readonly')->name('bridges.store');
             Route::get('/bridges/{id}/edit', [App\Http\Controllers\InterfacesBridgeController::class, 'edit'])->name('bridges.edit');
-            Route::patch('/bridges/{id}', [App\Http\Controllers\InterfacesBridgeController::class, 'update'])->name('bridges.update');
-            Route::delete('/bridges/{id}', [App\Http\Controllers\InterfacesBridgeController::class, 'destroy'])->name('bridges.destroy');
+            Route::patch('/bridges/{id}', [App\Http\Controllers\InterfacesBridgeController::class, 'update'])->middleware('deny.readonly')->name('bridges.update');
+            Route::delete('/bridges/{id}', [App\Http\Controllers\InterfacesBridgeController::class, 'destroy'])->middleware('deny.readonly')->name('bridges.destroy');
 
             // LAGGs
             Route::get('/laggs', [App\Http\Controllers\InterfacesLaggController::class, 'index'])->name('laggs.index');
             Route::get('/laggs/create', [App\Http\Controllers\InterfacesLaggController::class, 'create'])->name('laggs.create');
-            Route::post('/laggs', [App\Http\Controllers\InterfacesLaggController::class, 'store'])->name('laggs.store');
+            Route::post('/laggs', [App\Http\Controllers\InterfacesLaggController::class, 'store'])->middleware('deny.readonly')->name('laggs.store');
             Route::get('/laggs/{id}/edit', [App\Http\Controllers\InterfacesLaggController::class, 'edit'])->name('laggs.edit');
-            Route::patch('/laggs/{id}', [App\Http\Controllers\InterfacesLaggController::class, 'update'])->name('laggs.update');
-            Route::delete('/laggs/{id}', [App\Http\Controllers\InterfacesLaggController::class, 'destroy'])->name('laggs.destroy');
+            Route::patch('/laggs/{id}', [App\Http\Controllers\InterfacesLaggController::class, 'update'])->middleware('deny.readonly')->name('laggs.update');
+            Route::delete('/laggs/{id}', [App\Http\Controllers\InterfacesLaggController::class, 'destroy'])->middleware('deny.readonly')->name('laggs.destroy');
 
             // GRE
             Route::get('/gre', [App\Http\Controllers\InterfacesGreController::class, 'index'])->name('gre.index');
             Route::get('/gre/create', [App\Http\Controllers\InterfacesGreController::class, 'create'])->name('gre.create');
-            Route::post('/gre', [App\Http\Controllers\InterfacesGreController::class, 'store'])->name('gre.store');
+            Route::post('/gre', [App\Http\Controllers\InterfacesGreController::class, 'store'])->middleware('deny.readonly')->name('gre.store');
             Route::get('/gre/{id}/edit', [App\Http\Controllers\InterfacesGreController::class, 'edit'])->name('gre.edit');
-            Route::patch('/gre/{id}', [App\Http\Controllers\InterfacesGreController::class, 'update'])->name('gre.update');
-            Route::delete('/gre/{id}', [App\Http\Controllers\InterfacesGreController::class, 'destroy'])->name('gre.destroy');
+            Route::patch('/gre/{id}', [App\Http\Controllers\InterfacesGreController::class, 'update'])->middleware('deny.readonly')->name('gre.update');
+            Route::delete('/gre/{id}', [App\Http\Controllers\InterfacesGreController::class, 'destroy'])->middleware('deny.readonly')->name('gre.destroy');
 
             // Wireless
             Route::get('/wireless', [App\Http\Controllers\InterfacesWirelessController::class, 'index'])->name('wireless.index');
             Route::get('/wireless/create', [App\Http\Controllers\InterfacesWirelessController::class, 'create'])->name('wireless.create');
-            Route::post('/wireless', [App\Http\Controllers\InterfacesWirelessController::class, 'store'])->name('wireless.store');
+            Route::post('/wireless', [App\Http\Controllers\InterfacesWirelessController::class, 'store'])->middleware('deny.readonly')->name('wireless.store');
             Route::get('/wireless/{id}/edit', [App\Http\Controllers\InterfacesWirelessController::class, 'edit'])->name('wireless.edit');
-            Route::patch('/wireless/{id}', [App\Http\Controllers\InterfacesWirelessController::class, 'update'])->name('wireless.update');
-            Route::delete('/wireless/{id}', [App\Http\Controllers\InterfacesWirelessController::class, 'destroy'])->name('wireless.destroy');
+            Route::patch('/wireless/{id}', [App\Http\Controllers\InterfacesWirelessController::class, 'update'])->middleware('deny.readonly')->name('wireless.update');
+            Route::delete('/wireless/{id}', [App\Http\Controllers\InterfacesWirelessController::class, 'destroy'])->middleware('deny.readonly')->name('wireless.destroy');
 
             // Interface Groups
             Route::get('/groups', [App\Http\Controllers\InterfacesGroupController::class, 'index'])->name('groups.index');
             Route::get('/groups/create', [App\Http\Controllers\InterfacesGroupController::class, 'create'])->name('groups.create');
-            Route::post('/groups', [App\Http\Controllers\InterfacesGroupController::class, 'store'])->name('groups.store');
+            Route::post('/groups', [App\Http\Controllers\InterfacesGroupController::class, 'store'])->middleware('deny.readonly')->name('groups.store');
             Route::get('/groups/{id}/edit', [App\Http\Controllers\InterfacesGroupController::class, 'edit'])->name('groups.edit');
-            Route::patch('/groups/{id}', [App\Http\Controllers\InterfacesGroupController::class, 'update'])->name('groups.update');
-            Route::delete('/groups/{id}', [App\Http\Controllers\InterfacesGroupController::class, 'destroy'])->name('groups.destroy');
+            Route::patch('/groups/{id}', [App\Http\Controllers\InterfacesGroupController::class, 'update'])->middleware('deny.readonly')->name('groups.update');
+            Route::delete('/groups/{id}', [App\Http\Controllers\InterfacesGroupController::class, 'destroy'])->middleware('deny.readonly')->name('groups.destroy');
         });
 
     // Interfaces management
@@ -212,7 +222,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(App\Http\Middleware\EnsureTenantScope::class)
         ->name('firewall.interfaces.edit');
     Route::put('/firewall/{firewall}/interfaces/{interface}', [App\Http\Controllers\InterfaceController::class, 'update'])
-        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
         ->name('firewall.interfaces.update');
     Route::get('/firewall/{firewall}/interfaces', [App\Http\Controllers\InterfaceController::class, 'index'])
         ->middleware(App\Http\Middleware\EnsureTenantScope::class)
@@ -223,7 +233,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
 
-    // Firewall Resources Group
+    // Firewall Resources Group — all pages viewable, write actions blocked for readonly
     Route::prefix('firewall/{firewall}')->name('firewall.')
         ->middleware(App\Http\Middleware\EnsureTenantScope::class)
         ->group(function () {
@@ -233,43 +243,43 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 // Rules
                 Route::get('/rules', [App\Http\Controllers\FirewallRuleController::class, 'index'])->name('rules.index');
                 Route::get('/rules/create', [App\Http\Controllers\FirewallRuleController::class, 'create'])->name('rules.create');
-                Route::post('/rules', [App\Http\Controllers\FirewallRuleController::class, 'store'])->name('rules.store');
+                Route::post('/rules', [App\Http\Controllers\FirewallRuleController::class, 'store'])->middleware('deny.readonly')->name('rules.store');
                 Route::get('/rules/{tracker}/edit', [App\Http\Controllers\FirewallRuleController::class, 'edit'])->name('rules.edit');
-                Route::put('/rules/{tracker}', [App\Http\Controllers\FirewallRuleController::class, 'update'])->name('rules.update');
-                Route::delete('/rules/{tracker}', [App\Http\Controllers\FirewallRuleController::class, 'destroy'])->name('rules.destroy');
-                Route::post('/rules/bulk-action', [App\Http\Controllers\FirewallRuleController::class, 'bulkAction'])->name('rules.bulk-action');
-                Route::post('/rules/{tracker}/move', [App\Http\Controllers\FirewallRuleController::class, 'move'])->name('rules.move');
-                Route::patch('/rules/{tracker}/toggle', [App\Http\Controllers\FirewallRuleController::class, 'toggle'])->name('rules.toggle');
-                Route::post('/apply', [App\Http\Controllers\FirewallApplyController::class, 'apply'])->name('apply');
+                Route::put('/rules/{tracker}', [App\Http\Controllers\FirewallRuleController::class, 'update'])->middleware('deny.readonly')->name('rules.update');
+                Route::delete('/rules/{tracker}', [App\Http\Controllers\FirewallRuleController::class, 'destroy'])->middleware('deny.readonly')->name('rules.destroy');
+                Route::post('/rules/bulk-action', [App\Http\Controllers\FirewallRuleController::class, 'bulkAction'])->middleware('deny.readonly')->name('rules.bulk-action');
+                Route::post('/rules/{tracker}/move', [App\Http\Controllers\FirewallRuleController::class, 'move'])->middleware('deny.readonly')->name('rules.move');
+                Route::patch('/rules/{tracker}/toggle', [App\Http\Controllers\FirewallRuleController::class, 'toggle'])->middleware('deny.readonly')->name('rules.toggle');
+                Route::post('/apply', [App\Http\Controllers\FirewallApplyController::class, 'apply'])->middleware('deny.readonly')->name('apply');
 
                 // Aliases
                 Route::get('/aliases', [App\Http\Controllers\FirewallAliasController::class, 'index'])->name('aliases.index');
                 Route::get('/aliases/create', [App\Http\Controllers\FirewallAliasController::class, 'create'])->name('aliases.create');
-                Route::post('/aliases', [App\Http\Controllers\FirewallAliasController::class, 'store'])->name('aliases.store');
+                Route::post('/aliases', [App\Http\Controllers\FirewallAliasController::class, 'store'])->middleware('deny.readonly')->name('aliases.store');
                 Route::get('/aliases/{id}/edit', [App\Http\Controllers\FirewallAliasController::class, 'edit'])->name('aliases.edit');
-                Route::put('/aliases/{id}', [App\Http\Controllers\FirewallAliasController::class, 'update'])->name('aliases.update');
-                Route::delete('/aliases/{id}', [App\Http\Controllers\FirewallAliasController::class, 'destroy'])->name('aliases.destroy');
+                Route::put('/aliases/{id}', [App\Http\Controllers\FirewallAliasController::class, 'update'])->middleware('deny.readonly')->name('aliases.update');
+                Route::delete('/aliases/{id}', [App\Http\Controllers\FirewallAliasController::class, 'destroy'])->middleware('deny.readonly')->name('aliases.destroy');
 
                 // NAT
                 Route::get('/nat/port-forward', [App\Http\Controllers\FirewallNatController::class, 'portForward'])->name('nat.port-forward');
                 Route::get('/nat/port-forward/create', [App\Http\Controllers\FirewallNatController::class, 'createPortForward'])->name('nat.port-forward.create');
-                Route::post('/nat/port-forward', [App\Http\Controllers\FirewallNatController::class, 'storePortForward'])->name('nat.port-forward.store');
-                Route::put('/nat/port-forward/{id}', [App\Http\Controllers\FirewallNatController::class, 'updatePortForward'])->name('nat.port-forward.update');
-                Route::delete('/nat/port-forward/{id}', [App\Http\Controllers\FirewallNatController::class, 'destroyPortForward'])->name('nat.port-forward.destroy');
-                Route::patch('/nat/port-forward/{id}/toggle', [App\Http\Controllers\FirewallNatController::class, 'togglePortForward'])->name('nat.port-forward.toggle');
+                Route::post('/nat/port-forward', [App\Http\Controllers\FirewallNatController::class, 'storePortForward'])->middleware('deny.readonly')->name('nat.port-forward.store');
+                Route::put('/nat/port-forward/{id}', [App\Http\Controllers\FirewallNatController::class, 'updatePortForward'])->middleware('deny.readonly')->name('nat.port-forward.update');
+                Route::delete('/nat/port-forward/{id}', [App\Http\Controllers\FirewallNatController::class, 'destroyPortForward'])->middleware('deny.readonly')->name('nat.port-forward.destroy');
+                Route::patch('/nat/port-forward/{id}/toggle', [App\Http\Controllers\FirewallNatController::class, 'togglePortForward'])->middleware('deny.readonly')->name('nat.port-forward.toggle');
                 Route::get('/nat/outbound', [App\Http\Controllers\FirewallNatController::class, 'outbound'])->name('nat.outbound');
                 Route::get('/nat/outbound/create', [App\Http\Controllers\FirewallNatController::class, 'createOutbound'])->name('nat.outbound.create');
-                Route::post('/nat/outbound', [App\Http\Controllers\FirewallNatController::class, 'storeOutbound'])->name('nat.outbound.store');
+                Route::post('/nat/outbound', [App\Http\Controllers\FirewallNatController::class, 'storeOutbound'])->middleware('deny.readonly')->name('nat.outbound.store');
                 Route::get('/nat/outbound/{id}/edit', [App\Http\Controllers\FirewallNatController::class, 'editOutbound'])->name('nat.outbound.edit');
-                Route::put('/nat/outbound/{id}', [App\Http\Controllers\FirewallNatController::class, 'updateOutbound'])->name('nat.outbound.update');
-                Route::patch('/nat/outbound/{id}/toggle', [App\Http\Controllers\FirewallNatController::class, 'toggleOutbound'])->name('nat.outbound.toggle');
-                Route::delete('/nat/outbound/{id}', [App\Http\Controllers\FirewallNatController::class, 'destroyOutbound'])->name('nat.outbound.destroy');
-                Route::patch('/nat/outbound/mode', [App\Http\Controllers\FirewallNatController::class, 'updateOutboundMode'])->name('nat.outbound.mode');
+                Route::put('/nat/outbound/{id}', [App\Http\Controllers\FirewallNatController::class, 'updateOutbound'])->middleware('deny.readonly')->name('nat.outbound.update');
+                Route::patch('/nat/outbound/{id}/toggle', [App\Http\Controllers\FirewallNatController::class, 'toggleOutbound'])->middleware('deny.readonly')->name('nat.outbound.toggle');
+                Route::delete('/nat/outbound/{id}', [App\Http\Controllers\FirewallNatController::class, 'destroyOutbound'])->middleware('deny.readonly')->name('nat.outbound.destroy');
+                Route::patch('/nat/outbound/mode', [App\Http\Controllers\FirewallNatController::class, 'updateOutboundMode'])->middleware('deny.readonly')->name('nat.outbound.mode');
                 Route::get('/nat/one-to-one', [App\Http\Controllers\FirewallNatController::class, 'oneToOne'])->name('nat.one-to-one');
-                Route::post('/nat/one-to-one', [App\Http\Controllers\FirewallNatController::class, 'storeOneToOne'])->name('nat.one-to-one.store');
-                Route::put('/nat/one-to-one/{id}', [App\Http\Controllers\FirewallNatController::class, 'updateOneToOne'])->name('nat.one-to-one.update');
-                Route::patch('/nat/one-to-one/{id}/toggle', [App\Http\Controllers\FirewallNatController::class, 'toggleOneToOne'])->name('nat.one-to-one.toggle');
-                Route::delete('/nat/one-to-one/{id}', [App\Http\Controllers\FirewallNatController::class, 'destroyOneToOne'])->name('nat.one-to-one.destroy');
+                Route::post('/nat/one-to-one', [App\Http\Controllers\FirewallNatController::class, 'storeOneToOne'])->middleware('deny.readonly')->name('nat.one-to-one.store');
+                Route::put('/nat/one-to-one/{id}', [App\Http\Controllers\FirewallNatController::class, 'updateOneToOne'])->middleware('deny.readonly')->name('nat.one-to-one.update');
+                Route::patch('/nat/one-to-one/{id}/toggle', [App\Http\Controllers\FirewallNatController::class, 'toggleOneToOne'])->middleware('deny.readonly')->name('nat.one-to-one.toggle');
+                Route::delete('/nat/one-to-one/{id}', [App\Http\Controllers\FirewallNatController::class, 'destroyOneToOne'])->middleware('deny.readonly')->name('nat.one-to-one.destroy');
 
                 // Schedules
                 Route::resource('schedules', App\Http\Controllers\FirewallScheduleController::class);
@@ -290,14 +300,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/vpn/openvpn/server', [App\Http\Controllers\VpnOpenVpnController::class, 'servers'])->name('vpn.openvpn.servers');
             Route::get('/vpn/openvpn/client', [App\Http\Controllers\VpnOpenVpnController::class, 'clients'])->name('vpn.openvpn.clients');
             Route::get('/vpn/openvpn/server/create', [App\Http\Controllers\VpnOpenVpnController::class, 'createServer'])->name('vpn.openvpn.server.create');
-            Route::post('/vpn/openvpn/server', [App\Http\Controllers\VpnOpenVpnController::class, 'storeServer'])->name('vpn.openvpn.server.store');
+            Route::post('/vpn/openvpn/server', [App\Http\Controllers\VpnOpenVpnController::class, 'storeServer'])->middleware('deny.readonly')->name('vpn.openvpn.server.store');
 
 
         });
 
-    // User Management
+    // User Management — read access for readonly users (index/show), write blocked
     Route::get('/users/geocode', [App\Http\Controllers\UserController::class, 'geocode'])
-        ->middleware(['throttle:10,1', App\Http\Middleware\CheckRole::class . ':admin,user'])
+        ->middleware(['throttle:10,1', App\Http\Middleware\CheckRole::class . ':admin,user,readonly'])
         ->name('users.geocode');
     Route::post('/users/check-email', [App\Http\Controllers\UserController::class, 'checkEmail'])
         ->middleware(['throttle:6,1', App\Http\Middleware\CheckRole::class . ':admin,user'])
@@ -306,7 +316,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user'])
         ->name('users.bulk-action');
     Route::resource('users', App\Http\Controllers\UserController::class)
+        ->only(['index', 'show'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user,readonly']);
+    Route::resource('users', App\Http\Controllers\UserController::class)
+        ->except(['index', 'show'])
         ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user']);
+
 
     // System Settings (Global Admin)
     Route::get('/system/settings', [App\Http\Controllers\SystemCustomizationController::class, 'index'])
@@ -391,7 +406,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(App\Http\Middleware\EnsureTenantScope::class)
         ->name('services.dhcp.index');
     Route::patch('/firewall/{firewall}/services/dhcp/{interface}', [App\Http\Controllers\ServicesDhcpServerController::class, 'update'])
-        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
         ->name('services.dhcp.update');
 
     // Services - DNS Resolver
@@ -399,40 +414,40 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(App\Http\Middleware\EnsureTenantScope::class)
         ->name('services.dns.resolver');
     Route::patch('/firewall/{firewall}/services/dns-resolver', [App\Http\Controllers\ServicesDnsResolverController::class, 'update'])
-        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
         ->name('services.dns.resolver.update');
     Route::get('/firewall/{firewall}/services/dns-resolver/host-overrides', [App\Http\Controllers\ServicesDnsResolverController::class, 'hostOverrides'])
         ->middleware(App\Http\Middleware\EnsureTenantScope::class)
         ->name('services.dns.host-overrides');
     Route::post('/firewall/{firewall}/services/dns-resolver/host-overrides', [App\Http\Controllers\ServicesDnsResolverController::class, 'storeHostOverride'])
-        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
         ->name('services.dns.host-overrides.store');
 
 
 
 
 
-    // System
-    Route::prefix('firewall/{firewall}/system')->name('system.')->group(function () {
+    // System — pages are viewable by readonly, write actions are blocked
+    Route::prefix('firewall/{firewall}/system')->name('system.')->middleware(App\Http\Middleware\EnsureTenantScope::class)->group(function () {
         Route::get('/advanced', [App\Http\Controllers\SystemController::class, 'advanced'])->name('advanced');
-        Route::post('/advanced', [App\Http\Controllers\SystemController::class, 'updateAdvanced'])->name('advanced.update');
-        Route::post('/advanced/tunables', [App\Http\Controllers\SystemController::class, 'storeTunable'])->name('advanced.tunables.store');
-        Route::patch('/advanced/tunables/{id}', [App\Http\Controllers\SystemController::class, 'updateTunable'])->name('advanced.tunables.update');
-        Route::delete('/advanced/tunables/{id}', [App\Http\Controllers\SystemController::class, 'destroyTunable'])->name('advanced.tunables.destroy');
-        Route::post('/advanced/tunables/apply', [App\Http\Controllers\SystemController::class, 'applyTunables'])->name('advanced.tunables.apply');
+        Route::post('/advanced', [App\Http\Controllers\SystemController::class, 'updateAdvanced'])->middleware('deny.readonly')->name('advanced.update');
+        Route::post('/advanced/tunables', [App\Http\Controllers\SystemController::class, 'storeTunable'])->middleware('deny.readonly')->name('advanced.tunables.store');
+        Route::patch('/advanced/tunables/{id}', [App\Http\Controllers\SystemController::class, 'updateTunable'])->middleware('deny.readonly')->name('advanced.tunables.update');
+        Route::delete('/advanced/tunables/{id}', [App\Http\Controllers\SystemController::class, 'destroyTunable'])->middleware('deny.readonly')->name('advanced.tunables.destroy');
+        Route::post('/advanced/tunables/apply', [App\Http\Controllers\SystemController::class, 'applyTunables'])->middleware('deny.readonly')->name('advanced.tunables.apply');
 
         Route::get('/general-setup', [App\Http\Controllers\SystemController::class, 'generalSetup'])->name('general-setup');
-        Route::post('/general-setup', [App\Http\Controllers\SystemController::class, 'updateGeneralSetup'])->name('general-setup.update');
+        Route::post('/general-setup', [App\Http\Controllers\SystemController::class, 'updateGeneralSetup'])->middleware('deny.readonly')->name('general-setup.update');
         Route::get('/high-avail-sync', [App\Http\Controllers\SystemController::class, 'highAvailSync'])->name('high-avail-sync');
 
         // Package Manager
         Route::get('/package-manager', [App\Http\Controllers\PackageManagerController::class, 'index'])->name('package_manager.index');
-        Route::post('/package-manager/install', [App\Http\Controllers\PackageManagerController::class, 'install'])->name('package_manager.install');
-        Route::post('/package-manager/uninstall', [App\Http\Controllers\PackageManagerController::class, 'uninstall'])->name('package_manager.uninstall');
+        Route::post('/package-manager/install', [App\Http\Controllers\PackageManagerController::class, 'install'])->middleware('deny.readonly')->name('package_manager.install');
+        Route::post('/package-manager/uninstall', [App\Http\Controllers\PackageManagerController::class, 'uninstall'])->middleware('deny.readonly')->name('package_manager.uninstall');
 
         Route::get('/notifications', [App\Http\Controllers\SystemController::class, 'notifications'])->name('notifications');
-        Route::post('/notifications', [App\Http\Controllers\SystemController::class, 'updateNotifications'])->name('notifications.update');
-        Route::post('/notifications/test', [App\Http\Controllers\SystemController::class, 'testNotifications'])->name('notifications.test');
+        Route::post('/notifications', [App\Http\Controllers\SystemController::class, 'updateNotifications'])->middleware('deny.readonly')->name('notifications.update');
+        Route::post('/notifications/test', [App\Http\Controllers\SystemController::class, 'testNotifications'])->middleware('deny.readonly')->name('notifications.test');
 
         // Routing
 
@@ -443,147 +458,147 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Users
         Route::get('/user-manager/users/create', [App\Http\Controllers\UserManagerController::class, 'createUser'])->name('user_manager.users.create');
-        Route::post('/user-manager/users', [App\Http\Controllers\UserManagerController::class, 'storeUser'])->name('user_manager.users.store');
+        Route::post('/user-manager/users', [App\Http\Controllers\UserManagerController::class, 'storeUser'])->middleware('deny.readonly')->name('user_manager.users.store');
         Route::get('/user-manager/users/{id}/edit', [App\Http\Controllers\UserManagerController::class, 'editUser'])->name('user_manager.users.edit');
-        Route::patch('/user-manager/users/{id}', [App\Http\Controllers\UserManagerController::class, 'updateUser'])->name('user_manager.users.update');
-        Route::delete('/user-manager/users/{id}', [App\Http\Controllers\UserManagerController::class, 'destroyUser'])->name('user_manager.users.destroy');
+        Route::patch('/user-manager/users/{id}', [App\Http\Controllers\UserManagerController::class, 'updateUser'])->middleware('deny.readonly')->name('user_manager.users.update');
+        Route::delete('/user-manager/users/{id}', [App\Http\Controllers\UserManagerController::class, 'destroyUser'])->middleware('deny.readonly')->name('user_manager.users.destroy');
 
         // Groups
         Route::get('/user-manager/groups/create', [App\Http\Controllers\UserManagerController::class, 'createGroup'])->name('user_manager.groups.create');
-        Route::post('/user-manager/groups', [App\Http\Controllers\UserManagerController::class, 'storeGroup'])->name('user_manager.groups.store');
+        Route::post('/user-manager/groups', [App\Http\Controllers\UserManagerController::class, 'storeGroup'])->middleware('deny.readonly')->name('user_manager.groups.store');
         Route::get('/user-manager/groups/{id}/edit', [App\Http\Controllers\UserManagerController::class, 'editGroup'])->name('user_manager.groups.edit');
-        Route::patch('/user-manager/groups/{id}', [App\Http\Controllers\UserManagerController::class, 'updateGroup'])->name('user_manager.groups.update');
-        Route::delete('/user-manager/groups/{id}', [App\Http\Controllers\UserManagerController::class, 'destroyGroup'])->name('user_manager.groups.destroy');
+        Route::patch('/user-manager/groups/{id}', [App\Http\Controllers\UserManagerController::class, 'updateGroup'])->middleware('deny.readonly')->name('user_manager.groups.update');
+        Route::delete('/user-manager/groups/{id}', [App\Http\Controllers\UserManagerController::class, 'destroyGroup'])->middleware('deny.readonly')->name('user_manager.groups.destroy');
 
         // Certificate Manager
         Route::get('/certificate-manager', [App\Http\Controllers\CertificateManagerController::class, 'index'])->name('certificate_manager.index');
 
         // CAs
         Route::get('/certificate-manager/cas/create', [App\Http\Controllers\CertificateManagerController::class, 'createCa'])->name('certificate_manager.cas.create');
-        Route::post('/certificate-manager/cas', [App\Http\Controllers\CertificateManagerController::class, 'storeCa'])->name('certificate_manager.cas.store');
-        Route::delete('/certificate-manager/cas/{id}', [App\Http\Controllers\CertificateManagerController::class, 'destroyCa'])->name('certificate_manager.cas.destroy');
+        Route::post('/certificate-manager/cas', [App\Http\Controllers\CertificateManagerController::class, 'storeCa'])->middleware('deny.readonly')->name('certificate_manager.cas.store');
+        Route::delete('/certificate-manager/cas/{id}', [App\Http\Controllers\CertificateManagerController::class, 'destroyCa'])->middleware('deny.readonly')->name('certificate_manager.cas.destroy');
 
         // Certificates
-        Route::post('/certificate-manager/certificates', [App\Http\Controllers\CertificateManagerController::class, 'storeCert'])->name('certificate_manager.certificates.store');
+        Route::post('/certificate-manager/certificates', [App\Http\Controllers\CertificateManagerController::class, 'storeCert'])->middleware('deny.readonly')->name('certificate_manager.certificates.store');
         Route::get('/certificate-manager/certificates/create', [App\Http\Controllers\CertificateManagerController::class, 'createCert'])->name('certificate_manager.certificates.create');
-        Route::delete('/certificate-manager/certificates/{id}', [App\Http\Controllers\CertificateManagerController::class, 'destroyCert'])->name('certificate_manager.certificates.destroy');
+        Route::delete('/certificate-manager/certificates/{id}', [App\Http\Controllers\CertificateManagerController::class, 'destroyCert'])->middleware('deny.readonly')->name('certificate_manager.certificates.destroy');
 
         // CRLs
-        Route::post('/certificate-manager/crls', [App\Http\Controllers\CertificateManagerController::class, 'storeCrl'])->name('certificate_manager.crls.store');
+        Route::post('/certificate-manager/crls', [App\Http\Controllers\CertificateManagerController::class, 'storeCrl'])->middleware('deny.readonly')->name('certificate_manager.crls.store');
         Route::get('/certificate-manager/crls/create', [App\Http\Controllers\CertificateManagerController::class, 'createCrl'])->name('certificate_manager.crls.create');
-        Route::delete('/certificate-manager/crls/{id}', [App\Http\Controllers\CertificateManagerController::class, 'destroyCrl'])->name('certificate_manager.crls.destroy');
+        Route::delete('/certificate-manager/crls/{id}', [App\Http\Controllers\CertificateManagerController::class, 'destroyCrl'])->middleware('deny.readonly')->name('certificate_manager.crls.destroy');
     });
 
 
 
-    // Services
-    Route::prefix('firewall/{firewall}/services')->name('services.')->group(function () {
+    // Services — pages viewable by readonly, only write actions blocked
+    Route::prefix('firewall/{firewall}/services')->name('services.')->middleware(App\Http\Middleware\EnsureTenantScope::class)->group(function () {
         Route::get('/captive-portal', [App\Http\Controllers\ServicesController::class, 'captivePortal'])->name('captive-portal');
         Route::get('/auto-config-backup', [App\Http\Controllers\ServicesController::class, 'autoConfigBackup'])->name('auto-config-backup');
 
         // ACME (Let's Encrypt)
         Route::get('/acme', [App\Http\Controllers\ServicesAcmeController::class, 'index'])->name('acme.index');
         Route::get('/acme/account-keys', [App\Http\Controllers\ServicesAcmeController::class, 'accountKeys'])->name('acme.account-keys');
-        Route::post('/acme/account-keys', [App\Http\Controllers\ServicesAcmeController::class, 'storeAccountKey'])->name('acme.account-keys.store');
-        Route::delete('/acme/account-keys/{id}', [App\Http\Controllers\ServicesAcmeController::class, 'destroyAccountKey'])->name('acme.account-keys.destroy');
+        Route::post('/acme/account-keys', [App\Http\Controllers\ServicesAcmeController::class, 'storeAccountKey'])->middleware('deny.readonly')->name('acme.account-keys.store');
+        Route::delete('/acme/account-keys/{id}', [App\Http\Controllers\ServicesAcmeController::class, 'destroyAccountKey'])->middleware('deny.readonly')->name('acme.account-keys.destroy');
         Route::get('/acme/certificates', [App\Http\Controllers\ServicesAcmeController::class, 'certificates'])->name('acme.certificates');
-        Route::post('/acme/certificates', [App\Http\Controllers\ServicesAcmeController::class, 'storeCertificate'])->name('acme.certificates.store');
-        Route::post('/acme/certificates/issue', [App\Http\Controllers\ServicesAcmeController::class, 'issueCertificate'])->name('acme.certificates.issue');
-        Route::post('/acme/certificates/renew', [App\Http\Controllers\ServicesAcmeController::class, 'renewCertificate'])->name('acme.certificates.renew');
-        Route::delete('/acme/certificates/{id}', [App\Http\Controllers\ServicesAcmeController::class, 'destroyCertificate'])->name('acme.certificates.destroy');
+        Route::post('/acme/certificates', [App\Http\Controllers\ServicesAcmeController::class, 'storeCertificate'])->middleware('deny.readonly')->name('acme.certificates.store');
+        Route::post('/acme/certificates/issue', [App\Http\Controllers\ServicesAcmeController::class, 'issueCertificate'])->middleware('deny.readonly')->name('acme.certificates.issue');
+        Route::post('/acme/certificates/renew', [App\Http\Controllers\ServicesAcmeController::class, 'renewCertificate'])->middleware('deny.readonly')->name('acme.certificates.renew');
+        Route::delete('/acme/certificates/{id}', [App\Http\Controllers\ServicesAcmeController::class, 'destroyCertificate'])->middleware('deny.readonly')->name('acme.certificates.destroy');
         Route::get('/acme/settings', [App\Http\Controllers\ServicesAcmeController::class, 'settings'])->name('acme.settings');
-        Route::post('/acme/settings', [App\Http\Controllers\ServicesAcmeController::class, 'updateSettings'])->name('acme.settings.update');
+        Route::post('/acme/settings', [App\Http\Controllers\ServicesAcmeController::class, 'updateSettings'])->middleware('deny.readonly')->name('acme.settings.update');
 
         // HAProxy
         Route::get('/haproxy', [App\Http\Controllers\ServicesHaproxyController::class, 'index'])->name('haproxy.index');
         Route::get('/haproxy/settings', [App\Http\Controllers\ServicesHaproxyController::class, 'settings'])->name('haproxy.settings');
-        Route::post('/haproxy/settings', [App\Http\Controllers\ServicesHaproxyController::class, 'updateSettings'])->name('haproxy.settings.update');
+        Route::post('/haproxy/settings', [App\Http\Controllers\ServicesHaproxyController::class, 'updateSettings'])->middleware('deny.readonly')->name('haproxy.settings.update');
 
         // HAProxy Frontends
         Route::get('/haproxy/frontends', [App\Http\Controllers\ServicesHaproxyController::class, 'frontends'])->name('haproxy.frontends.index');
         Route::get('/haproxy/frontends/create', [App\Http\Controllers\ServicesHaproxyController::class, 'createFrontend'])->name('haproxy.frontends.create');
-        Route::post('/haproxy/frontends', [App\Http\Controllers\ServicesHaproxyController::class, 'storeFrontend'])->name('haproxy.frontends.store');
+        Route::post('/haproxy/frontends', [App\Http\Controllers\ServicesHaproxyController::class, 'storeFrontend'])->middleware('deny.readonly')->name('haproxy.frontends.store');
         Route::get('/haproxy/frontends/{id}/edit', [App\Http\Controllers\ServicesHaproxyController::class, 'editFrontend'])->name('haproxy.frontends.edit');
-        Route::put('/haproxy/frontends/{id}', [App\Http\Controllers\ServicesHaproxyController::class, 'updateFrontend'])->name('haproxy.frontends.update');
-        Route::delete('/haproxy/frontends/{id}', [App\Http\Controllers\ServicesHaproxyController::class, 'destroyFrontend'])->name('haproxy.frontends.destroy');
+        Route::put('/haproxy/frontends/{id}', [App\Http\Controllers\ServicesHaproxyController::class, 'updateFrontend'])->middleware('deny.readonly')->name('haproxy.frontends.update');
+        Route::delete('/haproxy/frontends/{id}', [App\Http\Controllers\ServicesHaproxyController::class, 'destroyFrontend'])->middleware('deny.readonly')->name('haproxy.frontends.destroy');
 
         // HAProxy Backends
         Route::get('/haproxy/backends', [App\Http\Controllers\ServicesHaproxyController::class, 'backends'])->name('haproxy.backends.index');
         Route::get('/haproxy/backends/create', [App\Http\Controllers\ServicesHaproxyController::class, 'createBackend'])->name('haproxy.backends.create');
-        Route::post('/haproxy/backends', [App\Http\Controllers\ServicesHaproxyController::class, 'storeBackend'])->name('haproxy.backends.store');
+        Route::post('/haproxy/backends', [App\Http\Controllers\ServicesHaproxyController::class, 'storeBackend'])->middleware('deny.readonly')->name('haproxy.backends.store');
         Route::get('/haproxy/backends/{id}/edit', [App\Http\Controllers\ServicesHaproxyController::class, 'editBackend'])->name('haproxy.backends.edit');
-        Route::put('/haproxy/backends/{id}', [App\Http\Controllers\ServicesHaproxyController::class, 'updateBackend'])->name('haproxy.backends.update');
-        Route::delete('/haproxy/backends/{id}', [App\Http\Controllers\ServicesHaproxyController::class, 'destroyBackend'])->name('haproxy.backends.destroy');
+        Route::put('/haproxy/backends/{id}', [App\Http\Controllers\ServicesHaproxyController::class, 'updateBackend'])->middleware('deny.readonly')->name('haproxy.backends.update');
+        Route::delete('/haproxy/backends/{id}', [App\Http\Controllers\ServicesHaproxyController::class, 'destroyBackend'])->middleware('deny.readonly')->name('haproxy.backends.destroy');
 
         // FreeRADIUS
         Route::get('/freeradius', [App\Http\Controllers\ServicesFreeradiusController::class, 'index'])->name('freeradius.index');
 
         // Settings
         Route::get('/freeradius/settings', [App\Http\Controllers\ServicesFreeradiusController::class, 'settings'])->name('freeradius.settings');
-        Route::post('/freeradius/settings', [App\Http\Controllers\ServicesFreeradiusController::class, 'updateSettings'])->name('freeradius.settings.update');
+        Route::post('/freeradius/settings', [App\Http\Controllers\ServicesFreeradiusController::class, 'updateSettings'])->middleware('deny.readonly')->name('freeradius.settings.update');
 
         // Users
         Route::get('/freeradius/users', [App\Http\Controllers\ServicesFreeradiusController::class, 'users'])->name('freeradius.users.index');
         Route::get('/freeradius/users/create', [App\Http\Controllers\ServicesFreeradiusController::class, 'createUser'])->name('freeradius.users.create');
-        Route::post('/freeradius/users', [App\Http\Controllers\ServicesFreeradiusController::class, 'storeUser'])->name('freeradius.users.store');
+        Route::post('/freeradius/users', [App\Http\Controllers\ServicesFreeradiusController::class, 'storeUser'])->middleware('deny.readonly')->name('freeradius.users.store');
         Route::get('/freeradius/users/{username}/edit', [App\Http\Controllers\ServicesFreeradiusController::class, 'editUser'])->name('freeradius.users.edit');
-        Route::put('/freeradius/users/{username}', [App\Http\Controllers\ServicesFreeradiusController::class, 'updateUser'])->name('freeradius.users.update');
-        Route::delete('/freeradius/users/{username}', [App\Http\Controllers\ServicesFreeradiusController::class, 'destroyUser'])->name('freeradius.users.destroy');
+        Route::put('/freeradius/users/{username}', [App\Http\Controllers\ServicesFreeradiusController::class, 'updateUser'])->middleware('deny.readonly')->name('freeradius.users.update');
+        Route::delete('/freeradius/users/{username}', [App\Http\Controllers\ServicesFreeradiusController::class, 'destroyUser'])->middleware('deny.readonly')->name('freeradius.users.destroy');
 
         // Clients/NAS
         Route::get('/freeradius/clients', [App\Http\Controllers\ServicesFreeradiusController::class, 'clients'])->name('freeradius.clients.index');
         Route::get('/freeradius/clients/create', [App\Http\Controllers\ServicesFreeradiusController::class, 'createClient'])->name('freeradius.clients.create');
-        Route::post('/freeradius/clients', [App\Http\Controllers\ServicesFreeradiusController::class, 'storeClient'])->name('freeradius.clients.store');
+        Route::post('/freeradius/clients', [App\Http\Controllers\ServicesFreeradiusController::class, 'storeClient'])->middleware('deny.readonly')->name('freeradius.clients.store');
         Route::get('/freeradius/clients/{id}/edit', [App\Http\Controllers\ServicesFreeradiusController::class, 'editClient'])->name('freeradius.clients.edit');
-        Route::put('/freeradius/clients/{id}', [App\Http\Controllers\ServicesFreeradiusController::class, 'updateClient'])->name('freeradius.clients.update');
-        Route::delete('/freeradius/clients/{id}', [App\Http\Controllers\ServicesFreeradiusController::class, 'destroyClient'])->name('freeradius.clients.destroy');
+        Route::put('/freeradius/clients/{id}', [App\Http\Controllers\ServicesFreeradiusController::class, 'updateClient'])->middleware('deny.readonly')->name('freeradius.clients.update');
+        Route::delete('/freeradius/clients/{id}', [App\Http\Controllers\ServicesFreeradiusController::class, 'destroyClient'])->middleware('deny.readonly')->name('freeradius.clients.destroy');
 
         // Interfaces
         Route::get('/freeradius/interfaces', [App\Http\Controllers\ServicesFreeradiusController::class, 'interfaces'])->name('freeradius.interfaces.index');
         Route::get('/freeradius/interfaces/create', [App\Http\Controllers\ServicesFreeradiusController::class, 'createInterface'])->name('freeradius.interfaces.create');
-        Route::post('/freeradius/interfaces', [App\Http\Controllers\ServicesFreeradiusController::class, 'storeInterface'])->name('freeradius.interfaces.store');
-        Route::delete('/freeradius/interfaces/{id}', [App\Http\Controllers\ServicesFreeradiusController::class, 'destroyInterface'])->name('freeradius.interfaces.destroy');
+        Route::post('/freeradius/interfaces', [App\Http\Controllers\ServicesFreeradiusController::class, 'storeInterface'])->middleware('deny.readonly')->name('freeradius.interfaces.store');
+        Route::delete('/freeradius/interfaces/{id}', [App\Http\Controllers\ServicesFreeradiusController::class, 'destroyInterface'])->middleware('deny.readonly')->name('freeradius.interfaces.destroy');
 
         // Bind (DNS Server)
         Route::get('/bind', [App\Http\Controllers\ServicesBindController::class, 'index'])->name('bind.index');
         Route::get('/bind/settings', [App\Http\Controllers\ServicesBindController::class, 'settings'])->name('bind.settings');
 
         Route::get('/dhcp-relay', [App\Http\Controllers\ServicesController::class, 'dhcpRelay'])->name('dhcp-relay');
-        Route::post('/dhcp-relay', [App\Http\Controllers\ServicesController::class, 'updateDhcpRelay'])->name('dhcp-relay.update');
+        Route::post('/dhcp-relay', [App\Http\Controllers\ServicesController::class, 'updateDhcpRelay'])->middleware('deny.readonly')->name('dhcp-relay.update');
         Route::get('/dhcpv6-relay', [App\Http\Controllers\ServicesController::class, 'dhcpv6Relay'])->name('dhcpv6-relay');
         Route::get('/dhcpv6-server', [App\Http\Controllers\ServicesController::class, 'dhcpv6Server'])->name('dhcpv6-server');
         Route::get('/dns-forwarder', [App\Http\Controllers\ServicesController::class, 'dnsForwarder'])->name('dns-forwarder');
         Route::get('/dynamic-dns', [App\Http\Controllers\ServicesController::class, 'dynamicDns'])->name('dynamic-dns');
         Route::get('/igmp-proxy', [App\Http\Controllers\ServicesController::class, 'igmpProxy'])->name('igmp-proxy');
         Route::get('/ntp', [App\Http\Controllers\ServicesNtpController::class, 'index'])->name('ntp');
-        Route::put('/ntp', [App\Http\Controllers\ServicesNtpController::class, 'update'])->name('ntp.update');
+        Route::put('/ntp', [App\Http\Controllers\ServicesNtpController::class, 'update'])->middleware('deny.readonly')->name('ntp.update');
         Route::get('/pppoe-server', [App\Http\Controllers\ServicesController::class, 'pppoeServer'])->name('pppoe-server');
         Route::get('/router-advertisement', [App\Http\Controllers\ServicesController::class, 'routerAdvertisement'])->name('router-advertisement');
         Route::get('/snmp', [App\Http\Controllers\ServicesSnmpController::class, 'index'])->name('snmp');
-        Route::put('/snmp', [App\Http\Controllers\ServicesSnmpController::class, 'update'])->name('snmp.update');
+        Route::put('/snmp', [App\Http\Controllers\ServicesSnmpController::class, 'update'])->middleware('deny.readonly')->name('snmp.update');
         Route::get('/upnp', [App\Http\Controllers\ServicesUpnpController::class, 'index'])->name('upnp');
-        Route::put('/upnp', [App\Http\Controllers\ServicesUpnpController::class, 'update'])->name('upnp.update');
+        Route::put('/upnp', [App\Http\Controllers\ServicesUpnpController::class, 'update'])->middleware('deny.readonly')->name('upnp.update');
         Route::get('/captive-portal', [App\Http\Controllers\ServicesCaptivePortalController::class, 'index'])->name('captive-portal');
         Route::get('/wake-on-lan', [App\Http\Controllers\ServicesController::class, 'wakeOnLan'])->name('wake-on-lan');
     });
 
-    // VPN
-    Route::prefix('firewall/{firewall}/vpn')->name('vpn.')->group(function () {
+    // VPN — pages viewable by readonly, write actions blocked
+    Route::prefix('firewall/{firewall}/vpn')->name('vpn.')->middleware(App\Http\Middleware\EnsureTenantScope::class)->group(function () {
         Route::get('/ipsec', [VpnIpsecController::class, 'tunnels'])->name('ipsec');
-        Route::post('/ipsec/phase1', [VpnIpsecController::class, 'storePhase1'])->name('ipsec.phase1.store');
-        Route::delete('/ipsec/phase1/{id}', [VpnIpsecController::class, 'destroyPhase1'])->name('ipsec.phase1.destroy');
+        Route::post('/ipsec/phase1', [VpnIpsecController::class, 'storePhase1'])->middleware('deny.readonly')->name('ipsec.phase1.store');
+        Route::delete('/ipsec/phase1/{id}', [VpnIpsecController::class, 'destroyPhase1'])->middleware('deny.readonly')->name('ipsec.phase1.destroy');
         Route::get('/ipsec/phase2/{phase1}', [VpnIpsecController::class, 'phase2'])->name('ipsec.phase2');
-        Route::post('/ipsec/phase2/{phase1}', [VpnIpsecController::class, 'storePhase2'])->name('ipsec.phase2.store');
-        Route::delete('/ipsec/phase2/{phase1}/{uniqid}', [VpnIpsecController::class, 'destroyPhase2'])->name('ipsec.phase2.destroy');
+        Route::post('/ipsec/phase2/{phase1}', [VpnIpsecController::class, 'storePhase2'])->middleware('deny.readonly')->name('ipsec.phase2.store');
+        Route::delete('/ipsec/phase2/{phase1}/{uniqid}', [VpnIpsecController::class, 'destroyPhase2'])->middleware('deny.readonly')->name('ipsec.phase2.destroy');
         Route::get('/l2tp', [App\Http\Controllers\VpnController::class, 'l2tp'])->name('l2tp');
 
         // OpenVPN
         Route::get('/openvpn/server', [VpnOpenVpnController::class, 'servers'])->name('openvpn.servers');
         Route::get('/openvpn/server/create', [VpnOpenVpnController::class, 'createServer'])->name('openvpn.server.create');
-        Route::post('/openvpn/server', [VpnOpenVpnController::class, 'storeServer'])->name('openvpn.server.store');
+        Route::post('/openvpn/server', [VpnOpenVpnController::class, 'storeServer'])->middleware('deny.readonly')->name('openvpn.server.store');
         Route::get('/openvpn/server/{id}/edit', [VpnOpenVpnController::class, 'editServer'])->name('openvpn.server.edit');
-        Route::put('/openvpn/server/{id}', [VpnOpenVpnController::class, 'updateServer'])->name('openvpn.server.update');
-        Route::delete('/openvpn/server/{id}', [VpnOpenVpnController::class, 'destroyServer'])->name('openvpn.server.destroy');
+        Route::put('/openvpn/server/{id}', [VpnOpenVpnController::class, 'updateServer'])->middleware('deny.readonly')->name('openvpn.server.update');
+        Route::delete('/openvpn/server/{id}', [VpnOpenVpnController::class, 'destroyServer'])->middleware('deny.readonly')->name('openvpn.server.destroy');
         Route::get('/openvpn/client', [VpnOpenVpnController::class, 'clients'])->name('openvpn.clients');
 
         Route::get('/wireguard', [App\Http\Controllers\VpnWireGuardController::class, 'index'])->name('wireguard.index');

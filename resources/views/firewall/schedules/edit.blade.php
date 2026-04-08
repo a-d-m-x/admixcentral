@@ -1,10 +1,67 @@
 <x-app-layout>
     <x-slot name="header">
-        <x-firewall-header title="{{ __('Edit Schedule') }}" :firewall="$firewall" />
+        <x-firewall-header title="{{ __('Schedule') }}" :firewall="$firewall" />
     </x-slot>
 
     <div class="py-12">
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
+
+            @if(auth()->user()->isReadOnly())
+            {{-- READ-ONLY: detail view, no form --}}
+            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6 space-y-4">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Schedule Details</h3>
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-4 py-3">
+                            <dt class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Name</dt>
+                            <dd class="text-sm font-mono text-gray-900 dark:text-gray-100">{{ $schedule['name'] ?? '—' }}</dd>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg px-4 py-3">
+                            <dt class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Description</dt>
+                            <dd class="text-sm text-gray-900 dark:text-gray-100">{{ $schedule['descr'] ?? '—' }}</dd>
+                        </div>
+                    </dl>
+
+                    @if(isset($schedule['timerange']) && is_array($schedule['timerange']) && count($schedule['timerange']) > 0)
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Time Ranges</h4>
+                        <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                                <thead class="bg-gray-50 dark:bg-gray-700">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">#</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Range</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
+                                    @foreach($schedule['timerange'] as $i => $range)
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                                        <td class="px-4 py-2.5 text-gray-400 dark:text-gray-500 text-xs">{{ $i + 1 }}</td>
+                                        <td class="px-4 py-2.5 font-mono text-xs text-gray-900 dark:text-gray-100">{{ json_encode($range) }}</td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    @else
+                        <p class="text-sm text-gray-500 dark:text-gray-400 italic">No time ranges configured.</p>
+                    @endif
+
+                    <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <a href="{{ route('firewall.schedules.index', $firewall) }}"
+                            class="inline-flex items-center gap-1.5 text-sm text-indigo-600 dark:text-indigo-400 hover:underline">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            Back to Schedules
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            @else
+            {{-- EDITABLE FORM — normal users and admins --}}
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 dark:text-gray-100">
                     <form method="POST" action="{{ route('firewall.schedules.update', [$firewall, $schedule['id']]) }}">
@@ -30,7 +87,7 @@
                             <x-input-error :messages="$errors->get('descr')" class="mt-2" />
                         </div>
 
-                        <!-- Time Ranges (Placeholder) -->
+                        <!-- Time Ranges -->
                         <div class="mb-4">
                             <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Time Ranges</h3>
 
@@ -75,6 +132,8 @@
                     </form>
                 </div>
             </div>
+            @endif
+
         </div>
     </div>
 </x-app-layout>

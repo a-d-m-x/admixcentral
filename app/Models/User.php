@@ -51,6 +51,11 @@ class User extends Authenticatable
         return $this->role === 'user';
     }
 
+    public function isReadOnly()
+    {
+        return $this->role === 'readonly';
+    }
+
     /**
      * The attributes that should be hidden for serialization.
      *

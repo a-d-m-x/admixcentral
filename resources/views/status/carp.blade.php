@@ -5,7 +5,7 @@
 
     <div class="py-12">
         <div class="max-w-full mx-auto sm:px-6 lg:px-8 space-y-6">
-            
+
             @if (session('success'))
                 <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
                     <span class="block sm:inline">{{ session('success') }}</span>
@@ -21,10 +21,12 @@
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 dark:text-gray-100">
                     <h3 class="text-lg font-medium mb-4">Global CARP Settings</h3>
+
                     <form action="{{ route('status.carp.update', $firewall) }}" method="POST" class="space-y-4">
                         @csrf
+                        <fieldset @if(auth()->user()->isReadOnly()) disabled @endif class="[&:disabled]:opacity-60 [&:disabled]:pointer-events-none">
                         <div class="flex items-center">
-                            <input type="checkbox" id="enable" name="enable" class="pf-checkbox" 
+                            <input type="checkbox" id="enable" name="enable" class="pf-checkbox"
                                 {{ ($carpStatus['enable'] ?? false) ? 'checked' : '' }}>
                             <label for="enable" class="ml-2 text-sm text-gray-700 dark:text-gray-300">Enable CARP</label>
                         </div>
@@ -33,9 +35,12 @@
                                 {{ ($carpStatus['maintenance_mode'] ?? false) ? 'checked' : '' }}>
                             <label for="maintenance_mode" class="ml-2 text-sm text-gray-700 dark:text-gray-300">Maintenance Mode</label>
                         </div>
+                        </fieldset>
+                        @if(!auth()->user()->isReadOnly())
                         <div>
                             <button type="submit" class="pf-btn pf-btn-primary">Save Settings</button>
                         </div>
+                        @endif
                     </form>
                 </div>
             </div>
