@@ -58,7 +58,7 @@
 
                             <div class="pf-form-grid">
                                 {{-- Range --}}
-                                @if(isset($selectedInterface['ipaddr']) && isset($selectedInterface['subnet']))
+                                @if(isset($selectedInterface['ipaddr']) && isset($selectedInterface['subnet']) && !auth()->user()->isReadOnly())
                                     <div x-data="{
                                                     ip: '{{ $selectedInterface['ipaddr'] }}',
                                                     subnet: {{ $selectedInterface['subnet'] }},

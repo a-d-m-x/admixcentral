@@ -362,9 +362,11 @@
                                     <a href="{{ route('diagnostics.factory-defaults', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Factory
                                         Defaults</a>
+                                    @if(!auth()->user()->isReadOnly())
                                     <a href="{{ route('diagnostics.halt-system', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Halt
                                         System</a>
+                                    @endif
                                     <a href="{{ route('diagnostics.limiter-info', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Limiter
                                         Info</a>
@@ -380,8 +382,10 @@
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">pfTop</a>
                                     <a href="{{ route('diagnostics.ping', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Ping</a>
+                                    @if(!auth()->user()->isReadOnly())
                                     <a href="{{ route('diagnostics.reboot.index', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Reboot</a>
+                                    @endif
                                     <a href="{{ route('diagnostics.routes', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Routes</a>
                                     <a href="{{ route('diagnostics.smart-status', request()->route('firewall')) }}"
@@ -691,8 +695,10 @@
                         :active="request()->routeIs('diagnostics.edit-file')">{{ __('Edit File') }}</x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('diagnostics.factory-defaults', request()->route('firewall'))"
                         :active="request()->routeIs('diagnostics.factory-defaults')">{{ __('Factory Defaults') }}</x-responsive-nav-link>
+                    @if(!auth()->user()->isReadOnly())
                     <x-responsive-nav-link :href="route('diagnostics.halt-system', request()->route('firewall'))"
                         :active="request()->routeIs('diagnostics.halt-system')">{{ __('Halt System') }}</x-responsive-nav-link>
+                    @endif
                     <x-responsive-nav-link :href="route('diagnostics.limiter-info', request()->route('firewall'))"
                         :active="request()->routeIs('diagnostics.limiter-info')">{{ __('Limiter Info') }}</x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('diagnostics.ndp-table', request()->route('firewall'))"
@@ -705,8 +711,10 @@
                         :active="request()->routeIs('diagnostics.pf-top')">{{ __('pfTop') }}</x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('diagnostics.ping', request()->route('firewall'))"
                         :active="request()->routeIs('diagnostics.ping')">{{ __('Ping') }}</x-responsive-nav-link>
+                    @if(!auth()->user()->isReadOnly())
                     <x-responsive-nav-link :href="route('diagnostics.reboot.index', request()->route('firewall'))"
                         :active="request()->routeIs('diagnostics.reboot.*')">{{ __('Reboot') }}</x-responsive-nav-link>
+                    @endif
                     <x-responsive-nav-link :href="route('diagnostics.routes', request()->route('firewall'))"
                         :active="request()->routeIs('diagnostics.routes')">{{ __('Routes') }}</x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('diagnostics.smart-status', request()->route('firewall'))"
