@@ -462,6 +462,79 @@ install_frontend_clean() {
   "
 }
 
+
+get_supervisor_main_conf() {
+  local f
+  for f in /etc/supervisor/supervisord.conf /etc/supervisord.conf; do
+    [[ -f "$f" ]] && { echo "$f"; return 0; }
+  done
+  return 1
+}
+
+detect_supervisor_layout() {
+  local main_conf=""
+  local include_pattern=""
+  local include_dir=""
+  local include_base=""
+  local include_glob=""
+  local ext="conf"
+
+  main_conf="$(get_supervisor_main_conf || true)"
+
+  if [[ -n "$main_conf" ]]; then
+    include_pattern="$(awk -F= '/^[[:space:]]*files[[:space:]]*=/{print $2}' "$main_conf" | tail -n1 | xargs || true)"
+  fi
+
+  if [[ -n "$include_pattern" ]]; then
+    include_base="$(dirname "$main_conf")"
+    if [[ "$include_pattern" = /* ]]; then
+      include_glob="$include_pattern"
+    else
+      include_glob="${include_base}/${include_pattern}"
+    fi
+
+    include_dir="$(dirname "$include_glob")"
+    if [[ "$include_glob" == *.ini ]]; then
+      ext="ini"
+    elif [[ "$include_glob" == *.conf ]]; then
+      ext="conf"
+    fi
+  fi
+
+  if [[ -z "$include_dir" ]]; then
+    if [[ -d /etc/supervisor/conf.d ]]; then
+      include_dir="/etc/supervisor/conf.d"
+      ext="conf"
+    elif [[ -d /etc/supervisord.d ]]; then
+      include_dir="/etc/supervisord.d"
+      ext="ini"
+    elif [[ -d /etc/supervisor.d ]]; then
+      include_dir="/etc/supervisor.d"
+      ext="ini"
+    else
+      include_dir="/etc/supervisor/conf.d"
+      ext="conf"
+    fi
+  fi
+
+  echo "$include_dir|$ext"
+}
+
+ensure_supervisor_service_running() {
+  local svc=""
+
+  if systemctl list-unit-files 2>/dev/null | awk '{print $1}' | grep -qx 'supervisor.service'; then
+    svc="supervisor"
+  elif systemctl list-unit-files 2>/dev/null | awk '{print $1}' | grep -qx 'supervisord.service'; then
+      svc="supervisord"
+  else
+    svc="supervisord"
+  fi
+
+  systemctl enable --now "$svc" || true
+  echo "$svc"
+}
+
 final_fix_permissions() {
   log "Running embedded final permissions fix"
 
@@ -610,7 +683,21 @@ main() {
     chown "${WEB_USER}:${WEB_GROUP}" .env || true
   fi
 
-  log "Writing DB settings into .env"
+  log "Writing app + DB settings into .env"
+  sed -i '/^DB_DATABASE=database\/database\.sqlite$/d' .env
+  sed -i '/^DB_CONNECTION=sqlite$/d' .env
+
+  local public_ip=""
+  public_ip="$(curl -4 -fsS ifconfig.me 2>/dev/null || true)"
+
+  set_env_kv .env "APP_NAME" '"AdmixCentral"'
+  if [[ -n "$public_ip" ]]; then
+    set_env_kv .env "APP_URL" "http://${public_ip}"
+  fi
+  set_env_kv .env "APP_ENV" "production"
+  set_env_kv .env "APP_DEBUG" "false"
+
+  set_env_kv .env "DB_CONNECTION" "mysql"
   set_env_kv .env "DB_HOST" "$DB_HOST"
   set_env_kv .env "DB_PORT" "$DB_PORT"
   set_env_kv .env "DB_DATABASE" "$DB_NAME"
@@ -618,17 +705,26 @@ main() {
   set_env_kv .env "DB_PASSWORD" "$DB_PASS"
 
   log "Writing Reverb settings into .env"
-  set_env_kv .env "REVERB_APP_ID" "admixcentral"
-  set_env_kv .env "REVERB_APP_KEY" "admixcentral-key"
-  set_env_kv .env "REVERB_APP_SECRET" "admixcentral-secret"
+  local reverb_app_id="admixcentral"
+  local reverb_app_key="$(openssl rand -hex 16)"
+  local reverb_app_secret="$(openssl rand -hex 16)"
+
+  set_env_kv .env "BROADCAST_CONNECTION" "reverb"
+  set_env_kv .env "REVERB_APP_ID" "$reverb_app_id"
+  set_env_kv .env "REVERB_APP_KEY" "$reverb_app_key"
+  set_env_kv .env "REVERB_APP_SECRET" "$reverb_app_secret"
   set_env_kv .env "REVERB_HOST" "localhost"
   set_env_kv .env "REVERB_PORT" "8080"
   set_env_kv .env "REVERB_SCHEME" "http"
 
-  set_env_kv .env "VITE_REVERB_APP_KEY" "admixcentral-key"
-  set_env_kv .env "VITE_REVERB_HOST" "localhost"
-  set_env_kv .env "VITE_REVERB_PORT" "8080"
-  set_env_kv .env "VITE_REVERB_SCHEME" "http"
+  set_env_kv .env "VITE_REVERB_APP_KEY" '\${REVERB_APP_KEY}'
+  set_env_kv .env "VITE_REVERB_HOST" '\${REVERB_HOST}'
+  set_env_kv .env "VITE_REVERB_PORT" '\${REVERB_PORT}'
+  set_env_kv .env "VITE_REVERB_SCHEME" '\${REVERB_SCHEME}'
+
+  set_env_kv .env "CACHE_DRIVER" "file"
+  set_env_kv .env "SESSION_DRIVER" "file"
+  set_env_kv .env "QUEUE_CONNECTION" "database"
 
   log "Ensuring correct ownership"
   chown -R "${WEB_USER}:${WEB_GROUP}" "$INSTALL_DIR" || true
@@ -653,6 +749,9 @@ main() {
     php artisan storage:link || true
     php artisan config:clear || true
     php artisan cache:clear || true
+    php artisan route:clear || true
+    php artisan view:clear || true
+    php artisan optimize:clear || true
   "
 
   log "Configuring sudoers for SSL management (Certbot)"
@@ -664,15 +763,21 @@ EOF
   configure_nginx_site
 
   log "Configuring Supervisor (Worker + Reverb)"
-  local supv_conf_dir="/etc/supervisor/conf.d"
-  if [[ "$OS_FAMILY" == "redhat" || "$OS_FAMILY" == "suse" ]]; then
-    supv_conf_dir="/etc/supervisord.d"
-  elif [[ "$OS_FAMILY" == "arch" ]]; then
-    supv_conf_dir="/etc/supervisor.d"
-  fi
+  local supv_layout=""
+  local supv_conf_dir=""
+  local supv_ext="conf"
+  local supervisor_service=""
+
+  supervisor_service="$(ensure_supervisor_service_running)"
+  supv_layout="$(detect_supervisor_layout)"
+  supv_conf_dir="${supv_layout%%|*}"
+  supv_ext="${supv_layout##*|}"
+
   mkdir -p "$supv_conf_dir"
 
-  cat >"${supv_conf_dir}/admix-worker.ini" <<EOF
+  rm -f "${supv_conf_dir}/admix-worker.ini" "${supv_conf_dir}/admix-worker.conf"         "${supv_conf_dir}/admix-reverb.ini" "${supv_conf_dir}/admix-reverb.conf" || true
+
+  cat >"${supv_conf_dir}/admix-worker.${supv_ext}" <<EOF
 [program:admix-worker]
 process_name=%(program_name)s_%(process_num)02d
 command=php ${INSTALL_DIR}/artisan queue:work --sleep=3 --tries=3 --max-time=3600
@@ -685,15 +790,18 @@ stdout_logfile=${INSTALL_DIR}/storage/logs/worker.log
 stopwaitsecs=3600
 EOF
 
-  cat >"${supv_conf_dir}/admix-reverb.ini" <<EOF
+  cat >"${supv_conf_dir}/admix-reverb.${supv_ext}" <<EOF
 [program:admix-reverb]
-command=php ${INSTALL_DIR}/artisan reverb:start
+command=php ${INSTALL_DIR}/artisan reverb:start --host=0.0.0.0 --port=8080
+directory=${INSTALL_DIR}
 autostart=true
 autorestart=true
 user=${RUNTIME_WEB_USER}
 numprocs=1
 redirect_stderr=true
 stdout_logfile=${INSTALL_DIR}/storage/logs/reverb.log
+stopasgroup=true
+killasgroup=true
 EOF
 
   mkdir -p "${INSTALL_DIR}/storage/logs"
@@ -701,15 +809,11 @@ EOF
   chmod -R ug+rwX "${INSTALL_DIR}/storage" || true
 
   log "Starting Supervisor services..."
-  if systemctl is-active supervisor >/dev/null 2>&1 || systemctl is-enabled supervisor >/dev/null 2>&1; then
-    supervisorctl reread || true
-    supervisorctl update || true
-    supervisorctl start all || true
-  elif systemctl is-active supervisord >/dev/null 2>&1 || systemctl is-enabled supervisord >/dev/null 2>&1; then
-    supervisorctl reread || true
-    supervisorctl update || true
-    supervisorctl start all || true
-  fi
+  systemctl restart "${supervisor_service}" || true
+  supervisorctl reread || true
+  supervisorctl update || true
+  supervisorctl start admix-worker || true
+  supervisorctl start admix-reverb || true
 
   unset DB_PASS
 
