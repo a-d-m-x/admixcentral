@@ -81,21 +81,15 @@ class FirewallRuleController extends Controller
     {
         $data = $this->prepareRuleData($request);
 
-
-
         try {
             $api = new PfSenseApiService($firewall);
             $response = $api->createFirewallRule($data);
-
-
 
             $firewall->update(['is_dirty' => true]);
 
             return redirect()->route('firewall.rules.index', ['firewall' => $firewall, 'interface' => $data['interface']])
                 ->with('success', 'Firewall rule created successfully. Please apply changes.');
         } catch (\Exception $e) {
-
-
             return back()->with('error', 'Failed to create rule: ' . $e->getMessage())->withInput();
         }
     }
@@ -365,58 +359,60 @@ class FirewallRuleController extends Controller
             'defaultqueue' => $request->input('defaultqueue'),
         ];
 
-        // Source
-        if ($request->input('source_type') === 'any') {
+        // Source - pfSense API v2 requires source as a string, not an object
+        $sourceType = $request->input('source_type');
+        $sourceAddress = $request->input('source_address');
+        $sourceInvert = $request->boolean('source_invert');
+
+        if ($sourceType === 'any') {
             $data['source'] = 'any';
+        } elseif ($sourceType === 'address') {
+            // Host/Alias - send the address directly as a string
+            $src = $sourceAddress;
+            $data['source'] = $sourceInvert ? '!' . $src : $src;
+        } elseif ($sourceType === 'network') {
+            // Network CIDR - send as string
+            $src = $sourceAddress;
+            $data['source'] = $sourceInvert ? '!' . $src : $src;
         } else {
-            $src = [];
-            if ($request->input('source_type') === 'network') {
-                $src['network'] = $request->input('source_address');
-            } elseif ($request->input('source_type') === 'address') {
-                $src['address'] = $request->input('source_address');
-            } else {
-                // Handle special types like wanip, lanip
-                $src['network'] = $request->input('source_type');
-            }
-
-            if ($request->has('source_invert')) {
-                $src['not'] = true;
-            }
-
-            if ($request->filled('source_port_from')) {
-                $src['port'] = $request->input('source_port_from');
-                if ($request->filled('source_port_to')) {
-                    $src['port'] .= '-' . $request->input('source_port_to');
-                }
-            }
-            $data['source'] = $src;
+            // Special types: wanip, lanip, wannet, lannet, interface names
+            $data['source'] = $sourceInvert ? '!' . $sourceType : $sourceType;
         }
 
-        // Destination
-        if ($request->input('destination_type') === 'any') {
+        // Source port (pfSense API v2 uses source_port as a top-level string field)
+        if ($request->filled('source_port_from')) {
+            $srcPort = $request->input('source_port_from');
+            if ($request->filled('source_port_to')) {
+                $srcPort .= ':' . $request->input('source_port_to');
+            }
+            $data['source_port'] = $srcPort;
+        }
+
+        // Destination - same string format as source
+        $destType = $request->input('destination_type');
+        $destAddress = $request->input('destination_address');
+        $destInvert = $request->boolean('destination_invert');
+
+        if ($destType === 'any') {
             $data['destination'] = 'any';
+        } elseif ($destType === 'address') {
+            $dst = $destAddress;
+            $data['destination'] = $destInvert ? '!' . $dst : $dst;
+        } elseif ($destType === 'network') {
+            $dst = $destAddress;
+            $data['destination'] = $destInvert ? '!' . $dst : $dst;
         } else {
-            $dst = [];
-            if ($request->input('destination_type') === 'network') {
-                $dst['network'] = $request->input('destination_address');
-            } elseif ($request->input('destination_type') === 'address') {
-                $dst['address'] = $request->input('destination_address');
-            } else {
-                // Handle special types like wanip, lanip
-                $dst['network'] = $request->input('destination_type');
-            }
+            // Special types: wanip, lanip, wannet, lannet, etc.
+            $data['destination'] = $destInvert ? '!' . $destType : $destType;
+        }
 
-            if ($request->has('destination_invert')) {
-                $dst['not'] = true;
+        // Destination port
+        if ($request->filled('destination_port_from')) {
+            $dstPort = $request->input('destination_port_from');
+            if ($request->filled('destination_port_to')) {
+                $dstPort .= ':' . $request->input('destination_port_to');
             }
-
-            if ($request->filled('destination_port_from')) {
-                $dst['port'] = $request->input('destination_port_from');
-                if ($request->filled('destination_port_to')) {
-                    $dst['port'] .= '-' . $request->input('destination_port_to');
-                }
-            }
-            $data['destination'] = $dst;
+            $data['destination_port'] = $dstPort;
         }
 
         // TCP Flags
@@ -429,6 +425,8 @@ class FirewallRuleController extends Controller
 
         return $data;
     }
+
+
 
     protected function getRuleIndexByTracker(PfSenseApiService $api, string $tracker): ?int
     {

@@ -6,9 +6,118 @@
     <div class="py-12">
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900 dark:text-gray-100" x-data="{ 
-                    selected: [], 
+                <div class="p-6 text-gray-900 dark:text-gray-100" x-data="{
+                    selected: [],
                     allSelected: false,
+                    showModal: false,
+                    showAdvanced: false,
+                    isEdit: false,
+                    selectedInterface: '{{ $selectedInterface }}',
+                    form: {
+                        tracker: '',
+                        type: 'pass',
+                        interface: '{{ $selectedInterface }}',
+                        ipprotocol: 'inet',
+                        protocol: 'tcp',
+                        icmptype: '',
+                        disabled: false,
+                        log: false,
+                        source_type: 'any',
+                        source_address: '',
+                        source_invert: false,
+                        source_port_from: '',
+                        source_port_to: '',
+                        destination_type: 'any',
+                        destination_address: '',
+                        destination_invert: false,
+                        destination_port_from: '',
+                        destination_port_to: '',
+                        descr: '',
+                        gateway: '',
+                        sched: '',
+                        statetype: 'keep state',
+                        os: '',
+                        nosync: false,
+                    },
+                    resetForm() {
+                        this.showAdvanced = false;
+                        this.form = {
+                            tracker: '',
+                            type: 'pass',
+                            interface: this.selectedInterface,
+                            ipprotocol: 'inet',
+                            protocol: 'tcp',
+                            icmptype: '',
+                            disabled: false,
+                            log: false,
+                            source_type: 'any',
+                            source_address: '',
+                            source_invert: false,
+                            source_port_from: '',
+                            source_port_to: '',
+                            destination_type: 'any',
+                            destination_address: '',
+                            destination_invert: false,
+                            destination_port_from: '',
+                            destination_port_to: '',
+                            descr: '',
+                            gateway: '',
+                            sched: '',
+                            statetype: 'keep state',
+                            os: '',
+                            nosync: false,
+                        };
+                        this.isEdit = false;
+                    },
+                    editRule(rule) {
+                        this.isEdit = true;
+                        this.form.tracker = rule.tracker || '';
+                        this.form.type = rule.type || 'pass';
+                        this.form.interface = rule.interface || this.selectedInterface;
+                        this.form.ipprotocol = rule.ipprotocol || 'inet';
+                        this.form.protocol = rule.protocol || 'tcp';
+                        this.form.icmptype = rule.icmptype || '';
+                        this.form.disabled = !!rule.disabled;
+                        this.form.log = !!rule.log;
+                        this.form.descr = rule.descr || '';
+                        // pfSense API v2 returns source/destination as strings
+                        const parseEndpoint = (val, portVal) => {
+                            if (!val || val === 'any') return { type: 'any', address: '', invert: false };
+                            let invert = false;
+                            let addr = String(val);
+                            if (addr.startsWith('!')) { invert = true; addr = addr.slice(1); }
+                            // Special pfSense v2 strings
+                            if (['wan:ip','lan:ip','opt1:ip','opt2:ip'].includes(addr)) {
+                                return { type: addr, address: '', invert };
+                            }
+                            if (['wan','lan','opt1','opt2','mgmt'].includes(addr)) {
+                                return { type: addr, address: '', invert };
+                            }
+                            // Network CIDR or host IP
+                            if (addr.includes('/') || /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(addr)) {
+                                const isNet = addr.includes('/');
+                                return { type: isNet ? 'network' : 'address', address: addr, invert };
+                            }
+                            // Alias or other
+                            return { type: 'address', address: addr, invert };
+                        };
+                        const srcParsed = parseEndpoint(rule.source);
+                        this.form.source_type = srcParsed.type;
+                        this.form.source_address = srcParsed.address;
+                        this.form.source_invert = srcParsed.invert;
+                        if (rule.source_port) { const p = String(rule.source_port).split(':'); this.form.source_port_from = p[0]||''; this.form.source_port_to = p[1]||''; }
+                        const dstParsed = parseEndpoint(rule.destination);
+                        this.form.destination_type = dstParsed.type;
+                        this.form.destination_address = dstParsed.address;
+                        this.form.destination_invert = dstParsed.invert;
+                        if (rule.destination_port) { const p = String(rule.destination_port).split(':'); this.form.destination_port_from = p[0]||''; this.form.destination_port_to = p[1]||''; }
+                        this.form.gateway = rule.gateway || '';
+                        this.form.sched = rule.sched || '';
+                        this.form.statetype = rule.statetype || 'keep state';
+                        this.form.os = rule.os || '';
+                        this.form.nosync = !!rule.nosync;
+                        this.showModal = true;
+                    },
                     confirmModal: {
                         open: false,
                         title: '',
@@ -34,14 +143,11 @@
                         this.confirmModal.onConfirm = null;
                     },
                     confirmAction() {
-                        if (this.confirmModal.onConfirm) {
-                            this.confirmModal.onConfirm();
-                        }
+                        if (this.confirmModal.onConfirm) { this.confirmModal.onConfirm(); }
                         this.closeConfirmModal();
                     },
                     submitAction(action) {
                         if (this.selected.length === 0) return;
-                        
                         if (action === 'delete') {
                             this.openConfirmModal('Delete Rules', 'Are you sure you want to delete selected rules?', () => {
                                 this.submitBulkForm(action);
@@ -52,25 +158,15 @@
                     },
                     submitBulkForm(action) {
                         const form = document.getElementById('bulk-actions-form');
-                        
-                        // Clear previous hidden inputs for action and trackers
                         form.querySelectorAll('input[name=\'action\'], input[name=\'trackers[]\']').forEach(input => input.remove());
-
                         const input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = 'action';
-                        input.value = action;
+                        input.type = 'hidden'; input.name = 'action'; input.value = action;
                         form.appendChild(input);
-                        
-                        // Add selected trackers as hidden inputs
                         this.selected.forEach(tracker => {
                             const tInput = document.createElement('input');
-                            tInput.type = 'hidden';
-                            tInput.name = 'trackers[]';
-                            tInput.value = tracker;
+                            tInput.type = 'hidden'; tInput.name = 'trackers[]'; tInput.value = tracker;
                             form.appendChild(tInput);
                         });
-                        
                         form.submit();
                     }
                 }">
@@ -121,10 +217,9 @@
                                 </div>
                             </div>
                             <div>
-                                <x-link-button-add
-                                    href="{{ route('firewall.rules.create', $firewall) }}?interface={{ $selectedInterface ?? 'wan' }}">
+                                <x-button-add @click="resetForm(); showModal = true">
                                     Add Rule
-                                </x-link-button-add>
+                                </x-button-add>
                             </div>
                         </div>
 
@@ -283,19 +378,31 @@
                                             </td>
                                             <td
                                                 class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                                {{ is_array($rule['source']) ? ($rule['source']['address'] ?? ($rule['source']['network'] ?? 'Any')) : $rule['source'] }}
+                                                @php
+                                                    $srcDisplay = is_array($rule['source'])
+                                                        ? ($rule['source']['address'] ?? ($rule['source']['network'] ?? 'any'))
+                                                        : ($rule['source'] ?? 'any');
+                                                    if (strtolower($srcDisplay) === 'any') $srcDisplay = '*';
+                                                @endphp
+                                                {{ $srcDisplay }}
                                             </td>
                                             <td
                                                 class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                                {{ $rule['source']['port'] ?? '*' }}
+                                                {{ $rule['source_port'] ?? ($rule['source']['port'] ?? '*') }}
                                             </td>
                                             <td
                                                 class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                                {{ is_array($rule['destination']) ? ($rule['destination']['address'] ?? ($rule['destination']['network'] ?? 'Any')) : $rule['destination'] }}
+                                                @php
+                                                    $dstDisplay = is_array($rule['destination'])
+                                                        ? ($rule['destination']['address'] ?? ($rule['destination']['network'] ?? 'any'))
+                                                        : ($rule['destination'] ?? 'any');
+                                                    if (strtolower($dstDisplay) === 'any') $dstDisplay = '*';
+                                                @endphp
+                                                {{ $dstDisplay }}
                                             </td>
                                             <td
                                                 class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                                {{ $rule['destination']['port'] ?? '*' }}
+                                                {{ $rule['destination_port'] ?? ($rule['destination']['port'] ?? '*') }}
                                             </td>
                                             <td
                                                 class="px-3 py-2 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -308,7 +415,8 @@
                                             <td class="px-3 py-2 whitespace-nowrap text-sm font-medium text-center">
                                                 <div class="flex justify-center space-x-2">
                                                     {{-- Edit Button --}}
-                                                    <a href="{{ route('firewall.rules.edit', ['firewall' => $firewall, 'tracker' => $rule['tracker']]) }}"
+                                                    <button type="button"
+                                                        @click="editRule({{ json_encode($rule) }})"
                                                         class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                                                         title="Edit">
                                                         <svg class="w-5 h-5" fill="none" stroke="currentColor"
@@ -317,7 +425,7 @@
                                                                 stroke-width="2"
                                                                 d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                         </svg>
-                                                    </a>
+                                                    </button>
 
                                                     {{-- Copy Button --}}
                                                     <button type="button"
@@ -430,6 +538,363 @@
                             </div>
                         </div>
                     </div>
+
+                    {{-- Add/Edit Rule Modal --}}
+                    <div x-show="showModal" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;" x-on:keydown.escape.window="showModal = false">
+                        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                            <div x-show="showModal" class="fixed inset-0 transition-opacity" aria-hidden="true">
+                                <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
+                            </div>
+                            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                            <div x-show="showModal"
+                                class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+                                <form method="POST"
+                                    :action="isEdit
+                                        ? '{{ route('firewall.rules.update', ['firewall' => $firewall, 'tracker' => 'REPLACE_ME']) }}'.replace('REPLACE_ME', form.tracker)
+                                        : '{{ route('firewall.rules.store', $firewall) }}'"
+                                    class="space-y-0">
+                                    @csrf
+                                    <template x-if="isEdit">
+                                        <input type="hidden" name="_method" value="PUT">
+                                    </template>
+
+                                    <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4 overflow-y-auto" style="max-height: 80vh;">
+                                        <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100 mb-4"
+                                            x-text="isEdit ? 'Edit Firewall Rule' : 'Add Firewall Rule'"></h3>
+
+                                        <div class="mt-4 grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-6">
+
+                                            {{-- Disabled --}}
+                                            <div class="sm:col-span-6">
+                                                <div class="flex items-center">
+                                                    <input id="rule-disabled" name="disabled" type="checkbox" x-model="form.disabled"
+                                                        class="rounded border-gray-300 text-blue-600 shadow-sm focus:ring-blue-500">
+                                                    <label for="rule-disabled"
+                                                        class="ml-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Disable this rule</label>
+                                                </div>
+                                            </div>
+
+                                            {{-- Action --}}
+                                            <div class="sm:col-span-3">
+                                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Action</label>
+                                                <div class="flex space-x-4 mt-2">
+                                                    <div class="flex items-center">
+                                                        <input type="radio" name="type" value="pass" x-model="form.type" id="type-pass"
+                                                            class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300">
+                                                        <label for="type-pass" class="ml-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Pass</label>
+                                                    </div>
+                                                    <div class="flex items-center">
+                                                        <input type="radio" name="type" value="block" x-model="form.type" id="type-block"
+                                                            class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300">
+                                                        <label for="type-block" class="ml-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Block</label>
+                                                    </div>
+                                                    <div class="flex items-center">
+                                                        <input type="radio" name="type" value="reject" x-model="form.type" id="type-reject"
+                                                            class="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300">
+                                                        <label for="type-reject" class="ml-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Reject</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {{-- Interface --}}
+                                            <div class="sm:col-span-3">
+                                                <label for="rule-interface" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Interface</label>
+                                                <select id="rule-interface" name="interface" x-model="form.interface"
+                                                    class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                                    @foreach($interfaces as $iface)
+                                                        <option value="{{ $iface['id'] ?? $iface['if'] }}">
+                                                            {{ strtoupper($iface['descr'] ?? $iface['id']) }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+
+                                            {{-- Address Family --}}
+                                            <div class="sm:col-span-3">
+                                                <label for="rule-ipprotocol" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Address Family</label>
+                                                <select id="rule-ipprotocol" name="ipprotocol" x-model="form.ipprotocol"
+                                                    class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                                    <option value="inet">IPv4</option>
+                                                    <option value="inet6">IPv6</option>
+                                                    <option value="inet46">IPv4+IPv6</option>
+                                                </select>
+                                            </div>
+
+                                            {{-- Protocol --}}
+                                            <div class="sm:col-span-3">
+                                                <label for="rule-protocol" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Protocol</label>
+                                                <select id="rule-protocol" name="protocol" x-model="form.protocol"
+                                                    class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                                    <option value="tcp">TCP</option>
+                                                    <option value="udp">UDP</option>
+                                                    <option value="tcp/udp">TCP/UDP</option>
+                                                    <option value="icmp">ICMP</option>
+                                                    <option value="esp">ESP</option>
+                                                    <option value="ah">AH</option>
+                                                    <option value="gre">GRE</option>
+                                                    <option value="ipv6">IPv6</option>
+                                                    <option value="igmp">IGMP</option>
+                                                    <option value="pim">PIM</option>
+                                                    <option value="ospf">OSPF</option>
+                                                    <option value="any">Any</option>
+                                                </select>
+                                            </div>
+
+                                            {{-- ICMP Type (only when protocol = icmp) --}}
+                                            <div class="sm:col-span-3" x-show="form.protocol === 'icmp'" style="display:none;">
+                                                <label for="rule-icmptype" class="block text-sm font-medium text-gray-700 dark:text-gray-300">ICMP Type</label>
+                                                <select id="rule-icmptype" name="icmptype" x-model="form.icmptype"
+                                                    class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                                    <option value="">Any</option>
+                                                    <option value="echoreq">Echo Request</option>
+                                                    <option value="echorep">Echo Reply</option>
+                                                    <option value="unreach">Destination Unreachable</option>
+                                                    <option value="squench">Source Quench</option>
+                                                    <option value="redir">Redirect</option>
+                                                    <option value="timex">Time Exceeded</option>
+                                                    <option value="paramprob">Parameter Problem</option>
+                                                    <option value="timereq">Timestamp Request</option>
+                                                    <option value="timerep">Timestamp Reply</option>
+                                                </select>
+                                            </div>
+
+                                            {{-- ============ SOURCE ============ --}}
+                                            <div class="sm:col-span-6">
+                                                <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-4 space-y-3">
+                                                    <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Source</h4>
+
+                                                    {{-- Invert + Type + Address on one row --}}
+                                                    <div class="flex items-end gap-3">
+                                                        <div class="flex items-center pb-1 shrink-0">
+                                                            <input type="checkbox" name="source_invert" id="source_invert" x-model="form.source_invert"
+                                                                class="rounded border-gray-300 text-blue-600 shadow-sm focus:ring-blue-500">
+                                                            <label for="source_invert" class="ml-2 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">Invert</label>
+                                                        </div>
+                                                        <div class="w-40 shrink-0">
+                                                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Type</label>
+                                                            <select name="source_type" x-model="form.source_type"
+                                                                class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                                                <option value="any">Any</option>
+                                                                <option value="address">Host / Alias</option>
+                                                                <option value="network">Network</option>
+                                                                <option value="wan:ip">WAN address</option>
+                                                                <option value="lan:ip">LAN address</option>
+                                                                <option value="wan">WAN net</option>
+                                                                <option value="lan">LAN net</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="flex-1">
+                                                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Source Address / Alias</label>
+                                                            <input type="text" name="source_address" x-model="form.source_address"
+                                                                :readonly="!['address','network'].includes(form.source_type)"
+                                                                :class="!['address','network'].includes(form.source_type) ? 'opacity-40 bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''"
+                                                                class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm"
+                                                                placeholder="IP, CIDR, or alias">
+                                                        </div>
+                                                    </div>
+
+                                                    {{-- Source Port Range (TCP/UDP only) --}}
+                                                    <div x-show="['tcp', 'udp', 'tcp/udp'].includes(form.protocol)" style="display:none;">
+                                                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Source Port Range</label>
+                                                        <div class="flex gap-2 items-center">
+                                                            <input type="text" name="source_port_from" placeholder="From" x-model="form.source_port_from"
+                                                                class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                                            <span class="text-gray-400 text-sm shrink-0">–</span>
+                                                            <input type="text" name="source_port_to" placeholder="To (optional)" x-model="form.source_port_to"
+                                                                class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {{-- ============ DESTINATION ============ --}}
+                                            <div class="sm:col-span-6">
+                                                <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-4 space-y-3">
+                                                    <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Destination</h4>
+
+                                                    {{-- Invert + Type + Address on one row --}}
+                                                    <div class="flex items-end gap-3">
+                                                        <div class="flex items-center pb-1 shrink-0">
+                                                            <input type="checkbox" name="destination_invert" id="destination_invert" x-model="form.destination_invert"
+                                                                class="rounded border-gray-300 text-blue-600 shadow-sm focus:ring-blue-500">
+                                                            <label for="destination_invert" class="ml-2 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">Invert</label>
+                                                        </div>
+                                                        <div class="w-40 shrink-0">
+                                                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Type</label>
+                                                            <select name="destination_type" x-model="form.destination_type"
+                                                                class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                                                <option value="any">Any</option>
+                                                                <option value="address">Host / Alias</option>
+                                                                <option value="network">Network</option>
+                                                                <option value="wan:ip">WAN address</option>
+                                                                <option value="lan:ip">LAN address</option>
+                                                                <option value="wan">WAN net</option>
+                                                                <option value="lan">LAN net</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="flex-1">
+                                                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Destination Address / Alias</label>
+                                                            <input type="text" name="destination_address" x-model="form.destination_address"
+                                                                :readonly="!['address','network'].includes(form.destination_type)"
+                                                                :class="!['address','network'].includes(form.destination_type) ? 'opacity-40 bg-gray-50 dark:bg-gray-600 cursor-not-allowed' : ''"
+                                                                class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm"
+                                                                placeholder="IP, CIDR, or alias">
+                                                        </div>
+                                                    </div>
+
+                                                    {{-- Destination Port Range (TCP/UDP only) --}}
+                                                    <div x-show="['tcp', 'udp', 'tcp/udp'].includes(form.protocol)" style="display:none;">
+                                                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Destination Port Range</label>
+                                                        <div class="flex gap-2 items-center">
+                                                            <input type="text" name="destination_port_from" placeholder="From" x-model="form.destination_port_from"
+                                                                class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                                            <span class="text-gray-400 text-sm shrink-0">–</span>
+                                                            <input type="text" name="destination_port_to" placeholder="To (optional)" x-model="form.destination_port_to"
+                                                                class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {{-- Log --}}
+                                            <div class="sm:col-span-6">
+                                                <div class="flex items-center">
+                                                    <input type="checkbox" name="log" id="rule-log" x-model="form.log"
+                                                        class="rounded border-gray-300 text-blue-600 shadow-sm focus:ring-blue-500">
+                                                    <label for="rule-log" class="ml-2 block text-sm text-gray-900 dark:text-gray-100">Log packets handled by this rule</label>
+                                                </div>
+                                            </div>
+
+                                            {{-- Description --}}
+                                            <div class="sm:col-span-6">
+                                                <label for="rule-descr" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
+                                                <input type="text" name="descr" id="rule-descr" x-model="form.descr"
+                                                    class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm"
+                                                    placeholder="Optional description (max 52 chars)">
+                                            </div>
+
+                                            {{-- Advanced Options Toggle --}}
+                                            <div class="sm:col-span-6">
+                                                <button type="button" @click="showAdvanced = !showAdvanced"
+                                                    class="flex items-center text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 focus:outline-none gap-1">
+                                                    <svg class="w-4 h-4 transition-transform" :class="{'rotate-180': showAdvanced}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                    <span x-text="showAdvanced ? 'Hide Advanced Options' : 'Show Advanced Options'"></span>
+                                                </button>
+                                            </div>
+
+                                            {{-- Advanced Options --}}
+                                            <div class="sm:col-span-6" x-show="showAdvanced" style="display:none;">
+                                                <div class="space-y-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+
+                                                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                                        {{-- Source OS --}}
+                                                        <div>
+                                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Source OS</label>
+                                                            <select name="os" x-model="form.os"
+                                                                class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                                                <option value="">Any</option>
+                                                                <option value="Windows">Windows</option>
+                                                                <option value="Linux">Linux</option>
+                                                                <option value="FreeBSD">FreeBSD</option>
+                                                                <option value="OpenBSD">OpenBSD</option>
+                                                                <option value="MacOS">MacOS</option>
+                                                                <option value="iOS">iOS</option>
+                                                                <option value="Android">Android</option>
+                                                            </select>
+                                                        </div>
+
+                                                        {{-- State Type --}}
+                                                        <div>
+                                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">State Type</label>
+                                                            <select name="statetype" x-model="form.statetype"
+                                                                class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                                                <option value="keep state">Keep state</option>
+                                                                <option value="sloppy state">Sloppy state</option>
+                                                                <option value="synproxy state">Synproxy state</option>
+                                                                <option value="none">None</option>
+                                                            </select>
+                                                        </div>
+
+                                                        {{-- Gateway --}}
+                                                        <div>
+                                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Gateway</label>
+                                                            <select name="gateway" x-model="form.gateway"
+                                                                class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                                                <option value="">Default</option>
+                                                            </select>
+                                                        </div>
+
+                                                        {{-- Schedule --}}
+                                                        <div>
+                                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Schedule</label>
+                                                            <select name="sched" x-model="form.sched"
+                                                                class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                                                <option value="">None</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+
+                                                    {{-- TCP Flags --}}
+                                                    <div x-show="['tcp', 'tcp/udp'].includes(form.protocol)" style="display:none;">
+                                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">TCP Flags</label>
+                                                        <div class="grid grid-cols-2 gap-4">
+                                                            <div>
+                                                                <span class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase">Set</span>
+                                                                <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                                                                    @foreach(['FIN', 'SYN', 'RST', 'PSH', 'ACK', 'URG', 'ECE', 'CWR'] as $flag)
+                                                                        <div class="flex items-center">
+                                                                            <input type="checkbox" name="tcp_flags_set[]" value="{{ $flag }}"
+                                                                                class="rounded border-gray-300 text-blue-600 shadow-sm focus:ring-blue-500">
+                                                                            <label class="ml-1 text-xs text-gray-700 dark:text-gray-300">{{ $flag }}</label>
+                                                                        </div>
+                                                                    @endforeach
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <span class="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase">Out Of</span>
+                                                                <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                                                                    @foreach(['FIN', 'SYN', 'RST', 'PSH', 'ACK', 'URG', 'ECE', 'CWR'] as $flag)
+                                                                        <div class="flex items-center">
+                                                                            <input type="checkbox" name="tcp_flags_out_of[]" value="{{ $flag }}"
+                                                                                class="rounded border-gray-300 text-blue-600 shadow-sm focus:ring-blue-500">
+                                                                            <label class="ml-1 text-xs text-gray-700 dark:text-gray-300">{{ $flag }}</label>
+                                                                        </div>
+                                                                    @endforeach
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {{-- No XMLRPC Sync --}}
+                                                    <div class="flex items-center">
+                                                        <input type="checkbox" name="nosync" id="rule-nosync" x-model="form.nosync"
+                                                            class="rounded border-gray-300 text-blue-600 shadow-sm focus:ring-blue-500">
+                                                        <label for="rule-nosync" class="ml-2 text-sm text-gray-700 dark:text-gray-300">No XMLRPC Sync</label>
+                                                    </div>
+
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    </div>
+
+                                    <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                                        <button type="submit"
+                                            class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
+                                            Save
+                                        </button>
+                                        <button type="button" @click="showModal = false"
+                                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>

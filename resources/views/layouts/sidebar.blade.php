@@ -264,7 +264,17 @@
                 </form>
 
                 <div class="border-t sidebar-border mt-1 pt-1 pb-1 px-4">
-                    <p class="text-[10px] text-center opacity-50 sidebar-text">v{{ $currentVersion ?? '0.0.0' }}</p>
+                    @php
+                        $sidebarVersionPath = base_path('VERSION');
+                        $sidebarVersion = 'v0.0.0';
+                        if (file_exists($sidebarVersionPath) && is_readable($sidebarVersionPath)) {
+                            $sidebarVersionContent = @file_get_contents($sidebarVersionPath);
+                            if ($sidebarVersionContent !== false) {
+                                $sidebarVersion = trim($sidebarVersionContent);
+                            }
+                        }
+                    @endphp
+                    <p class="text-[10px] text-center opacity-50 sidebar-text">{{ $sidebarVersion }}</p>
                 </div>
             </div>
         </div>

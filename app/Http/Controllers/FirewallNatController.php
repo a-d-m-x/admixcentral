@@ -48,34 +48,73 @@ class FirewallNatController extends Controller
 
         $validated = $request->validate([
             'interface' => 'required|string',
+            'ipprotocol' => 'nullable|in:inet,inet6',
             'protocol' => 'required|in:tcp,udp,tcp/udp,icmp,esp,ah,gre,ipv6,igmp,pim,ospf,sctp,any',
+            'src_type' => 'nullable|string',
             'src' => 'nullable|string',
             'srcport' => 'nullable|string',
+            'dst_type' => 'nullable|string',
             'dst' => 'nullable|string',
             'dstport' => 'required|string',
-            'target' => 'required|ip',
+            'target' => 'required|string',
             'local_port' => 'required|string',
             'descr' => 'nullable|string',
             'disabled' => 'nullable|boolean',
-            'natreflection' => 'nullable|in:enable,disable,purenat',
+            'natreflection' => 'nullable|in:enable,disable,purenat,system-default',
             'associated_rule_id' => 'nullable|string',
         ]);
 
         $interfaceValue = $validated['interface'];
+        $natreflection = ($validated['natreflection'] ?? 'system-default') === 'system-default'
+            ? null
+            : $validated['natreflection'];
+
+        // Build source from type + address + invert
+        $srcType = $validated['src_type'] ?? 'any';
+        if ($srcType === 'any') {
+            $source = 'any';
+        } elseif (in_array($srcType, ['address', 'network'])) {
+            $addr = trim($validated['src'] ?? '');
+            $source = $addr ?: 'any';
+        } else {
+            $source = $srcType; // fixed: 'wan:ip', 'lan:ip', 'wan', 'lan', etc.
+        }
+        if ($source !== 'any' && $request->boolean('src_not')) {
+            $source = '!' . $source;
+        }
+
+        // Build destination from type + address + invert
+        $dstType = $validated['dst_type'] ?? 'wan:ip';
+        if ($dstType === 'any') {
+            $destination = 'any';
+        } elseif (in_array($dstType, ['address', 'network'])) {
+            $addr = trim($validated['dst'] ?? '');
+            $destination = $addr ?: 'any';
+        } else {
+            $destination = $dstType;
+        }
+        if ($destination !== 'any' && $request->boolean('dst_not')) {
+            $destination = '!' . $destination;
+        }
 
         $data = [
             'interface' => $interfaceValue,
             'protocol' => $validated['protocol'],
-            'source' => ($validated['src'] ?? 'any') === 'any' ? 'any' : $validated['src'],
-            'destination' => ($validated['dst'] ?? 'any') === 'any' ? 'any' : $validated['dst'],
+            'ipprotocol' => $validated['ipprotocol'] ?? 'inet',
+            'source' => $source,
+            'destination' => $destination,
             'destination_port' => $validated['dstport'],
             'dstport' => $validated['dstport'],
             'target' => $validated['target'],
             'local_port' => $validated['local_port'],
             'local-port' => $validated['local_port'],
             'descr' => $validated['descr'] ?? '',
-            'natreflection' => $validated['natreflection'] ?? null,
         ];
+
+        if ($natreflection !== null) {
+            $data['natreflection'] = $natreflection;
+        }
+
 
         if (isset($validated['associated_rule_id'])) {
             $val = $validated['associated_rule_id'];
@@ -135,34 +174,72 @@ class FirewallNatController extends Controller
     {
         $validated = $request->validate([
             'interface' => 'required|string',
+            'ipprotocol' => 'nullable|in:inet,inet6',
             'protocol' => 'required|in:tcp,udp,tcp/udp,icmp,esp,ah,gre,ipv6,igmp,pim,ospf,sctp,any',
+            'src_type' => 'nullable|string',
             'src' => 'nullable|string',
             'srcport' => 'nullable|string',
+            'dst_type' => 'nullable|string',
             'dst' => 'nullable|string',
             'dstport' => 'required|string',
-            'target' => 'required|ip',
+            'target' => 'required|string',
             'local_port' => 'required|string',
             'descr' => 'nullable|string',
             'disabled' => 'nullable|boolean',
-            'natreflection' => 'nullable|in:enable,disable,purenat',
+            'natreflection' => 'nullable|in:enable,disable,purenat,system-default',
             'associated_rule_id' => 'nullable|string',
         ]);
 
         $interfaceValue = $validated['interface'];
+        $natreflection = ($validated['natreflection'] ?? 'system-default') === 'system-default'
+            ? null
+            : $validated['natreflection'];
+
+        // Build source from type + address + invert
+        $srcType = $validated['src_type'] ?? 'any';
+        if ($srcType === 'any') {
+            $source = 'any';
+        } elseif (in_array($srcType, ['address', 'network'])) {
+            $addr = trim($validated['src'] ?? '');
+            $source = $addr ?: 'any';
+        } else {
+            $source = $srcType;
+        }
+        if ($source !== 'any' && $request->boolean('src_not')) {
+            $source = '!' . $source;
+        }
+
+        // Build destination from type + address + invert
+        $dstType = $validated['dst_type'] ?? 'wan:ip';
+        if ($dstType === 'any') {
+            $destination = 'any';
+        } elseif (in_array($dstType, ['address', 'network'])) {
+            $addr = trim($validated['dst'] ?? '');
+            $destination = $addr ?: 'any';
+        } else {
+            $destination = $dstType;
+        }
+        if ($destination !== 'any' && $request->boolean('dst_not')) {
+            $destination = '!' . $destination;
+        }
 
         $data = [
             'interface' => $interfaceValue,
             'protocol' => $validated['protocol'],
-            'source' => ($validated['src'] ?? 'any') === 'any' ? 'any' : $validated['src'],
-            'destination' => ($validated['dst'] ?? 'any') === 'any' ? 'any' : $validated['dst'],
+            'ipprotocol' => $validated['ipprotocol'] ?? 'inet',
+            'source' => $source,
+            'destination' => $destination,
             'destination_port' => $validated['dstport'],
             'dstport' => $validated['dstport'],
             'target' => $validated['target'],
             'local_port' => $validated['local_port'],
             'local-port' => $validated['local_port'],
             'descr' => $validated['descr'] ?? '',
-            'natreflection' => $validated['natreflection'] ?? null,
         ];
+
+        if ($natreflection !== null) {
+            $data['natreflection'] = $natreflection;
+        }
 
         if (isset($validated['associated_rule_id'])) {
             $val = $validated['associated_rule_id'];
@@ -185,6 +262,7 @@ class FirewallNatController extends Controller
         if ($request->has('disabled') && $request->boolean('disabled')) {
             $data['disabled'] = true;
         }
+
 
         try {
             $api = new PfSenseApiService($firewall);
@@ -268,42 +346,76 @@ class FirewallNatController extends Controller
         try {
             $api = new PfSenseApiService($firewall);
             $rules = $api->getNatPortForwards()['data'] ?? [];
-
             if (!isset($rules[$id])) {
                 return back()->with('error', 'Port forward rule not found.');
             }
-
-            $currentRule = $rules[$id];
-
-            // Determine new state (strict boolean)
-            // If currently disabled (true), we want to enable (false).
-            // If currently enabled (missing or false), we want to disable (true).
-            $isCurrentlyDisabled = !empty($currentRule['disabled']);
-            $newState = !$isCurrentlyDisabled;
-
-
-
-            // Construct minimal PATCH payload
-            // Per API docs: disabled is boolean, nullable: false
-            $payload = [
-                'disabled' => $newState
-            ];
-
-            $response = $api->updateNatPortForward((int) $id, $payload);
-
-
-
+            $isCurrentlyDisabled = !empty($rules[$id]['disabled']);
+            $response = $api->updateNatPortForward((int) $id, ['disabled' => !$isCurrentlyDisabled]);
             $firewall->update(['is_dirty' => true]);
-
-            // Check response for errors
             if (isset($response['status']) && $response['status'] === 'error') {
                 throw new \Exception($response['message'] ?? 'Unknown API error');
             }
-
             return back()->with('success', 'Port forward rule status toggled successfully.');
         } catch (\Exception $e) {
-
             return back()->with('error', 'Failed to toggle port forward rule: ' . $e->getMessage());
+        }
+    }
+
+    public function bulkAction(Request $request, Firewall $firewall)
+    {
+        $request->validate([
+            'action' => 'required|in:enable,disable,delete',
+            'ids'    => 'required|array',
+            'ids.*'  => 'integer|min:0',
+        ]);
+
+        $action = $request->input('action');
+        $ids    = $request->input('ids');
+        rsort($ids); // descending so deletes don't shift indexes
+
+        try {
+            $api = new PfSenseApiService($firewall);
+
+            if ($action === 'delete') {
+                foreach ($ids as $id) {
+                    try {
+                        $rules = $api->getNatPortForwards()['data'] ?? [];
+                        $rule  = $rules[$id] ?? null;
+                        if ($rule) {
+                            $associatedRuleId = $rule['associated-rule-id'] ?? $rule['associated_rule_id'] ?? null;
+                            if ($associatedRuleId && !in_array($associatedRuleId, ['pass', 'block', 'reject', 'none'])) {
+                                $firewallRules = $api->getFirewallRules()['data'] ?? [];
+                                $cleanId = str_replace('nat_', '', $associatedRuleId);
+                                foreach ($firewallRules as $fwIndex => $fwRule) {
+                                    if (isset($fwRule['tracker']) && (string) $fwRule['tracker'] === (string) $cleanId) {
+                                        try { $api->deleteFirewallRule($fwIndex); } catch (\Exception $e) {}
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        $api->deleteNatPortForward((int) $id);
+                    } catch (\Exception $e) {
+                        Log::warning("Bulk NAT delete failed for id={$id}: " . $e->getMessage());
+                    }
+                }
+            } else {
+                $disabled = ($action === 'disable');
+                foreach ($ids as $id) {
+                    try {
+                        $api->updateNatPortForward((int) $id, ['disabled' => $disabled]);
+                    } catch (\Exception $e) {
+                        Log::warning("Bulk NAT {$action} failed for id={$id}: " . $e->getMessage());
+                    }
+                }
+            }
+
+            $firewall->update(['is_dirty' => true]);
+            $label = ['enable' => 'Enabled', 'disable' => 'Disabled', 'delete' => 'Deleted'][$action] ?? ucfirst($action);
+            return redirect()->route('firewall.nat.port-forward', $firewall)
+                ->with('success', "Selected rules {$label} successfully. Please apply changes.");
+        } catch (\Exception $e) {
+            return back()->with('error', 'Bulk action failed: ' . $e->getMessage());
         }
     }
 

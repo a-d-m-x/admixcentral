@@ -257,6 +257,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::put('/nat/port-forward/{id}', [App\Http\Controllers\FirewallNatController::class, 'updatePortForward'])->name('nat.port-forward.update');
                 Route::delete('/nat/port-forward/{id}', [App\Http\Controllers\FirewallNatController::class, 'destroyPortForward'])->name('nat.port-forward.destroy');
                 Route::patch('/nat/port-forward/{id}/toggle', [App\Http\Controllers\FirewallNatController::class, 'togglePortForward'])->name('nat.port-forward.toggle');
+                Route::post('/nat/port-forward/bulk-action', [App\Http\Controllers\FirewallNatController::class, 'bulkAction'])->name('nat.port-forward.bulk-action');
                 Route::get('/nat/outbound', [App\Http\Controllers\FirewallNatController::class, 'outbound'])->name('nat.outbound');
                 Route::get('/nat/outbound/create', [App\Http\Controllers\FirewallNatController::class, 'createOutbound'])->name('nat.outbound.create');
                 Route::post('/nat/outbound', [App\Http\Controllers\FirewallNatController::class, 'storeOutbound'])->name('nat.outbound.store');
