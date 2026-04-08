@@ -81,21 +81,6 @@ Use these instructions for setting up a local development environment.
    cd admixcentral
    ```
 
-### Steps
-
-1. **Install System Dependencies**
-   Ensure your system has the following installed:
-   - PHP >= 8.2
-   - Composer
-   - Node.js & NPM
-   - MySQL 8.0+
-
-2. **Clone the Repository**
-   ```bash
-   git clone https://github.com/admxlz/admixcentral.git
-   cd admixcentral
-   ```
-
 3. **Install Dependencies**
    ```bash
    composer install
