@@ -64,9 +64,11 @@
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Routing</a>
                                     <a href="{{ route('system.update', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Update</a>
+                                    @if(!auth()->user()->isReadOnly())
                                     <a href="{{ route('system.rest-api.index', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Update
                                         REST API</a>
+                                    @endif
                                     <a href="{{ route('system.user_manager.index', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">User
                                         Manager</a>
@@ -472,8 +474,10 @@
                         :active="request()->routeIs('firewall.system.routing')">{{ __('Routing') }}</x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('system.update', request()->route('firewall'))"
                         :active="request()->routeIs('system.update')">{{ __('Update') }}</x-responsive-nav-link>
+                    @if(!auth()->user()->isReadOnly())
                     <x-responsive-nav-link :href="route('system.rest-api.index', request()->route('firewall'))"
                         :active="request()->routeIs('system.rest-api.*')">{{ __('Update REST API') }}</x-responsive-nav-link>
+                    @endif
                     <x-responsive-nav-link :href="route('system.user_manager.index', request()->route('firewall'))"
                         :active="request()->routeIs('system.user_manager.*')">{{ __('User Manager') }}</x-responsive-nav-link>
                 </div>

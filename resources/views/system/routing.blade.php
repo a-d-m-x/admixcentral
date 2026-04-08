@@ -79,9 +79,11 @@
                     <!-- Gateways Tab -->
                     @if($tab === 'gateways')
                         <x-card-header title="Gateways">
+                            @if(!auth()->user()->isReadOnly())
                             <x-button-add @click="openGatewayModal()">
                                 Add Gateway
                             </x-button-add>
+                            @endif
                         </x-card-header>
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
@@ -113,6 +115,7 @@
                                                 {{ $gateway['gateway'] }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {{ $gateway['descr'] ?? '' }}</td>
+                                            @if(!auth()->user()->isReadOnly())
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <button @click="openGatewayModal({{ json_encode($gateway) }})"
                                                     class="text-indigo-600 hover:text-indigo-900 mr-4">Edit</button>
@@ -120,6 +123,7 @@
                                                     @click="confirmDelete('{{ route('firewall.system.routing.gateways.destroy', ['firewall' => $firewall, 'id' => $gateway['id']]) }}')"
                                                     class="text-red-600 hover:text-red-900">Delete</button>
                                             </td>
+                                            @endif
                                         </tr>
                                     @empty
                                         <tr>
@@ -134,9 +138,11 @@
                     <!-- Static Routes Tab -->
                     @if($tab === 'static_routes')
                         <x-card-header title="Static Routes">
+                            @if(!auth()->user()->isReadOnly())
                             <x-button-add @click="openStaticRouteModal()">
                                 Add Static Route
                             </x-button-add>
+                            @endif
                         </x-card-header>
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
@@ -163,6 +169,7 @@
                                                 {{ $route['gateway'] }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {{ $route['descr'] ?? '' }}</td>
+                                            @if(!auth()->user()->isReadOnly())
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <button @click="openStaticRouteModal({{ json_encode($route) }})"
                                                     class="text-indigo-600 hover:text-indigo-900 mr-4">Edit</button>
@@ -170,6 +177,7 @@
                                                     @click="confirmDelete('{{ route('firewall.system.routing.static-routes.destroy', ['firewall' => $firewall, 'id' => $route['id']]) }}')"
                                                     class="text-red-600 hover:text-red-900">Delete</button>
                                             </td>
+                                            @endif
                                         </tr>
                                     @empty
                                         <tr>
@@ -185,9 +193,11 @@
                     <!-- Gateway Groups Tab -->
                     @if($tab === 'gateway_groups')
                         <x-card-header title="Gateway Groups">
+                            @if(!auth()->user()->isReadOnly())
                             <x-button-add @click="openGatewayGroupModal()">
                                 Add Gateway Group
                             </x-button-add>
+                            @endif
                         </x-card-header>
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
@@ -220,6 +230,7 @@
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {{ $group['descr'] ?? '' }}</td>
+                                            @if(!auth()->user()->isReadOnly())
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <button @click="openGatewayGroupModal({{ json_encode($group) }})"
                                                     class="text-indigo-600 hover:text-indigo-900 mr-4">Edit</button>
@@ -227,6 +238,7 @@
                                                     @click="confirmDelete('{{ route('firewall.system.routing.gateway-groups.destroy', ['firewall' => $firewall, 'id' => $group['id'] ?? '']) }}')"
                                                     class="text-red-600 hover:text-red-900">Delete</button>
                                             </td>
+                                            @endif
                                         </tr>
                                     @empty
                                         <tr>
@@ -239,6 +251,7 @@
                         </div>
                     @endif
 
+                    @if(!auth()->user()->isReadOnly())
                     <!-- Modal -->
                     <div x-show="showModal" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
                         <div
@@ -400,6 +413,7 @@
                         @csrf
                         @method('DELETE')
                     </form>
+                    @endif
 
             </x-card>
         </div>

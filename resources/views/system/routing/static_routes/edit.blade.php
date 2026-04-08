@@ -11,6 +11,7 @@
                         action="{{ route('system.routing.static_routes.update', [$firewall->id, $route['id']]) }}">
                         @csrf
                         @method('PATCH')
+                        <fieldset @if(auth()->user()->isReadOnly()) disabled @endif class="[&:disabled]:opacity-60 [&:disabled]:pointer-events-none">
 
                         <!-- Network -->
                         <div class="mb-4">
@@ -49,12 +50,16 @@
                                 class="ml-2 block text-sm text-gray-900">{{ __('Disable this static route') }}</label>
                         </div>
 
+                        </fieldset>
+
                         <div class="flex items-center justify-end mt-4">
                             <a href="{{ route('system.routing.index', ['firewall' => $firewall->id, 'tab' => 'static_routes']) }}"
                                 class="text-gray-600 hover:text-gray-900 mr-4">Cancel</a>
+                            @if(!auth()->user()->isReadOnly())
                             <x-primary-button>
                                 {{ __('Save') }}
                             </x-primary-button>
+                            @endif
                         </div>
                     </form>
                 </div>
