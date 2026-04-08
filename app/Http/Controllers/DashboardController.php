@@ -42,19 +42,22 @@ class DashboardController extends Controller
         // Store status in an array keyed by firewall ID to ensure persistence across loops
         $firewallStatuses = [];
 
-        // Attach cached status data to each firewall instance for display.
-        // This avoids N+1 API calls on the dashboard load.
-        $firewalls->each(function ($firewall) use ($useCache, &$firewallStatuses) {
-            $key = 'firewall_status_' . $firewall->id;
-            $cached = $useCache ? Cache::get($key) : null;
+        // Load all firewall statuses in ONE cache query instead of one query per firewall.
+        // Cache::many() issues a single SELECT ... WHERE key IN (...) for the database driver
+        // or a single MGET for Redis — O(1) regardless of firewall count.
+        $cacheKeys    = $firewalls->map(fn($fw) => 'firewall_status_' . $fw->id)->all();
+        $allStatuses  = $useCache ? Cache::many($cacheKeys) : array_fill_keys($cacheKeys, null);
+
+        $firewalls->each(function ($firewall) use ($allStatuses, &$firewallStatuses) {
+            $key    = 'firewall_status_' . $firewall->id;
+            $cached = $allStatuses[$key] ?? null;
 
             if ($cached) {
-                // Store the full wrapper
-                $firewall->cached_status = $cached;
-                $firewallStatuses[$firewall->id] = $cached;
+                $firewall->cached_status           = $cached;
+                $firewallStatuses[$firewall->id]   = $cached;
             } else {
-                $firewall->cached_status = null;
-                $firewallStatuses[$firewall->id] = null;
+                $firewall->cached_status           = null;
+                $firewallStatuses[$firewall->id]   = null;
             }
         });
 
@@ -66,16 +69,16 @@ class DashboardController extends Controller
         // Assuming user wants to see "Companies Managed":
         $totalCompanies = $firewalls->pluck('company_id')->unique()->count();
 
-        // Offline Devices (No Active WebSocket Connection)
-        // Since we already have the collection, we can iterate or fetch count separately for performance if collection is huge.
-        // For Dashboard, separate query is often cleaner/faster than hydrating relationships just for a count.
-        if ($user->isGlobalAdmin()) {
-            $offlineFirewalls = Firewall::whereDoesntHave('activeConnection')->count();
-        } else {
-            $offlineFirewalls = Firewall::where('company_id', $user->company_id)
+        // Offline Devices — cached for 60s to avoid a NOT EXISTS subquery on every dashboard load.
+        $offlineCacheKey  = $user->isGlobalAdmin() ? 'offline_fw_count_global' : 'offline_fw_count_' . $user->company_id;
+        $offlineFirewalls = Cache::remember($offlineCacheKey, 60, function () use ($user) {
+            if ($user->isGlobalAdmin()) {
+                return Firewall::whereDoesntHave('activeConnection')->count();
+            }
+            return Firewall::where('company_id', $user->company_id)
                 ->whereDoesntHave('activeConnection')
                 ->count();
-        }
+        });
 
         // Calculate Gateway Metrics from Cached Status
         $totalGateways = 0;

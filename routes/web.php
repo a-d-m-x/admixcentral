@@ -96,22 +96,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/geocode/retrieve', [App\Http\Controllers\GeocodeController::class, 'retrieve'])->name('geocode.retrieve');
 
     // System: Routing
-    Route::get('/firewall/{firewall}/system/routing', [RoutingController::class, 'index'])->name('firewall.system.routing');
+    Route::get('/firewall/{firewall}/system/routing', [RoutingController::class, 'index'])->middleware('release.session')->name('firewall.system.routing');
 
     // Routing: Gateways
-    Route::post('/firewall/{firewall}/system/routing/gateways', [RoutingController::class, 'storeGateway'])->middleware('deny.readonly')->name('firewall.system.routing.gateways.store');
-    Route::patch('/firewall/{firewall}/system/routing/gateways/{id}', [RoutingController::class, 'updateGateway'])->middleware('deny.readonly')->name('firewall.system.routing.gateways.update');
-    Route::delete('/firewall/{firewall}/system/routing/gateways/{id}', [RoutingController::class, 'destroyGateway'])->middleware('deny.readonly')->name('firewall.system.routing.gateways.destroy');
+    Route::post('/firewall/{firewall}/system/routing/gateways', [RoutingController::class, 'storeGateway'])->middleware(['deny.readonly', 'release.session'])->name('firewall.system.routing.gateways.store');
+    Route::patch('/firewall/{firewall}/system/routing/gateways/{id}', [RoutingController::class, 'updateGateway'])->middleware(['deny.readonly', 'release.session'])->name('firewall.system.routing.gateways.update');
+    Route::delete('/firewall/{firewall}/system/routing/gateways/{id}', [RoutingController::class, 'destroyGateway'])->middleware(['deny.readonly', 'release.session'])->name('firewall.system.routing.gateways.destroy');
 
     // Routing: Static Routes
-    Route::post('/firewall/{firewall}/system/routing/static-routes', [RoutingController::class, 'storeStaticRoute'])->middleware('deny.readonly')->name('firewall.system.routing.static-routes.store');
-    Route::patch('/firewall/{firewall}/system/routing/static-routes/{id}', [RoutingController::class, 'updateStaticRoute'])->middleware('deny.readonly')->name('firewall.system.routing.static-routes.update');
-    Route::delete('/firewall/{firewall}/system/routing/static-routes/{id}', [RoutingController::class, 'destroyStaticRoute'])->middleware('deny.readonly')->name('firewall.system.routing.static-routes.destroy');
+    Route::post('/firewall/{firewall}/system/routing/static-routes', [RoutingController::class, 'storeStaticRoute'])->middleware(['deny.readonly', 'release.session'])->name('firewall.system.routing.static-routes.store');
+    Route::patch('/firewall/{firewall}/system/routing/static-routes/{id}', [RoutingController::class, 'updateStaticRoute'])->middleware(['deny.readonly', 'release.session'])->name('firewall.system.routing.static-routes.update');
+    Route::delete('/firewall/{firewall}/system/routing/static-routes/{id}', [RoutingController::class, 'destroyStaticRoute'])->middleware(['deny.readonly', 'release.session'])->name('firewall.system.routing.static-routes.destroy');
 
     // Routing: Gateway Groups
-    Route::post('/firewall/{firewall}/system/routing/gateway-groups', [RoutingController::class, 'storeGatewayGroup'])->middleware('deny.readonly')->name('firewall.system.routing.gateway-groups.store');
-    Route::patch('/firewall/{firewall}/system/routing/gateway-groups/{id}', [RoutingController::class, 'updateGatewayGroup'])->middleware('deny.readonly')->name('firewall.system.routing.gateway-groups.update');
-    Route::delete('/firewall/{firewall}/system/routing/gateway-groups/{id}', [RoutingController::class, 'destroyGatewayGroup'])->middleware('deny.readonly')->name('firewall.system.routing.gateway-groups.destroy');
+    Route::post('/firewall/{firewall}/system/routing/gateway-groups', [RoutingController::class, 'storeGatewayGroup'])->middleware(['deny.readonly', 'release.session'])->name('firewall.system.routing.gateway-groups.store');
+    Route::patch('/firewall/{firewall}/system/routing/gateway-groups/{id}', [RoutingController::class, 'updateGatewayGroup'])->middleware(['deny.readonly', 'release.session'])->name('firewall.system.routing.gateway-groups.update');
+    Route::delete('/firewall/{firewall}/system/routing/gateway-groups/{id}', [RoutingController::class, 'destroyGatewayGroup'])->middleware(['deny.readonly', 'release.session'])->name('firewall.system.routing.gateway-groups.destroy');
 
     // System Status (Global)
     Route::get('/system/status', [App\Http\Controllers\SystemStatusController::class, 'check'])->name('system.status');
@@ -139,7 +139,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->except(['index', 'show'])
         ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user']);
 
-    Route::post('/firewalls/refresh-all', [App\Http\Controllers\FirewallController::class, 'refreshAll'])->name('firewalls.refresh-all');
+    Route::post('/firewalls/refresh-all', [App\Http\Controllers\FirewallController::class, 'refreshAll'])->middleware('release.session')->name('firewalls.refresh-all');
     Route::post('/firewalls/status', [App\Http\Controllers\FirewallController::class, 'getCachedStatus'])->name('firewalls.status');
 
     // Firewalls CRUD - Place BEFORE the specific firewall routes
@@ -150,7 +150,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Status Dashboard (Must be before generic firewall dashboard route)
     Route::get('/firewall/{firewall}/status', [App\Http\Controllers\StatusDashboardController::class, 'index'])
-        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'release.session'])
         ->name('status.dashboard');
 
 
@@ -161,7 +161,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Interfaces (Assignments, VLANs) - Must be before generic interface routes
     Route::prefix('firewall/{firewall}/interfaces')
-        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'release.session'])
         ->name('interfaces.')->group(function () {
             // Assignments
             Route::get('/assignments', [App\Http\Controllers\InterfacesController::class, 'assignments'])->name('assignments');
@@ -219,23 +219,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Interfaces management
     Route::get('/firewall/{firewall}/interfaces/{interface}/edit', [App\Http\Controllers\InterfaceController::class, 'edit'])
-        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'release.session'])
         ->name('firewall.interfaces.edit');
     Route::put('/firewall/{firewall}/interfaces/{interface}', [App\Http\Controllers\InterfaceController::class, 'update'])
-        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly', 'release.session'])
         ->name('firewall.interfaces.update');
     Route::get('/firewall/{firewall}/interfaces', [App\Http\Controllers\InterfaceController::class, 'index'])
-        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'release.session'])
         ->name('firewall.interfaces.index');
     Route::get('/firewall/{firewall}/interfaces/{interface}', [App\Http\Controllers\InterfaceController::class, 'show'])
-        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'release.session'])
         ->name('firewall.interfaces.show');
 
 
 
     // Firewall Resources Group — all pages viewable, write actions blocked for readonly
     Route::prefix('firewall/{firewall}')->name('firewall.')
-        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'release.session'])
         ->group(function () {
 
             // Nested Firewall Configuration (Matches menu structure)
@@ -393,35 +393,35 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
     Route::get('/firewall/{firewall}/system/rest-api', [App\Http\Controllers\SystemRestApiController::class, 'index'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin', 'release.session'])
         ->name('system.rest-api.index');
     Route::post('/firewall/{firewall}/system/rest-api', [App\Http\Controllers\SystemRestApiController::class, 'update'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':admin', 'release.session'])
         ->name('system.rest-api.update');
     Route::post('/firewall/{firewall}/system/rest-api/revert', [App\Http\Controllers\SystemRestApiController::class, 'revert'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':admin', 'release.session'])
         ->name('system.rest-api.revert');
 
     // Services - DHCP Server
     Route::get('/firewall/{firewall}/services/dhcp/{interface?}', [App\Http\Controllers\ServicesDhcpServerController::class, 'index'])
-        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'release.session'])
         ->name('services.dhcp.index');
     Route::patch('/firewall/{firewall}/services/dhcp/{interface}', [App\Http\Controllers\ServicesDhcpServerController::class, 'update'])
-        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly', 'release.session'])
         ->name('services.dhcp.update');
 
     // Services - DNS Resolver
     Route::get('/firewall/{firewall}/services/dns-resolver', [App\Http\Controllers\ServicesDnsResolverController::class, 'index'])
-        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'release.session'])
         ->name('services.dns.resolver');
     Route::patch('/firewall/{firewall}/services/dns-resolver', [App\Http\Controllers\ServicesDnsResolverController::class, 'update'])
-        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly', 'release.session'])
         ->name('services.dns.resolver.update');
     Route::get('/firewall/{firewall}/services/dns-resolver/host-overrides', [App\Http\Controllers\ServicesDnsResolverController::class, 'hostOverrides'])
-        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'release.session'])
         ->name('services.dns.host-overrides');
     Route::post('/firewall/{firewall}/services/dns-resolver/host-overrides', [App\Http\Controllers\ServicesDnsResolverController::class, 'storeHostOverride'])
-        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly', 'release.session'])
         ->name('services.dns.host-overrides.store');
 
 
@@ -429,7 +429,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
     // System — pages are viewable by readonly, write actions are blocked
-    Route::prefix('firewall/{firewall}/system')->name('system.')->middleware(App\Http\Middleware\EnsureTenantScope::class)->group(function () {
+    Route::prefix('firewall/{firewall}/system')->name('system.')->middleware([App\Http\Middleware\EnsureTenantScope::class, 'release.session'])->group(function () {
         Route::get('/advanced', [App\Http\Controllers\SystemController::class, 'advanced'])->name('advanced');
         Route::post('/advanced', [App\Http\Controllers\SystemController::class, 'updateAdvanced'])->middleware('deny.readonly')->name('advanced.update');
         Route::post('/advanced/tunables', [App\Http\Controllers\SystemController::class, 'storeTunable'])->middleware('deny.readonly')->name('advanced.tunables.store');
@@ -493,7 +493,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
     // Services — pages viewable by readonly, only write actions blocked
-    Route::prefix('firewall/{firewall}/services')->name('services.')->middleware(App\Http\Middleware\EnsureTenantScope::class)->group(function () {
+    Route::prefix('firewall/{firewall}/services')->name('services.')->middleware([App\Http\Middleware\EnsureTenantScope::class, 'release.session'])->group(function () {
         Route::get('/captive-portal', [App\Http\Controllers\ServicesController::class, 'captivePortal'])->name('captive-portal');
         Route::get('/auto-config-backup', [App\Http\Controllers\ServicesController::class, 'autoConfigBackup'])->name('auto-config-backup');
 
@@ -584,7 +584,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     // VPN — pages viewable by readonly, write actions blocked
-    Route::prefix('firewall/{firewall}/vpn')->name('vpn.')->middleware(App\Http\Middleware\EnsureTenantScope::class)->group(function () {
+    Route::prefix('firewall/{firewall}/vpn')->name('vpn.')->middleware([App\Http\Middleware\EnsureTenantScope::class, 'release.session'])->group(function () {
         Route::get('/ipsec', [VpnIpsecController::class, 'tunnels'])->name('ipsec');
         Route::post('/ipsec/phase1', [VpnIpsecController::class, 'storePhase1'])->middleware('deny.readonly')->name('ipsec.phase1.store');
         Route::delete('/ipsec/phase1/{id}', [VpnIpsecController::class, 'destroyPhase1'])->middleware('deny.readonly')->name('ipsec.phase1.destroy');
@@ -608,7 +608,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
     // Status
-    Route::prefix('firewall/{firewall}/status')->name('status.')->group(function () {
+    Route::prefix('firewall/{firewall}/status')->name('status.')->middleware('release.session')->group(function () {
         Route::get('/captive-portal', [App\Http\Controllers\StatusController::class, 'captivePortal'])->name('captive-portal');
         Route::get('/carp', [App\Http\Controllers\StatusController::class, 'carp'])->name('carp');
         Route::post('/carp', [App\Http\Controllers\StatusController::class, 'updateCarp'])->name('carp.update');
@@ -632,7 +632,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     // Diagnostics
-    Route::prefix('firewall/{firewall}/diagnostics')->name('diagnostics.')->group(function () {
+    Route::prefix('firewall/{firewall}/diagnostics')->name('diagnostics.')->middleware('release.session')->group(function () {
         Route::get('/arp-table', [App\Http\Controllers\DiagnosticsController::class, 'arpTable'])->name('arp-table');
         Route::get('/authentication', [App\Http\Controllers\DiagnosticsController::class, 'authentication'])->name('authentication');
         Route::get('/backup', [App\Http\Controllers\DiagnosticsBackupController::class, 'index'])->name('backup.index');

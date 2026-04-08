@@ -626,16 +626,16 @@ main() {
 
   log "Installing Nginx + Database Server + Supervisor"
   if [[ "$OS_FAMILY" == "debian" ]]; then
-    pkg_install nginx mysql-server supervisor certbot python3-certbot-nginx
+    pkg_install nginx mysql-server supervisor redis-server certbot python3-certbot-nginx
   elif [[ "$OS_FAMILY" == "redhat" ]]; then
-    pkg_install nginx mariadb-server supervisor certbot python3-certbot-nginx
+    pkg_install nginx mariadb-server supervisor redis certbot python3-certbot-nginx
   elif [[ "$OS_FAMILY" == "arch" ]]; then
-    pkg_install nginx mariadb supervisor certbot certbot-nginx
+    pkg_install nginx mariadb supervisor redis certbot certbot-nginx
     if [[ ! -d "/var/lib/mysql/mysql" ]]; then
       mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql || true
     fi
   elif [[ "$OS_FAMILY" == "suse" ]]; then
-    pkg_install nginx mariadb supervisor certbot python3-certbot-nginx
+    pkg_install nginx mariadb supervisor redis certbot python3-certbot-nginx
   fi
 
   log "Installing PHP + extensions"
@@ -643,14 +643,15 @@ main() {
     pkg_install \
       php${PHP_VER}-cli php${PHP_VER}-fpm \
       php${PHP_VER}-mysql php${PHP_VER}-mbstring php${PHP_VER}-xml php${PHP_VER}-curl \
-      php${PHP_VER}-zip php${PHP_VER}-gd php${PHP_VER}-bcmath php${PHP_VER}-intl
+      php${PHP_VER}-zip php${PHP_VER}-gd php${PHP_VER}-bcmath php${PHP_VER}-intl \
+      php${PHP_VER}-redis
   elif [[ "$OS_FAMILY" == "redhat" ]]; then
-    pkg_install php-cli php-fpm php-mysqlnd php-mbstring php-xml php-curl php-zip php-gd php-bcmath php-intl || true
+    pkg_install php-cli php-fpm php-mysqlnd php-mbstring php-xml php-curl php-zip php-gd php-bcmath php-intl php-pecl-redis5 || true
   elif [[ "$OS_FAMILY" == "arch" ]]; then
-    pkg_install php php-fpm php-gd php-intl php-sqlite
+    pkg_install php php-fpm php-gd php-intl php-sqlite php-redis
     configure_arch_php
   elif [[ "$OS_FAMILY" == "suse" ]]; then
-    pkg_install php8-cli php8-fpm php8-mysql php8-mbstring php8-curl php8-zip php8-gd php8-bcmath php8-intl || true
+    pkg_install php8-cli php8-fpm php8-mysql php8-mbstring php8-curl php8-zip php8-gd php8-bcmath php8-intl php8-redis || true
   fi
 
   install_composer
@@ -659,6 +660,12 @@ main() {
   log "Enabling services"
   systemctl enable --now nginx || true
   systemctl enable --now "${PHP_SERVICE}" || true
+  # Redis service name differs by distro: 'redis' on Fedora/Arch/SUSE, 'redis-server' on Debian/Ubuntu
+  if systemctl list-unit-files 2>/dev/null | grep -q '^redis-server\.service'; then
+    systemctl enable --now redis-server || true
+  else
+    systemctl enable --now redis || true
+  fi
 
   detect_runtime_web_user_group
 
@@ -722,9 +729,14 @@ main() {
   set_env_kv .env "VITE_REVERB_PORT" '\${REVERB_PORT}'
   set_env_kv .env "VITE_REVERB_SCHEME" '\${REVERB_SCHEME}'
 
-  set_env_kv .env "CACHE_DRIVER" "file"
-  set_env_kv .env "SESSION_DRIVER" "file"
-  set_env_kv .env "QUEUE_CONNECTION" "database"
+  # Redis is the recommended driver for sessions, cache, and queue at scale.
+  # It is non-blocking, in-memory, and avoids MySQL row-lock contention that
+  # causes intermittent hangs when managing multiple firewalls simultaneously.
+  set_env_kv .env "CACHE_STORE" "redis"
+  set_env_kv .env "SESSION_DRIVER" "redis"
+  set_env_kv .env "QUEUE_CONNECTION" "redis"
+  set_env_kv .env "REDIS_HOST" "127.0.0.1"
+  set_env_kv .env "REDIS_PORT" "6379"
 
   log "Ensuring correct ownership"
   chown -R "${WEB_USER}:${WEB_GROUP}" "$INSTALL_DIR" || true
@@ -780,11 +792,11 @@ EOF
   cat >"${supv_conf_dir}/admix-worker.${supv_ext}" <<EOF
 [program:admix-worker]
 process_name=%(program_name)s_%(process_num)02d
-command=php ${INSTALL_DIR}/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+command=php ${INSTALL_DIR}/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
 autostart=true
 autorestart=true
 user=${RUNTIME_WEB_USER}
-numprocs=2
+numprocs=10
 redirect_stderr=true
 stdout_logfile=${INSTALL_DIR}/storage/logs/worker.log
 stopwaitsecs=3600
