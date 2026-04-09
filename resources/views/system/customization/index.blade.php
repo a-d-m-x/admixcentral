@@ -330,7 +330,292 @@
                         }
                     </script>
 
+                    <!-- Section: Performance Tuning -->
+                    <div class="card-modern" x-data="performanceTuner()">
+                        <div class="card-header-modern">
+                            <div class="card-icon-wrapper">
+                                <svg class="card-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="card-title-modern">Performance Tuning</h3>
+                                <p class="card-subtitle-modern">Optimize worker processes and PHP-FPM based on current hardware.</p>
+                            </div>
+                            <!-- Status badge -->
+                            <div x-show="!loading && status">
+                                <span x-show="!needsTuning"
+                                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                    Optimized
+                                </span>
+                                <span x-show="needsTuning"
+                                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                                    Tuning Available
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="card-body-modern">
+
+                            <!-- Loading State -->
+                            <template x-if="loading">
+                                <div class="flex items-center justify-center py-8">
+                                    <svg class="animate-spin h-6 w-6 text-indigo-500" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span class="ml-3 text-sm text-gray-500 dark:text-gray-400">Detecting hardware...</span>
+                                </div>
+                            </template>
+
+                            <!-- Status Table -->
+                            <template x-if="!loading && status">
+                                <div>
+                                    <!-- Hardware row -->
+                                    <div class="flex gap-6 mb-5 pb-4 border-b border-gray-100 dark:border-gray-700">
+                                        <div class="text-center">
+                                            <div class="text-2xl font-bold text-gray-900 dark:text-white" x-text="status.hardware.cpu_cores"></div>
+                                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">CPU Cores</div>
+                                        </div>
+                                        <div class="text-center">
+                                            <div class="text-2xl font-bold text-gray-900 dark:text-white" x-text="Math.round(status.hardware.total_ram_mb / 1024) + ' GB'"></div>
+                                            <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">RAM</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Comparison table -->
+                                    <div class="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 mb-5">
+                                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                            <thead class="bg-gray-50 dark:bg-gray-800/50">
+                                                <tr>
+                                                    <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Setting</th>
+                                                    <th class="px-4 py-2.5 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Current</th>
+                                                    <th class="px-4 py-2.5 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Recommended</th>
+                                                    <th class="px-4 py-2.5 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
+                                                <template x-for="row in tuningRows" :key="row.key">
+                                                    <tr>
+                                                        <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100" x-text="row.label"></td>
+                                                        <td class="px-4 py-3 text-center text-sm font-mono text-gray-700 dark:text-gray-300" x-text="row.current || '—'"></td>
+                                                        <td class="px-4 py-3 text-center text-sm font-mono font-semibold text-indigo-600 dark:text-indigo-400" x-text="row.recommended"></td>
+                                                        <td class="px-4 py-3 text-center">
+                                                            <span x-show="row.current == row.recommended"
+                                                                class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30">
+                                                                <svg class="w-4 h-4 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+                                                                </svg>
+                                                            </span>
+                                                            <span x-show="row.current != row.recommended"
+                                                                class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 dark:bg-amber-900/30">
+                                                                <svg class="w-4 h-4 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3a9 9 0 110 18A9 9 0 0112 3z"/>
+                                                                </svg>
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <!-- Result message -->
+                                    <template x-if="resultMsg">
+                                        <div :class="resultError
+                                                ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 text-red-800 dark:text-red-200'
+                                                : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 text-green-800 dark:text-green-200'"
+                                            class="rounded-lg border p-3 text-sm mb-4" x-text="resultMsg">
+                                        </div>
+                                    </template>
+
+                                    @if(!auth()->user()->isReadOnly())
+                                    <!-- Action buttons -->
+                                    <div class="flex items-center gap-3">
+                                        <!-- Preview -->
+                                        <button type="button" @click="preview()"
+                                            :disabled="applying || previewing"
+                                            class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 transition-colors">
+                                            <svg x-show="previewing" class="animate-spin -ml-0.5 mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span x-text="previewing ? 'Analyzing...' : 'Preview Changes'"></span>
+                                        </button>
+
+                                        <!-- Apply -->
+                                        <button type="button" @click="applyTuning()"
+                                            :disabled="applying || previewing || !needsTuning"
+                                            class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+                                            <svg x-show="applying" class="animate-spin -ml-0.5 mr-1.5 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span x-text="applying ? 'Applying...' : 'Apply Recommended Settings'"></span>
+                                        </button>
+
+                                        <!-- Refresh -->
+                                        <button type="button" @click="loadStatus()"
+                                            :disabled="loading || applying"
+                                            class="ml-auto text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 disabled:opacity-40 transition-colors flex items-center gap-1">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                            </svg>
+                                            Refresh
+                                        </button>
+                                    </div>
+                                    @endif
+                                </div>
+                            </template>
+
+                            <!-- Preview modal -->
+                            <template x-if="showPreview && previewData">
+                                <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" @click.self="showPreview = false">
+                                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+                                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                                            <h3 class="text-base font-semibold text-gray-900 dark:text-white">Proposed Changes</h3>
+                                            <button @click="showPreview = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                            </button>
+                                        </div>
+                                        <div class="px-6 py-4 space-y-3">
+                                            <p class="text-sm text-gray-500 dark:text-gray-400">The following changes will be made to your server configuration:</p>
+                                            <template x-for="row in previewRows" :key="row.label">
+                                                <div x-show="row.current != row.recommended" class="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700">
+                                                    <span class="text-sm font-medium text-gray-800 dark:text-gray-200" x-text="row.label"></span>
+                                                    <span class="text-sm">
+                                                        <span class="font-mono text-gray-500 line-through" x-text="row.current"></span>
+                                                        <span class="mx-1 text-gray-400">→</span>
+                                                        <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400" x-text="row.recommended"></span>
+                                                    </span>
+                                                </div>
+                                            </template>
+                                            <p class="text-xs text-gray-400 dark:text-gray-500 pt-1">PHP-FPM and Supervisor worker processes will be restarted. Dashboard may be briefly unavailable (5–10 seconds).</p>
+                                        </div>
+                                        <div class="px-6 py-4 bg-gray-50 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+                                            <button @click="showPreview = false" type="button"
+                                                class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                                                Cancel
+                                            </button>
+                                            <button @click="showPreview = false; applyTuning()" type="button"
+                                                class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 border border-transparent rounded-md transition-colors">
+                                                Confirm & Apply
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+
+                        </div>
+                    </div>
+
+                    <script>
+                        function performanceTuner() {
+                            return {
+                                loading: true,
+                                applying: false,
+                                previewing: false,
+                                status: null,
+                                needsTuning: false,
+                                tuningRows: [],
+                                resultMsg: '',
+                                resultError: false,
+                                showPreview: false,
+                                previewData: null,
+                                previewRows: [],
+
+                                init() { this.loadStatus(); },
+
+                                async loadStatus() {
+                                    this.loading = true;
+                                    this.resultMsg = '';
+                                    try {
+                                        const r = await fetch('{{ route("system.tuning.status") }}');
+                                        const d = await r.json();
+                                        this.status = d;
+                                        this.needsTuning = d.needs_tuning;
+                                        this.tuningRows = [
+                                            { key: 'workers',  label: 'Queue Workers',       current: d.current.workers,      recommended: d.recommended.workers },
+                                            { key: 'reverb',   label: 'Reverb Processes',    current: d.current.reverb,       recommended: d.recommended.reverb },
+                                            { key: 'fpm',      label: 'PHP-FPM Children',    current: d.current.fpm_children, recommended: d.recommended.fpm_children },
+                                        ];
+                                    } catch(e) {
+                                        console.error('Tuning status fetch failed', e);
+                                    } finally {
+                                        this.loading = false;
+                                    }
+                                },
+
+                                async preview() {
+                                    this.previewing = true;
+                                    this.resultMsg = '';
+                                    try {
+                                        const r = await fetch('{{ route("system.tuning.preview") }}', {
+                                            method: 'POST',
+                                            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+                                        });
+                                        const d = await r.json();
+                                        if (d.success && d.result) {
+                                            this.previewData = d.result;
+                                            this.previewRows = [
+                                                { label: 'Queue Workers',    current: d.result.workers.current,      recommended: d.result.workers.recommended },
+                                                { label: 'Reverb Processes', current: d.result.reverb.current,       recommended: d.result.reverb.recommended },
+                                                { label: 'PHP-FPM Children', current: d.result.fpm_children.current, recommended: d.result.fpm_children.recommended },
+                                            ];
+                                            this.showPreview = true;
+                                        }
+                                    } catch(e) {
+                                        this.resultMsg = 'Preview failed: ' + e.message;
+                                        this.resultError = true;
+                                    } finally {
+                                        this.previewing = false;
+                                    }
+                                },
+
+                                async applyTuning() {
+                                    const confirmed = await Swal.fire({
+                                        title: 'Apply Performance Tuning?',
+                                        text: 'Worker processes and PHP-FPM will be restarted. The dashboard may be briefly unavailable.',
+                                        icon: 'warning',
+                                        showCancelButton: true,
+                                        confirmButtonColor: '#4f46e5',
+                                        cancelButtonColor: '#6b7280',
+                                        confirmButtonText: 'Yes, apply it!'
+                                    });
+                                    if (!confirmed.isConfirmed) return;
+
+                                    this.applying = true;
+                                    this.resultMsg = '';
+                                    try {
+                                        const r = await fetch('{{ route("system.tuning.apply") }}', {
+                                            method: 'POST',
+                                            headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
+                                        });
+                                        const d = await r.json();
+                                        if (d.success) {
+                                            this.resultMsg = 'Performance tuning applied successfully. Services have been restarted.';
+                                            this.resultError = false;
+                                            await this.loadStatus();
+                                        } else {
+                                            this.resultMsg = 'Error: ' + (d.error || 'Unknown error');
+                                            this.resultError = true;
+                                        }
+                                    } catch(e) {
+                                        this.resultMsg = 'Apply failed: ' + e.message;
+                                        this.resultError = true;
+                                    } finally {
+                                        this.applying = false;
+                                    }
+                                }
+                            };
+                        }
+                    </script>
+
                     <!-- Section: System Backups -->
+
                     <div class="card-modern">
                         <div class="card-header-modern">
                             <div class="card-icon-wrapper">

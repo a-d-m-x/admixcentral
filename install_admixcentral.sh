@@ -763,9 +763,28 @@ main() {
     php artisan optimize:clear || true
   "
 
-  log "Configuring sudoers for SSL management (Certbot)"
+  log "Configuring sudoers for SSL management, Certbot, and Performance Tuning"
   cat >/etc/sudoers.d/admixcentral <<EOF
+# SSL / Nginx
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot, /usr/sbin/nginx, /usr/bin/systemctl reload nginx, /usr/bin/tee /etc/nginx/sites-available/admixcentral, /usr/bin/tee /etc/nginx/conf.d/admixcentral.conf
+# Performance Tuning — supervisor config writes
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor/conf.d/admix-worker.conf
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor/conf.d/admix-worker.ini
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor/conf.d/admix-reverb.conf
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor/conf.d/admix-reverb.ini
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisord.d/admix-worker.conf
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisord.d/admix-reverb.conf
+# Performance Tuning — FPM pool config writes
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/php/8.3/fpm/pool.d/www.conf
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/php/8.2/fpm/pool.d/www.conf
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/php-fpm.d/www.conf
+# Performance Tuning — service restarts
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8.3-fpm
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8.2-fpm
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8.1-fpm
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php-fpm
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8-fpm
 EOF
   chmod 0440 /etc/sudoers.d/admixcentral || true
 

@@ -265,7 +265,39 @@ main() {
   supervisorctl restart admix-worker:* || supervisorctl start admix-worker || true
   [[ -n "${reverb_conf:-}" ]] && { supervisorctl restart admix-reverb:* || true; }
 
+  # ── 7. Configure sudoers for in-app Performance Tuning ───────────────────
+  log "Step 7/7 — Configuring sudoers for in-app Performance Tuning"
+
+  local web_user
+  web_user="$(stat -c '%U' "${INSTALL_DIR}/artisan" 2>/dev/null || echo "www-data")"
+
+  cat >/etc/sudoers.d/admixcentral <<EOF
+# SSL / Nginx
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/certbot, /usr/sbin/nginx, /usr/bin/systemctl reload nginx, /usr/bin/tee /etc/nginx/sites-available/admixcentral, /usr/bin/tee /etc/nginx/conf.d/admixcentral.conf
+# Performance Tuning — supervisor config writes
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor/conf.d/admix-worker.conf
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor/conf.d/admix-worker.ini
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor/conf.d/admix-reverb.conf
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor/conf.d/admix-reverb.ini
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisord.d/admix-worker.conf
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisord.d/admix-reverb.conf
+# Performance Tuning — FPM pool config writes
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/php/8.3/fpm/pool.d/www.conf
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/php/8.2/fpm/pool.d/www.conf
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/php-fpm.d/www.conf
+# Performance Tuning — service restarts
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8.3-fpm
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8.2-fpm
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8.1-fpm
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php-fpm
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8-fpm
+EOF
+  chmod 0440 /etc/sudoers.d/admixcentral || true
+  info "Sudoers written for user: ${web_user}"
+
   # ── Summary ───────────────────────────────────────────────────────────────
+
   echo
   echo "============================================================"
   echo " AdmixCentral Scaling Upgrade — COMPLETE"

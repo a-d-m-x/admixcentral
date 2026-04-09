@@ -388,6 +388,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.updates.dismiss');
 
+    // Performance Tuning
+    Route::get('/system/settings/tuning/status', [App\Http\Controllers\SystemTuningController::class, 'status'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
+        ->name('system.tuning.status');
+
+    Route::post('/system/settings/tuning/preview', [App\Http\Controllers\SystemTuningController::class, 'preview'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
+        ->name('system.tuning.preview');
+
+    Route::post('/system/settings/tuning/apply', [App\Http\Controllers\SystemTuningController::class, 'apply'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
+        ->name('system.tuning.apply');
+
+
+
 
 
 
