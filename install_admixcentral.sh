@@ -624,19 +624,22 @@ main() {
     pkg_install ca-certificates curl gnupg2 git unzip lsb-release
   fi
 
-  log "Installing Nginx + Database Server + Supervisor"
+  log "Installing Nginx + Database Server + Supervisor + Redis"
   if [[ "$OS_FAMILY" == "debian" ]]; then
-    pkg_install nginx mysql-server supervisor certbot python3-certbot-nginx
+    pkg_install nginx mysql-server supervisor certbot python3-certbot-nginx redis-server
   elif [[ "$OS_FAMILY" == "redhat" ]]; then
-    pkg_install nginx mariadb-server supervisor certbot python3-certbot-nginx
+    pkg_install nginx mariadb-server supervisor certbot python3-certbot-nginx redis
   elif [[ "$OS_FAMILY" == "arch" ]]; then
-    pkg_install nginx mariadb supervisor certbot certbot-nginx
+    pkg_install nginx mariadb supervisor certbot certbot-nginx redis
     if [[ ! -d "/var/lib/mysql/mysql" ]]; then
       mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql || true
     fi
   elif [[ "$OS_FAMILY" == "suse" ]]; then
-    pkg_install nginx mariadb supervisor certbot python3-certbot-nginx
+    pkg_install nginx mariadb supervisor certbot python3-certbot-nginx redis
   fi
+
+  log "Enabling and starting Redis"
+  systemctl enable --now redis-server 2>/dev/null || systemctl enable --now redis 2>/dev/null || true
 
   log "Installing PHP + extensions"
   if [[ "$OS_FAMILY" == "debian" ]]; then
@@ -722,9 +725,15 @@ main() {
   set_env_kv .env "VITE_REVERB_PORT" '\${REVERB_PORT}'
   set_env_kv .env "VITE_REVERB_SCHEME" '\${REVERB_SCHEME}'
 
-  set_env_kv .env "CACHE_DRIVER" "file"
-  set_env_kv .env "SESSION_DRIVER" "file"
-  set_env_kv .env "QUEUE_CONNECTION" "database"
+  set_env_kv .env "CACHE_DRIVER" "redis"
+  set_env_kv .env "SESSION_DRIVER" "redis"
+  set_env_kv .env "QUEUE_CONNECTION" "redis"
+
+  log "Writing Redis settings into .env"
+  set_env_kv .env "REDIS_CLIENT" "phpredis"
+  set_env_kv .env "REDIS_HOST" "127.0.0.1"
+  set_env_kv .env "REDIS_PASSWORD" "null"
+  set_env_kv .env "REDIS_PORT" "6379"
 
   log "Ensuring correct ownership"
   chown -R "${WEB_USER}:${WEB_GROUP}" "$INSTALL_DIR" || true
@@ -777,14 +786,24 @@ EOF
 
   rm -f "${supv_conf_dir}/admix-worker.ini" "${supv_conf_dir}/admix-worker.conf"         "${supv_conf_dir}/admix-reverb.ini" "${supv_conf_dir}/admix-reverb.conf" || true
 
+  # Scale workers based on available CPU cores (min 8, max 16)
+  local cpu_cores
+  cpu_cores="$(nproc 2>/dev/null || echo 4)"
+  local num_workers
+  num_workers=$(( cpu_cores * 2 ))
+  [[ $num_workers -lt 8  ]] && num_workers=8
+  [[ $num_workers -gt 16 ]] && num_workers=16
+
+  log "Configuring ${num_workers} queue workers (detected ${cpu_cores} CPU cores)"
+
   cat >"${supv_conf_dir}/admix-worker.${supv_ext}" <<EOF
 [program:admix-worker]
 process_name=%(program_name)s_%(process_num)02d
-command=php ${INSTALL_DIR}/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+command=php ${INSTALL_DIR}/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
 autostart=true
 autorestart=true
 user=${RUNTIME_WEB_USER}
-numprocs=2
+numprocs=${num_workers}
 redirect_stderr=true
 stdout_logfile=${INSTALL_DIR}/storage/logs/worker.log
 stopwaitsecs=3600
@@ -797,7 +816,7 @@ directory=${INSTALL_DIR}
 autostart=true
 autorestart=true
 user=${RUNTIME_WEB_USER}
-numprocs=1
+numprocs=3
 redirect_stderr=true
 stdout_logfile=${INSTALL_DIR}/storage/logs/reverb.log
 stopasgroup=true
@@ -807,6 +826,39 @@ EOF
   mkdir -p "${INSTALL_DIR}/storage/logs"
   chown -R "${RUNTIME_WEB_USER}:${RUNTIME_WEB_GROUP}" "${INSTALL_DIR}/storage" || true
   chmod -R ug+rwX "${INSTALL_DIR}/storage" || true
+
+  # Tune PHP-FPM for high concurrency (scaled to available RAM)
+  log "Tuning PHP-FPM pool for production scale"
+  local fpm_pool_conf=""
+  for f in "/etc/php/${PHP_VER}/fpm/pool.d/www.conf" "/etc/php-fpm.d/www.conf" "/etc/php/php-fpm.d/www.conf"; do
+    [[ -f "$f" ]] && { fpm_pool_conf="$f"; break; }
+  done
+
+  if [[ -n "$fpm_pool_conf" ]]; then
+    local total_ram_mb
+    total_ram_mb=$(( $(awk '/MemTotal/{print $2}' /proc/meminfo) / 1024 ))
+    # Allow ~50MB per FPM child; cap between 10 and 40
+    local max_children=$(( total_ram_mb / 50 ))
+    [[ $max_children -lt 10 ]] && max_children=10
+    [[ $max_children -gt 40 ]] && max_children=40
+    local start_servers=$(( max_children / 4 ))
+    local min_spare=$start_servers
+    local max_spare=$(( max_children / 2 ))
+
+    log "PHP-FPM: pm.max_children=${max_children} (${total_ram_mb}MB RAM detected)"
+
+    sed -i "s/^pm = .*/pm = dynamic/"                              "$fpm_pool_conf" || true
+    sed -i "s/^pm\.max_children = .*/pm.max_children = ${max_children}/" "$fpm_pool_conf" || true
+    sed -i "s/^pm\.start_servers = .*/pm.start_servers = ${start_servers}/" "$fpm_pool_conf" || true
+    sed -i "s/^pm\.min_spare_servers = .*/pm.min_spare_servers = ${min_spare}/" "$fpm_pool_conf" || true
+    sed -i "s/^pm\.max_spare_servers = .*/pm.max_spare_servers = ${max_spare}/" "$fpm_pool_conf" || true
+    sed -i "s/^;pm\.max_requests = .*/pm.max_requests = 500/"      "$fpm_pool_conf" || true
+
+    systemctl restart "${PHP_SERVICE}" || true
+    log "PHP-FPM tuning applied to ${fpm_pool_conf}"
+  else
+    log "Warning: PHP-FPM pool config not found, skipping tuning"
+  fi
 
   log "Starting Supervisor services..."
   systemctl restart "${supervisor_service}" || true
