@@ -192,10 +192,11 @@ main() {
   supv_dir="$(find_supervisor_conf)"
   worker_conf="$(find_worker_conf "$supv_dir")"
 
-  # Switch to redis queue and update numprocs
-  sed -i "s|queue:work\( --\| database --\| $\)|queue:work redis \1|" "$worker_conf" || true
-  sed -i "s|queue:work redis redis|queue:work redis|g"                  "$worker_conf" || true
-  sed -i "s/^numprocs=.*/numprocs=${num_workers}/"                      "$worker_conf"
+  # Switch to redis queue: replace 'queue:work' with 'queue:work redis' regardless of what follows
+  # Remove any existing 'redis' argument first to stay idempotent, then add it cleanly
+  sed -i "s|queue:work redis|queue:work|g"           "$worker_conf" || true
+  sed -i "s|queue:work |queue:work redis |"           "$worker_conf" || true
+  sed -i "s/^numprocs=.*/numprocs=${num_workers}/"   "$worker_conf"
 
   info "Worker config: $worker_conf"
   grep -E 'numprocs|command' "$worker_conf" | sed 's/^/    /'
@@ -207,6 +208,10 @@ main() {
   reverb_conf="$(find_reverb_conf "$supv_dir")"
 
   if [[ -n "$reverb_conf" ]]; then
+    # Ensure process_name exists (required by Supervisor when numprocs > 1)
+    if ! grep -q '^process_name=' "$reverb_conf"; then
+      sed -i "/^\[program:admix-reverb\]/a process_name=%(program_name)s_%(process_num)02d" "$reverb_conf"
+    fi
     if grep -q '^numprocs=' "$reverb_conf"; then
       sed -i "s/^numprocs=.*/numprocs=3/" "$reverb_conf"
     else
