@@ -41,7 +41,7 @@ class UserController extends Controller
         $companies = collect();
 
         if ($currentUser->isGlobalAdmin()) {
-            $companies = Company::all();
+            $companies = Company::orderBy('name')->get();
         } elseif ($currentUser->isCompanyAdmin()) {
             // Standard users cannot create users
             $companies = collect([$currentUser->company]);
@@ -67,7 +67,7 @@ class UserController extends Controller
 
         $companies = collect();
         if ($currentUser->isGlobalAdmin()) {
-            $companies = Company::all();
+            $companies = Company::orderBy('name')->get();
         } else {
             $companies = collect([$currentUser->company]);
         }

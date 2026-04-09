@@ -77,6 +77,33 @@ class InterfaceController extends Controller
                 return back()->with('error', 'Interface not found');
             }
 
+            // Normalize IPv4 type — pfSense may omit 'type' for static interfaces
+            // or return 'staticv4'. Derive from ipaddr when type is absent/unknown.
+            $ipv4Type = $interface['type'] ?? '';
+            if ($ipv4Type === 'staticv4') {
+                $ipv4Type = 'static';
+            } elseif (empty($ipv4Type)) {
+                $ipaddr = $interface['ipaddr'] ?? '';
+                if ($ipaddr === 'dhcp')       $ipv4Type = 'dhcp';
+                elseif ($ipaddr === 'pppoe')  $ipv4Type = 'pppoe';
+                elseif ($ipaddr === 'none')   $ipv4Type = 'none';
+                elseif (filter_var($ipaddr, FILTER_VALIDATE_IP)) $ipv4Type = 'static';
+                else                          $ipv4Type = 'dhcp'; // safe fallback
+            }
+            $interface['type'] = $ipv4Type;
+
+            // Normalize IPv6 type — same logic
+            $ipv6Type = $interface['type6'] ?? '';
+            if (empty($ipv6Type)) {
+                $ipaddrv6 = $interface['ipaddrv6'] ?? '';
+                if ($ipaddrv6 === 'dhcp6')   $ipv6Type = 'dhcp6';
+                elseif ($ipaddrv6 === 'slaac') $ipv6Type = 'slaac';
+                elseif ($ipaddrv6 === 'none')  $ipv6Type = 'none';
+                elseif (filter_var($ipaddrv6, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) $ipv6Type = 'static6';
+                else                           $ipv6Type = 'dhcp6';
+            }
+            $interface['type6'] = $ipv6Type;
+
             return view('interfaces.edit', compact('firewall', 'interface', 'interfaceId'));
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to fetch interface details: ' . $e->getMessage());

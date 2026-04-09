@@ -221,9 +221,11 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                                 {{ $group['name'] }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                @if(is_array($group['item']))
-                                                                            {{ implode(', ', array_map(function ($item) {
-                                                    return explode('|', $item)[0]; }, $group['item'])) }}
+                                                @if(!isset($group['item']))
+                                                    <span class="text-gray-400 italic text-xs">No gateways</span>
+                                                @elseif(is_array($group['item']))
+                                                    {{ implode(', ', array_map(function ($item) {
+                                                        return explode('|', $item)[0]; }, $group['item'])) }}
                                                 @else
                                                     {{ $group['item'] }}
                                                 @endif
