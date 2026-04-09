@@ -30,6 +30,20 @@ class SystemRetune extends Command
     {
         $dryRun = (bool) $this->option('dry-run');
 
+        // Verify exec() is available before attempting any shell operations
+        if (!function_exists('exec') || in_array('exec', array_map('trim', explode(',', ini_get('disable_functions'))))) {
+            $this->result = [
+                'cpu_cores' => 0, 'total_ram_mb' => 0, 'dry_run' => $dryRun, 'errors' => [
+                    'exec() is disabled in PHP (check disable_functions in php.ini). ' .
+                    'Performance tuning requires exec() to write system config files via sudo.'
+                ],
+                'workers'      => ['current' => 0, 'recommended' => 0, 'applied' => false],
+                'reverb'       => ['current' => 0, 'recommended' => 0, 'applied' => false],
+                'fpm_children' => ['current' => 0, 'recommended' => 0, 'applied' => false],
+            ];
+            $this->line(json_encode($this->result));
+            return 1;
+        }
         $cpuCores   = $this->detectCpuCores();
         $ramMb      = $this->detectRamMb();
 
@@ -128,8 +142,18 @@ class SystemRetune extends Command
     {
         $tmp = tempnam(sys_get_temp_dir(), 'admix_tune_');
         file_put_contents($tmp, $content);
-        $out = shell_exec('sudo cp ' . escapeshellarg($tmp) . ' ' . escapeshellarg($path) . ' 2>&1');
+
+        $output  = [];
+        $retCode = 0;
+        exec('sudo cp ' . escapeshellarg($tmp) . ' ' . escapeshellarg($path) . ' 2>&1', $output, $retCode);
         @unlink($tmp);
+
+        if ($retCode !== 0) {
+            $msg = trim(implode(' ', $output));
+            $this->result['errors'][] = "Write failed [{$path}]: " . ($msg ?: "exit code {$retCode} — check sudoers");
+            return false;
+        }
+
         return true;
     }
 
@@ -139,6 +163,7 @@ class SystemRetune extends Command
         if ($content && preg_match('/^numprocs\s*=\s*(\d+)/m', $content, $m)) {
             return (int) $m[1];
         }
+        // Config exists but no explicit numprocs — Supervisor default is 1
         return 1;
     }
 
@@ -171,7 +196,9 @@ class SystemRetune extends Command
         $content = preg_replace('/queue:work\s+/i', 'queue:work redis ', $content);
         $content = preg_replace('/^numprocs\s*=\s*\d+/m', "numprocs={$recommended}", $content);
 
-        $this->writeFile($confPath, $content);
+        if (!$this->writeFile($confPath, $content)) {
+            return; // error already recorded in result
+        }
         $this->result['workers']['applied'] = true;
     }
 
@@ -200,7 +227,9 @@ class SystemRetune extends Command
             $content = preg_replace('/^autostart\s*=\s*true/m', "autostart=true\nnumprocs={$recommended}", $content);
         }
 
-        $this->writeFile($confPath, $content);
+        if (!$this->writeFile($confPath, $content)) {
+            return;
+        }
         $this->result['reverb']['applied'] = true;
     }
 
@@ -228,24 +257,29 @@ class SystemRetune extends Command
         $content = preg_replace('/^pm\.max_spare_servers\s*=\s*\d+/m',    "pm.max_spare_servers = {$max}",    $content);
         $content = preg_replace('/^;*pm\.max_requests\s*=\s*\d+/m',       'pm.max_requests = 500',            $content);
 
-        $this->writeFile($confPath, $content);
+        if (!$this->writeFile($confPath, $content)) {
+            return;
+        }
         $this->result['fpm_children']['applied'] = true;
     }
 
-    // ── Service reload ────────────────────────────────────────────────────
-
     protected function reloadServices(?string $fpmConf): void
     {
+        // Supervisor reloads are safe synchronously — they don't kill the current PHP-FPM worker
         shell_exec('sudo supervisorctl reread 2>&1');
         shell_exec('sudo supervisorctl update 2>&1');
         shell_exec('sudo supervisorctl restart admix-worker:* 2>&1');
         shell_exec('sudo supervisorctl restart admix-reverb:* 2>&1');
 
-        // Restart whichever php-fpm variant is active
+        // PHP-FPM restart MUST be backgrounded with a delay.
+        // Restarting it synchronously kills the current FPM worker mid-request,
+        // causing the HTTP response to be dropped (the "unexpected token <" error).
+        // A 4s delay gives the response time to reach the browser first.
         foreach (['php8.3-fpm', 'php8.2-fpm', 'php8.1-fpm', 'php-fpm', 'php8-fpm'] as $svc) {
             $state = trim((string) shell_exec("systemctl is-active {$svc} 2>/dev/null"));
             if ($state === 'active') {
-                shell_exec("sudo systemctl restart {$svc} 2>&1");
+                shell_exec("nohup bash -c 'sleep 4 && sudo systemctl restart {$svc}' > /dev/null 2>&1 &");
+                $this->result['fpm_restart_deferred'] = $svc;
                 break;
             }
         }

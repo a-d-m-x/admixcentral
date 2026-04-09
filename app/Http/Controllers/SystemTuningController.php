@@ -116,9 +116,11 @@ class SystemTuningController extends Controller
                 if ($content && preg_match('/^numprocs\s*=\s*(\d+)/m', $content, $m)) {
                     return (int) $m[1];
                 }
+                // Config found but no explicit numprocs — Supervisor default is 1
+                return 1;
             }
         }
-        return 0; // 0 = config not found / not applicable
+        return 0; // config not found at all
     }
 
     protected function readFpmChildren(): int

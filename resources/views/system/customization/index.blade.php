@@ -434,7 +434,7 @@
 
                                     @if(!auth()->user()->isReadOnly())
                                     <!-- Action buttons -->
-                                    <div class="flex items-center gap-3">
+                                    <div class="flex items-center gap-3 pt-4">
                                         <!-- Preview -->
                                         <button type="button" @click="preview()"
                                             :disabled="applying || previewing"
@@ -594,11 +594,31 @@
                                             method: 'POST',
                                             headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content }
                                         });
+
+                                        // Handle non-JSON responses (419 CSRF expired, 500 errors, redirects)
+                                        const contentType = r.headers.get('content-type') || '';
+                                        if (!contentType.includes('application/json')) {
+                                            if (r.status === 419) {
+                                                this.resultMsg = 'Session expired — please refresh the page and try again.';
+                                            } else {
+                                                this.resultMsg = 'Server error (HTTP ' + r.status + ') — check Laravel logs for details.';
+                                            }
+                                            this.resultError = true;
+                                            return;
+                                        }
+
                                         const d = await r.json();
                                         if (d.success) {
-                                            this.resultMsg = 'Performance tuning applied successfully. Services have been restarted.';
-                                            this.resultError = false;
-                                            await this.loadStatus();
+                                            const errors = d.result && d.result.errors && d.result.errors.length > 0
+                                                ? d.result.errors : [];
+                                            if (errors.length > 0) {
+                                                this.resultMsg = 'Could not apply: ' + errors.join(' | ');
+                                                this.resultError = true;
+                                            } else {
+                                                this.resultMsg = 'Performance tuning applied successfully. Services have been restarted.';
+                                                this.resultError = false;
+                                                await this.loadStatus();
+                                            }
                                         } else {
                                             this.resultMsg = 'Error: ' + (d.error || 'Unknown error');
                                             this.resultError = true;
