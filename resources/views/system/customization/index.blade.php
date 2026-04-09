@@ -70,7 +70,7 @@
                                     Current Version
                                 </div>
                                 <div class="text-sm font-mono font-bold text-gray-600 dark:text-gray-300">
-                                    v{{ $currentVersion ?? '0.0.0' }}
+                                    v{{ ltrim($currentVersion ?? '0.0.0', 'v') }}
                                 </div>
                             </div>
 

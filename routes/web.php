@@ -317,7 +317,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user'])
         ->name('users.bulk-action');
     Route::resource('users', App\Http\Controllers\UserController::class)
-        ->only(['index', 'show'])
+        ->only(['index'])
         ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user,readonly']);
     Route::resource('users', App\Http\Controllers\UserController::class)
         ->except(['index', 'show'])
