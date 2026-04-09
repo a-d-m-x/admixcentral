@@ -53,12 +53,10 @@ apt install -y \
   php${PHP_VERSION} php${PHP_VERSION}-cli php${PHP_VERSION}-common php${PHP_VERSION}-fpm \
   php${PHP_VERSION}-mbstring php${PHP_VERSION}-xml php${PHP_VERSION}-curl php${PHP_VERSION}-zip \
   php${PHP_VERSION}-mysql php${PHP_VERSION}-bcmath php${PHP_VERSION}-intl php${PHP_VERSION}-gd \
-  php${PHP_VERSION}-redis \
   unzip git curl ca-certificates \
   build-essential software-properties-common \
   nginx supervisor \
   mysql-server \
-  redis-server \
   openssl \
   certbot python3-certbot-nginx
 
@@ -167,14 +165,10 @@ set_env "VITE_REVERB_PORT" "\${REVERB_PORT}" ".env"
 set_env "VITE_REVERB_SCHEME" "\${REVERB_SCHEME}" ".env"
 
 
-# Redis is the recommended driver for sessions, cache, and queue at scale.
-# It is non-blocking, in-memory, and avoids MySQL row-lock contention that
-# causes random hangs when managing 10+ firewalls.
-set_env "CACHE_STORE" "redis" ".env"
-set_env "SESSION_DRIVER" "redis" ".env"
-set_env "QUEUE_CONNECTION" "redis" ".env"
-set_env "REDIS_HOST" "127.0.0.1" ".env"
-set_env "REDIS_PORT" "6379" ".env"
+# Make troubleshooting less painful: keep cache/sessions off DB unless you explicitly want them there
+set_env "CACHE_DRIVER" "file" ".env"
+set_env "SESSION_DRIVER" "file" ".env"
+set_env "QUEUE_CONNECTION" "database" ".env"
 
 log "[8/13] Laravel permissions (before artisan) ..."
 # Ensure Laravel can write logs/cache
@@ -271,11 +265,11 @@ log "[12/13] Supervisor worker + restart services..."
 cat >/etc/supervisor/conf.d/admix-worker.conf <<EOF
 [program:admix-worker]
 process_name=%(program_name)s_%(process_num)02d
-command=php $APP_DIR/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+command=php $APP_DIR/artisan queue:work --sleep=3 --tries=3 --max-time=3600
 autostart=true
 autorestart=true
 user=$APP_USER
-numprocs=10
+numprocs=2
 redirect_stderr=true
 stdout_logfile=$APP_DIR/storage/logs/worker.log
 stopwaitsecs=3600
@@ -302,8 +296,7 @@ supervisorctl update
 supervisorctl start all || true
 
 nginx -t
-systemctl enable --now redis-server php${PHP_VERSION}-fpm nginx supervisor mysql
-systemctl restart redis-server
+systemctl enable --now php${PHP_VERSION}-fpm nginx supervisor mysql
 systemctl restart php${PHP_VERSION}-fpm
 systemctl restart nginx
 

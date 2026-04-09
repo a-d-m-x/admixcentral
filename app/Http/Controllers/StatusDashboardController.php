@@ -9,9 +9,6 @@ class StatusDashboardController extends Controller
 {
     public function index(Firewall $firewall)
     {
-        // Release session lock before any outbound pfSense API calls
-        session_write_close();
-
         try {
             $api = new PfSenseApiService($firewall);
 

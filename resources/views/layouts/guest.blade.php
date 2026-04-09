@@ -1,12 +1,5 @@
 @php
-    try {
-        $settings = \App\Models\SystemSetting::all()->pluck('value', 'key');
-    } catch (\Exception $e) {
-        // system_settings table may not exist yet on a fresh install (pre-migration).
-        // Fall back to empty collection so /setup renders correctly.
-        $settings = collect();
-    }
-
+    $settings = \App\Models\SystemSetting::all()->pluck('value', 'key');
     $theme = $settings['theme'] ?? 'light';
     $logo = $settings['logo_path'] ?? null;
     $favicon = $settings['favicon_path'] ?? ($logo ?? asset('favicon.ico'));

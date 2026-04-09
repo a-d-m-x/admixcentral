@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Firewall;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 
@@ -79,18 +78,6 @@ class PfSenseApiService
     }
 
     /**
-     * Build the full URL for a given endpoint, mirroring the logic in request().
-     * Used when constructing concurrent Http::pool() calls.
-     */
-    protected function buildUrl(string $endpoint): string
-    {
-        if (str_starts_with($endpoint, '/api/')) {
-            return rtrim($this->firewall->url, '/') . '/' . ltrim($endpoint, '/');
-        }
-        return $this->baseUrl . '/' . ltrim($endpoint, '/');
-    }
-
-    /**
      * Make a request to the pfSense API
      */
     protected function request(string $method, string $endpoint, array $data = [])
@@ -102,17 +89,14 @@ class PfSenseApiService
             $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
         }
 
-        $client = Http::withOptions([
-            'verify'          => false,
-            'connect_timeout' => 5,   // Fail fast if firewall is unreachable (avoids holding workers for the OS TCP timeout of 130s)
-        ])
+        $client = Http::withOptions(['verify' => false])
             ->acceptJson()
-            ->timeout(15);            // Read timeout: allow slightly longer for slow pfSense responses
+            ->timeout(10);
 
         if ($this->authMethod === 'token') {
-            $client = $client->withToken($this->apiToken);                    // Must assign back — Http client is immutable
+            $client->withToken($this->apiToken);
         } else {
-            $client = $client->withBasicAuth($this->username, $this->password); // Must assign back — Http client is immutable
+            $client->withBasicAuth($this->username, $this->password);
         }
 
         if ($method === 'DELETE' && !empty($data)) {
@@ -1681,145 +1665,111 @@ class PfSenseApiService
     public function refreshSystemStatus()
     {
         $staticCacheKey = 'firewall_static_info_' . $this->firewall->id;
+        $staticInfo = [];
 
-        // Static info (pfSense version, REST API version) barely ever changes.
-        // Cache for 6 hours to avoid expensive shell commands on every poll cycle.
-        $staticInfo = Cache::get($staticCacheKey, []);
-        $staticInfoExpired = empty($staticInfo);
-
-        if (!$staticInfoExpired) {
-            // We have cached static info — skip the expensive version/api_version fetches.
-        } else {
-            // 1. Try Live Static Fetch: only runs when cache is empty/expired
-            try {
-                $versionInfo = $this->getSystemVersion();
-                if (isset($versionInfo['data'])) {
-                    $staticInfo = array_merge($staticInfo, $versionInfo['data']);
-                }
-
-                try {
-                    $apiVersionResponse = $this->getApiVersion();
-                    $apiVersion = $apiVersionResponse['data']['output'] ?? 'Unknown';
-                    $staticInfo['api_version'] = trim($apiVersion);
-                } catch (\Exception $e) {
-                    $staticInfo['api_version'] = 'N/A';
-                }
-
-                // Version Comparison Logic
-                $latestVersion = '2.7.2-RELEASE';
-                $currentVersion = $staticInfo['product_version'] ?? $staticInfo['version'] ?? null;
-
-                if ($currentVersion) {
-                    $vCurrent = preg_replace('/[^0-9.]/', '', $currentVersion);
-                    $vLatest = preg_replace('/[^0-9.]/', '', $latestVersion);
-
-                    if (version_compare($vCurrent, $vLatest, '<')) {
-                        $staticInfo['update_available'] = true;
-                        $staticInfo['latest_available_version'] = $latestVersion;
-                    } else {
-                        $staticInfo['update_available'] = false;
-                    }
-                }
-
-                // API Version Check
-                $latestApiVersion = '2.6.9';
-                if (isset($staticInfo['api_version']) && $staticInfo['api_version'] !== 'N/A' && $staticInfo['api_version'] !== 'Unknown') {
-                    $vApiCurrent = preg_replace('/[^0-9.]/', '', $staticInfo['api_version']);
-                    $vApiLatest = preg_replace('/[^0-9.]/', '', $latestApiVersion);
-
-                    if ($vApiCurrent) {
-                        if (version_compare($vApiCurrent, $vApiLatest, '<')) {
-                            $staticInfo['api_update_available'] = true;
-                        } else {
-                            $staticInfo['api_update_available'] = false;
-                        }
-                    }
-                }
-
-                Cache::put($staticCacheKey, $staticInfo, now()->addHours(6)); // Cache for 6 hours — version rarely changes
-
-            } catch (\Exception $e) {
-                // Fetch failed — use whatever we already have in cache (may be empty on first run)
-                $staticInfo = Cache::get($staticCacheKey, []);
+        // 1. Try Live Static Fetch
+        try {
+            $versionInfo = $this->getSystemVersion();
+            if (isset($versionInfo['data'])) {
+                $staticInfo = array_merge($staticInfo, $versionInfo['data']);
             }
-        } // end else (cache expired)
 
-        // 2. Concurrent Dynamic Fetch via Http::pool()
-        // All 6 endpoints fire simultaneously — total time = slowest single call, not the sum.
-        $t           = time();
-        $authMethod  = $this->authMethod;
-        $apiToken    = $this->apiToken;
-        $username    = $this->username;
-        $password    = $this->password;
-        $poolOptions = ['verify' => false, 'connect_timeout' => 5];
+            try {
+                $apiVersionResponse = $this->getApiVersion();
+                $apiVersion = $apiVersionResponse['data']['output'] ?? 'Unknown';
+                $staticInfo['api_version'] = trim($apiVersion);
+            } catch (\Exception $e) {
+                $staticInfo['api_version'] = 'N/A';
+            }
 
-        $responses = Http::pool(function (Pool $pool) use (
-            $t, $authMethod, $apiToken, $username, $password, $poolOptions
-        ) {
-            // Factory: creates a fully-authenticated PendingRequest for use inside the pool
-            $make = function () use ($pool, $authMethod, $apiToken, $username, $password, $poolOptions) {
-                $req = $pool->withOptions($poolOptions)->acceptJson()->timeout(15);
-                return $authMethod === 'token'
-                    ? $req->withToken($apiToken)
-                    : $req->withBasicAuth($username, $password);
-            };
+            // Version Comparison Logic
+            $latestVersion = '2.7.2-RELEASE';
+            $currentVersion = $staticInfo['product_version'] ?? $staticInfo['version'] ?? null;
 
-            return [
-                $make()->get($this->buildUrl('/status/system')                             . '?_t=' . $t),
-                $make()->get($this->buildUrl('/status/interfaces')                         . '?_t=' . $t),
-                $make()->get($this->buildUrl('/system/dns')                                . '?_t=' . $t),
-                $make()->get($this->buildUrl('/api/v2/diagnostics/config_history/revisions'). '?_t=' . $t),
-                $make()->get($this->buildUrl('/status/gateways')                           . '?_t=' . $t),
-                $make()->get($this->buildUrl('/routing/gateways')                          . '?_t=' . $t),
-            ];
-        });
+            if ($currentVersion) {
+                $vCurrent = preg_replace('/[^0-9.]/', '', $currentVersion);
+                $vLatest = preg_replace('/[^0-9.]/', '', $latestVersion);
 
-        // Helper: returns true if a pool response is usable (not a connection failure)
-        $ok = fn($r) => $r && !($r instanceof \Throwable) && $r->successful();
+                if (version_compare($vCurrent, $vLatest, '<')) {
+                    $staticInfo['update_available'] = true;
+                    $staticInfo['latest_available_version'] = $latestVersion;
+                } else {
+                    $staticInfo['update_available'] = false;
+                }
+            }
 
-        // [0] System status — required, re-throw on failure
-        $sysResp = $responses[0] ?? null;
-        if ($sysResp instanceof \Throwable) throw $sysResp;
-        if (!$ok($sysResp)) {
-            throw new \Exception('pfSense system status unreachable for firewall ID: ' . $this->firewall->id);
-        }
-        $dynamicStatus = $sysResp->json();
+            // API Version Check
+            $latestApiVersion = '2.6.9';
+            if (isset($staticInfo['api_version']) && $staticInfo['api_version'] !== 'N/A' && $staticInfo['api_version'] !== 'Unknown') {
+                $vApiCurrent = preg_replace('/[^0-9.]/', '', $staticInfo['api_version']);
+                $vApiLatest = preg_replace('/[^0-9.]/', '', $latestApiVersion);
 
-        // [1] Interfaces
-        $dynamicStatus['interfaces'] = $ok($responses[1] ?? null)
-            ? ($responses[1]->json()['data'] ?? [])
-            : [];
+                if ($vApiCurrent) {
+                    if (version_compare($vApiCurrent, $vApiLatest, '<')) {
+                        $staticInfo['api_update_available'] = true;
+                    } else {
+                        $staticInfo['api_update_available'] = false;
+                    }
+                }
+            }
 
-        // [2] DNS
-        if ($ok($responses[2] ?? null)) {
-            $dns = $responses[2]->json();
-            $dynamicStatus['data']['dns_servers'] =
-                $dns['data']['dns']        ??
-                $dns['data']['dns_server'] ??
-                $dns['data']['dnsserver']  ?? [];
+            Cache::put($staticCacheKey, $staticInfo, now()->addDay());
+
+        } catch (\Exception $e) {
+            $staticInfo = Cache::get($staticCacheKey, []);
         }
 
-        // [3] Config history
-        if ($ok($responses[3] ?? null)) {
-            $revisions = $responses[3]->json()['data'] ?? $responses[3]->json() ?? [];
+        // 2. Try Live Dynamic Fetch
+        $dynamicStatus = $this->getSystemStatus(); // Throws exception if fails, which is handled by caller
+
+        try {
+            $interfaces = $this->getInterfacesStatus();
+            $dynamicStatus['interfaces'] = $interfaces['data'] ?? [];
+        } catch (\Exception $e) {
+            $dynamicStatus['interfaces'] = [];
+        }
+
+        try {
+            $dns = $this->getSystemDns();
+            if (isset($dns['data']['dns'])) {
+                $dynamicStatus['data']['dns_servers'] = $dns['data']['dns'];
+            } elseif (isset($dns['data']['dns_server'])) {
+                $dynamicStatus['data']['dns_servers'] = $dns['data']['dns_server'];
+            } elseif (isset($dns['data']['dnsserver'])) {
+                $dynamicStatus['data']['dns_servers'] = $dns['data']['dnsserver'];
+            } else {
+                $dynamicStatus['data']['dns_servers'] = [];
+            }
+        } catch (\Exception $e) {
+        }
+
+        try {
+            $history = $this->getConfigHistory();
+            $revisions = $history['data'] ?? $history ?? [];
             if (!empty($revisions) && is_array($revisions)) {
                 $latest = reset($revisions);
                 if (isset($latest['time'])) {
-                    $dynamicStatus['data']['last_config_change']    = date('Y-m-d H:i:s T', $latest['time']);
+                    $dynamicStatus['data']['last_config_change'] = date('Y-m-d H:i:s T', $latest['time']);
                     $dynamicStatus['data']['last_config_change_ts'] = $latest['time'];
                 } elseif (isset($latest['date'])) {
                     $dynamicStatus['data']['last_config_change'] = $latest['date'];
                 }
             }
+        } catch (\Exception $e) {
         }
 
-        // Packages: intentionally skipped for performance
-        $dynamicStatus['data']['installed_packages_count'] = 'N/A';
+        try {
+            // Optimization: Skip packages for status checks to improve performance
+            // $packages = $this->getSystemPackages();
+            // ...
+            $dynamicStatus['data']['installed_packages_count'] = 'N/A';
+        } catch (\Exception $e) {
+            $dynamicStatus['data']['installed_packages_count'] = 'N/A';
+        }
 
-        // [4] + [5] Gateways (status) + Routing Gateways (config) — merged
-        if ($ok($responses[4] ?? null)) {
-            $rawStatus = $responses[4]->json();
+        try {
             $statusData = [];
+            $rawStatus = $this->getGateways();
             if (isset($rawStatus['data']['gateway']) && is_array($rawStatus['data']['gateway'])) {
                 $statusData = $rawStatus['data']['gateway'];
             } elseif (isset($rawStatus['data']) && is_array($rawStatus['data'])) {
@@ -1827,19 +1777,18 @@ class PfSenseApiService
             }
 
             $configData = [];
-            if ($ok($responses[5] ?? null)) {
-                $rawConfig = $responses[5]->json();
-                if (isset($rawConfig['data']['gateway']) && is_array($rawConfig['data']['gateway'])) {
-                    $configData = $rawConfig['data']['gateway'];
-                } elseif (isset($rawConfig['data']) && is_array($rawConfig['data'])) {
-                    $configData = $rawConfig['data'];
-                }
+            $rawConfig = $this->getRoutingGateways();
+            if (isset($rawConfig['data']['gateway']) && is_array($rawConfig['data']['gateway'])) {
+                $configData = $rawConfig['data']['gateway'];
+            } elseif (isset($rawConfig['data']) && is_array($rawConfig['data'])) {
+                $configData = $rawConfig['data'];
             }
 
             // Fix for Issue #38: Normalize single gateway response to list
             if (!empty($statusData) && array_keys($statusData) !== range(0, count($statusData) - 1)) {
                 $statusData = [$statusData];
             }
+
             if (!empty($configData) && array_keys($configData) !== range(0, count($configData) - 1)) {
                 $configData = [$configData];
             }
@@ -1853,7 +1802,8 @@ class PfSenseApiService
             unset($gateway);
 
             $dynamicStatus['gateways'] = $statusData;
-        } else {
+
+        } catch (\Exception $e) {
             $dynamicStatus['gateways'] = [];
         }
 

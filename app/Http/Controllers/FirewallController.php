@@ -31,23 +31,19 @@ class FirewallController extends Controller
         // Use filter_var to correctly handle "0", "false", "off" as false.
         $useCache = $cacheSetting !== null ? filter_var($cacheSetting, FILTER_VALIDATE_BOOLEAN) : true;
 
-        // Bulk-load all firewall statuses in ONE cache query (single MGET/SELECT IN)
-        // rather than one query per firewall — scales to 300+ firewalls cleanly.
-        $cacheKeys  = $firewalls->map(fn($fw) => 'firewall_status_' . $fw->id)->all();
-        $allCached  = $useCache ? \Illuminate\Support\Facades\Cache::many($cacheKeys) : array_fill_keys($cacheKeys, null);
-
-        $firewalls->each(function ($firewall) use ($allCached) {
-            $cached = $allCached['firewall_status_' . $firewall->id] ?? null;
+        // Collect status for each firewall
+        $firewalls->each(function ($firewall) use ($useCache) {
+            $cached = $useCache ? \Illuminate\Support\Facades\Cache::get('firewall_status_' . $firewall->id) : null;
 
             // If caching is disabled, we force a "null" state which UI handles as "Checking..." or "Unknown"
             // This prevents "Waterfall" delay of checking live, but also prevents showing stale data.
 
             if ($cached) {
                 $firewall->cached_status = $cached;
-                $firewall->is_online     = (bool) ($cached['online'] ?? false);
+                $firewall->is_online = (bool) ($cached['online'] ?? false);
             } else {
                 $firewall->cached_status = null;
-                $firewall->is_online     = null; // UI should treat null as "Unknown/Pending"
+                $firewall->is_online = null; // UI should treat null as "Unknown/Pending"
             }
         });
 
@@ -73,11 +69,7 @@ class FirewallController extends Controller
      */
     public function refreshAll(Request $request)
     {
-        // Release session write-lock early — this endpoint makes outbound HTTP calls
-        // to multiple firewalls and must not block other concurrent requests.
-        session_write_close();
-
-        set_time_limit(60); // Reasonable upper bound; queue path handles true bulk work
+        set_time_limit(300); // Allow more time for sync processing
 
         $ids = $request->input('ids', []);
         // Also support GET param for ids
