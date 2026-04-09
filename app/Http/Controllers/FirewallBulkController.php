@@ -11,6 +11,9 @@ class FirewallBulkController extends Controller
 {
     public function handle(Request $request)
     {
+        // Release session lock — loops over firewalls making sequential pfSense API calls
+        session_write_close();
+
         $request->validate([
             'firewall_ids' => 'required|array',
             'firewall_ids.*' => 'exists:firewalls,id',
@@ -83,6 +86,9 @@ class FirewallBulkController extends Controller
 
     public function store(Request $request, $type)
     {
+        // Release session lock — loops over firewalls making sequential pfSense API calls
+        session_write_close();
+
         // Package type has its own dedicated handler
         if ($type === 'package') {
             return $this->storePackage($request);
