@@ -77,7 +77,8 @@ class CompanyController extends Controller
             abort(403);
         }
 
-        $company->load(['users', 'firewalls']);
+        $company->load(['users', 'firewalls' => fn($q) => $q->orderBy('name')]);
+
         return view('companies.show', compact('company'));
     }
 
