@@ -211,6 +211,13 @@ class SystemInstallUpdate extends Command
 
     protected function runPostInstallSteps()
     {
+        // Flush opcache so route:cache / config:cache read the newly extracted
+        // files from disk rather than the pre-update in-memory compiled copies.
+        if (function_exists('opcache_reset')) {
+            opcache_reset();
+            $this->info('Opcache flushed.');
+        }
+
         $this->call('migrate', ['--force' => true]);
         $this->call('config:cache');
         $this->call('route:cache');
