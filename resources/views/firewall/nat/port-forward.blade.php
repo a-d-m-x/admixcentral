@@ -70,7 +70,11 @@
                 let invert = false;
                 let addr = String(val);
                 if (addr.startsWith('!')) { invert = true; addr = addr.slice(1); }
-                const knownTypes = ['(self)','wan:ip','lan:ip','opt1:ip','opt2:ip','wan','lan','opt1','opt2'];
+                const knownTypes = @json(array_merge(
+                    ['(self)', 'pptp', 'pppoe', 'l2tp'],
+                    array_map(fn($i) => ($i['id'] ?? $i['if']) . ':ip', $interfaces),
+                    array_map(fn($i) => $i['id'] ?? $i['if'], $interfaces)
+                ));
                 if (knownTypes.includes(addr)) return { type: addr, address: '', invert };
                 return { type: addr.includes('/') ? 'network' : 'address', address: addr, invert };
             };
@@ -509,9 +513,19 @@
                                         <select name="src_type" x-model="form.src_type"
                                             class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
                                             <option value="any">Any</option>
-                                            <option value="(self)">This Firewall (WAN IP)</option>
-                                            <option value="address">Host / Alias</option>
-                                            <option value="network">Network / CIDR</option>
+                                            <option value="address">Address or Alias</option>
+                                            <option value="network">Network</option>
+                                            <option value="pptp">PPTP clients</option>
+                                            <option value="pppoe">PPPoE clients</option>
+                                            <option value="l2tp">L2TP clients</option>
+                                            @foreach($interfaces as $iface)
+                                                @php $ifId = $iface['id'] ?? $iface['if']; $ifDescr = $iface['descr'] ?? strtoupper($ifId); @endphp
+                                                <option value="{{ $ifId }}:ip">{{ $ifDescr }} address</option>
+                                            @endforeach
+                                            @foreach($interfaces as $iface)
+                                                @php $ifId = $iface['id'] ?? $iface['if']; $ifDescr = $iface['descr'] ?? strtoupper($ifId); @endphp
+                                                <option value="{{ $ifId }}">{{ $ifDescr }} subnets</option>
+                                            @endforeach
                                         </select>
                                     </div>
                                     <div class="flex-1">
