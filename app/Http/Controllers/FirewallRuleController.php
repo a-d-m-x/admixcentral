@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Firewall;
 use App\Services\PfSenseApiService;
+use App\Traits\NormalizesInterfaceData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class FirewallRuleController extends Controller
 {
+    use NormalizesInterfaceData;
     public function index(Request $request, Firewall $firewall)
     {
         try {
@@ -26,37 +28,8 @@ class FirewallRuleController extends Controller
             // or rely on the API if it supports filtering (it usually returns all).
             // The 'interface' field in the rule object matches the interface ID (e.g., 'wan', 'lan').
 
-            // Build a reverse map: physical device name (if) -> pfSense interface ID
-            // pfSense may store rules using either the ID ('wan') or the physical name ('igb0')
-            $ifNameToId = [];
-            foreach ($interfaces as $iface) {
-                if (!empty($iface['if']) && !empty($iface['id'])) {
-                    // Store both original and lowercase keys for case-insensitive lookup
-                    $ifNameToId[strtolower($iface['if'])] = strtolower($iface['id']);
-                    $ifNameToId[strtolower($iface['id'])] = strtolower($iface['id']);
-                }
-            }
-
-            $selectedLower = strtolower($selectedInterface);
-
-            $filteredRules = collect($rules)->filter(function ($rule) use ($selectedLower, $ifNameToId) {
-                if (!isset($rule['interface'])) {
-                    return false;
-                }
-
-                $ruleIfaces = is_array($rule['interface']) ? $rule['interface'] : [$rule['interface']];
-
-                foreach ($ruleIfaces as $ri) {
-                    $riLower = strtolower((string) $ri);
-                    // Normalize physical/aliased name to pfSense ID
-                    $normalized = $ifNameToId[$riLower] ?? $riLower;
-                    if ($normalized === $selectedLower) {
-                        return true;
-                    }
-                }
-
-                return false;
-            })->values();
+            $ifNameToId = $this->buildIfNameToId($interfaces);
+            $filteredRules = $this->filterRulesByInterface($rules, $selectedInterface, $ifNameToId);
 
             if (request()->wantsJson()) {
                 return response()->json($filteredRules);
@@ -107,9 +80,17 @@ class FirewallRuleController extends Controller
 
             $firewall->update(['is_dirty' => true]);
 
-            return redirect()->route('firewall.rules.index', ['firewall' => $firewall, 'interface' => $data['interface']])
-                ->with('success', 'Firewall rule created successfully. Please apply changes.');
+            $redirect = route('firewall.rules.index', ['firewall' => $firewall, 'interface' => $data['interface']]);
+
+            if ($request->wantsJson()) {
+                return response()->json(['success' => true, 'redirect' => $redirect]);
+            }
+
+            return redirect($redirect)->with('success', 'Firewall rule created successfully. Please apply changes.');
         } catch (\Exception $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['error' => $e->getMessage()], 422);
+            }
             return back()->with('error', 'Failed to create rule: ' . $e->getMessage())->withInput();
         }
     }
@@ -151,6 +132,9 @@ class FirewallRuleController extends Controller
             $index = $this->getRuleIndexByTracker($api, $tracker);
 
             if ($index === null) {
+                if ($request->wantsJson()) {
+                    return response()->json(['error' => 'Rule not found.'], 404);
+                }
                 return back()->with('error', 'Rule not found.');
             }
 
@@ -159,10 +143,17 @@ class FirewallRuleController extends Controller
 
             $firewall->update(['is_dirty' => true]);
 
-            return redirect()->route('firewall.rules.index', ['firewall' => $firewall, 'interface' => $data['interface']])
-                ->with('success', 'Firewall rule updated successfully. Please apply changes.');
-        } catch (\Exception $e) {
+            $redirect = route('firewall.rules.index', ['firewall' => $firewall, 'interface' => $data['interface']]);
 
+            if ($request->wantsJson()) {
+                return response()->json(['success' => true, 'redirect' => $redirect]);
+            }
+
+            return redirect($redirect)->with('success', 'Firewall rule updated successfully. Please apply changes.');
+        } catch (\Exception $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['error' => $e->getMessage()], 422);
+            }
             return back()->with('error', 'Failed to update rule: ' . $e->getMessage())->withInput();
         }
     }
@@ -274,14 +265,10 @@ class FirewallRuleController extends Controller
             $rulesResponse = $api->getFirewallRules();
             $rules = $rulesResponse['data'] ?? [];
 
-            // Build reverse map: physical device name -> pfSense interface ID
+            // Build reverse map using trait (handles case + physical device names)
             $interfacesResp = $api->getInterfaces();
-            $ifNameToId = [];
-            foreach ($interfacesResp['data'] ?? [] as $iface) {
-                if (!empty($iface['if']) && !empty($iface['id'])) {
-                    $ifNameToId[$iface['if']] = $iface['id'];
-                }
-            }
+            $ifNameToId = $this->buildIfNameToId($interfacesResp['data'] ?? []);
+            $interfaceLower = strtolower($interface);
 
             // Filter rules by interface to match UI order
             $filteredIndices = [];
@@ -291,8 +278,8 @@ class FirewallRuleController extends Controller
                     : [];
 
                 foreach ($ruleIfaces as $ri) {
-                    $normalized = $ifNameToId[$ri] ?? $ri;
-                    if ($normalized === $interface || $ri === $interface) {
+                    $normalized = $ifNameToId[strtolower((string) $ri)] ?? strtolower((string) $ri);
+                    if ($normalized === $interfaceLower) {
                         $filteredIndices[] = $index;
                         break;
                     }

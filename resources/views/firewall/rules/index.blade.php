@@ -12,6 +12,8 @@
                     showModal: false,
                     showAdvanced: false,
                     isEdit: false,
+                    modalError: null,
+                    saving: false,
                     selectedInterface: '{{ $selectedInterface }}',
                     form: {
                         tracker: '',
@@ -41,6 +43,8 @@
                     },
                     resetForm() {
                         this.showAdvanced = false;
+                        this.modalError = null;
+                        this.saving = false;
                         this.form = {
                             tracker: '',
                             type: 'pass',
@@ -168,6 +172,35 @@
                             form.appendChild(tInput);
                         });
                         form.submit();
+                    },
+                    async submitRule(form) {
+                        this.saving = true;
+                        this.modalError = null;
+                        const url = form.action;
+                        const formData = new FormData(form);
+                        const method = (formData.get('_method') || 'POST').toUpperCase();
+                        if (method !== 'POST') { formData.delete('_method'); }
+                        try {
+                            const resp = await fetch(url, {
+                                method: method,
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                },
+                                body: formData
+                            });
+                            const data = await resp.json();
+                            if (data.success) {
+                                window.location.href = data.redirect;
+                            } else {
+                                this.modalError = data.error || data.message || 'An error occurred. Please try again.';
+                            }
+                        } catch (e) {
+                            this.modalError = 'Network error. Please try again.';
+                        } finally {
+                            this.saving = false;
+                        }
                     }
                 }">
 
@@ -554,7 +587,7 @@
                     </div>
 
                     {{-- Add/Edit Rule Modal --}}
-                    <div x-show="showModal" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;" x-on:keydown.escape.window="showModal = false">
+                    <div x-show="showModal" class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
                         <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                             <div x-show="showModal" class="fixed inset-0 transition-opacity" aria-hidden="true">
                                 <div class="absolute inset-0 bg-gray-500 opacity-75"></div>
@@ -566,7 +599,8 @@
                                     :action="isEdit
                                         ? '{{ route('firewall.rules.update', ['firewall' => $firewall, 'tracker' => 'REPLACE_ME']) }}'.replace('REPLACE_ME', form.tracker)
                                         : '{{ route('firewall.rules.store', $firewall) }}'"
-                                    class="space-y-0">
+                                    class="space-y-0"
+                                    @submit.prevent="submitRule($el)">
                                     @csrf
                                     <template x-if="isEdit">
                                         <input type="hidden" name="_method" value="PUT">
@@ -575,6 +609,15 @@
                                     <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4 overflow-y-auto" style="max-height: 80vh;">
                                         <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100 mb-4"
                                             x-text="isEdit ? 'Edit Firewall Rule' : 'Add Firewall Rule'"></h3>
+
+                                        {{-- Inline error banner --}}
+                                        <div x-show="modalError" x-transition style="display:none;"
+                                            class="mb-4 flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700 px-4 py-3">
+                                            <svg class="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                            <p class="text-sm text-red-700 dark:text-red-300" x-text="modalError"></p>
+                                        </div>
 
                                         <div class="mt-4 grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-6">
 
@@ -895,12 +938,16 @@
                                     </div>
 
                                     <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                                        <button type="submit"
-                                            class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
-                                            Save
+                                        <button type="submit" :disabled="saving"
+                                            class="w-full inline-flex justify-center items-center gap-2 rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-60 disabled:cursor-not-allowed">
+                                            <svg x-show="saving" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                            </svg>
+                                            <span x-text="saving ? 'Saving...' : 'Save'"></span>
                                         </button>
-                                        <button type="button" @click="showModal = false"
-                                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                                        <button type="button" :disabled="saving" @click="resetForm(); showModal = false"
+                                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-60 disabled:cursor-not-allowed">
                                             Cancel
                                         </button>
                                     </div>
