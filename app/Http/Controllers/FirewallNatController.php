@@ -59,22 +59,22 @@ class FirewallNatController extends Controller
         Log::info("storePortForward called", $request->all());
 
         $validated = $request->validate([
-            'interface' => 'required|string',
-            'ipprotocol' => 'nullable|in:inet,inet6',
-            'protocol' => 'required|in:tcp,udp,tcp/udp,icmp,esp,ah,gre,ipv6,igmp,pim,ospf,sctp,any',
-            'src_type' => 'nullable|string',
-            'src' => 'nullable|string',
-            'srcport' => 'nullable|string',
-            'dst_type' => 'nullable|string',
-            'dst' => 'nullable|string',
-            'dstport' => 'required|string',
-            'target' => 'required|string',
-            'local_port' => 'required|string',
-            'descr' => 'nullable|string',
-            'disabled' => 'nullable|boolean',
-            'natreflection' => 'nullable|in:enable,disable,purenat,system-default',
+            'interface'          => 'required|string',
+            'ipprotocol'         => 'nullable|in:inet,inet6',
+            'protocol'           => 'required|in:tcp,udp,tcp/udp,icmp,esp,ah,gre,ipv6,igmp,pim,ospf,sctp,any',
+            'src_type'           => 'nullable|string',
+            'src'                => 'nullable|string',
+            'srcport'            => 'nullable|string',
+            'dst_type'           => 'nullable|string',
+            'dst'                => 'nullable|string',
+            'dstport'            => 'required|string',
+            'target'             => 'required|string',
+            'local_port'         => 'required|string',
+            'descr'              => 'nullable|string',
+            'disabled'           => 'nullable|boolean',
+            'natreflection'      => 'nullable|in:enable,disable,purenat,system-default',
             'associated_rule_id' => 'nullable|string',
-        ]);
+        ], [], $this->portForwardAttributes());
 
         $interfaceValue = $validated['interface'];
         $natreflection = ($validated['natreflection'] ?? 'system-default') === 'system-default'
@@ -193,22 +193,22 @@ class FirewallNatController extends Controller
     public function updatePortForward(Request $request, Firewall $firewall, $id)
     {
         $validated = $request->validate([
-            'interface' => 'required|string',
-            'ipprotocol' => 'nullable|in:inet,inet6',
-            'protocol' => 'required|in:tcp,udp,tcp/udp,icmp,esp,ah,gre,ipv6,igmp,pim,ospf,sctp,any',
-            'src_type' => 'nullable|string',
-            'src' => 'nullable|string',
-            'srcport' => 'nullable|string',
-            'dst_type' => 'nullable|string',
-            'dst' => 'nullable|string',
-            'dstport' => 'required|string',
-            'target' => 'required|string',
-            'local_port' => 'required|string',
-            'descr' => 'nullable|string',
-            'disabled' => 'nullable|boolean',
-            'natreflection' => 'nullable|in:enable,disable,purenat,system-default',
+            'interface'          => 'required|string',
+            'ipprotocol'         => 'nullable|in:inet,inet6',
+            'protocol'           => 'required|in:tcp,udp,tcp/udp,icmp,esp,ah,gre,ipv6,igmp,pim,ospf,sctp,any',
+            'src_type'           => 'nullable|string',
+            'src'                => 'nullable|string',
+            'srcport'            => 'nullable|string',
+            'dst_type'           => 'nullable|string',
+            'dst'                => 'nullable|string',
+            'dstport'            => 'required|string',
+            'target'             => 'required|string',
+            'local_port'         => 'required|string',
+            'descr'              => 'nullable|string',
+            'disabled'           => 'nullable|boolean',
+            'natreflection'      => 'nullable|in:enable,disable,purenat,system-default',
             'associated_rule_id' => 'nullable|string',
-        ]);
+        ], [], $this->portForwardAttributes());
 
         $interfaceValue = $validated['interface'];
         $natreflection = ($validated['natreflection'] ?? 'system-default') === 'system-default'
@@ -815,5 +815,26 @@ class FirewallNatController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to toggle 1:1 NAT rule: ' . $e->getMessage());
         }
+    }
+
+    protected function portForwardAttributes(): array
+    {
+        return [
+            'interface'          => 'Interface',
+            'ipprotocol'         => 'IP Version',
+            'protocol'           => 'Protocol',
+            'src_type'           => 'Source Type',
+            'src'                => 'Source Address',
+            'srcport'            => 'Source Port',
+            'dst_type'           => 'Destination Type',
+            'dst'                => 'Destination Address',
+            'dstport'            => 'Destination Port',
+            'target'             => 'Redirect Target IP',
+            'local_port'         => 'Local Port',
+            'descr'              => 'Description',
+            'disabled'           => 'Disabled',
+            'natreflection'      => 'NAT Reflection',
+            'associated_rule_id' => 'Filter Rule Association',
+        ];
     }
 }

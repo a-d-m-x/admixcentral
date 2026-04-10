@@ -115,7 +115,9 @@ class PfSenseApiService
         }
 
         $requestUrl = isset($fullUrl) ? $fullUrl : $url;
-        throw new \Exception("API request failed ({$requestUrl}): " . $response->body(), $response->status());
+        $responseBody = $response->json();
+        $apiMessage = $responseBody['message'] ?? $response->body();
+        throw new \Exception($apiMessage, $response->status());
     }
 
     /**
