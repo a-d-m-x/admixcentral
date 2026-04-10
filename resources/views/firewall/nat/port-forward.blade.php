@@ -12,7 +12,7 @@
         allSelected: false,
         form: {
             id: '',
-            interface: '{{ $interfaces[0]['if'] ?? 'wan' }}',
+            interface: '{{ $interfaces[0]["descr"] ?? "WAN" }}',
             ipprotocol: 'inet',
             protocol: 'tcp',
             src_type: 'any',
@@ -33,7 +33,7 @@
         resetForm() {
             this.form = {
                 id: '',
-                interface: '{{ $interfaces[0]['if'] ?? 'wan' }}',
+                interface: '{{ $interfaces[0]["descr"] ?? "WAN" }}',
                 ipprotocol: 'inet',
                 protocol: 'tcp',
                 src_type: 'any',
@@ -411,9 +411,10 @@
                                         <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Interface</label>
                                         <select name="interface" x-model="form.interface"
                                             class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
-                                            @foreach($interfaces as $ifName => $iface)
-                                                @php $ifVal = $iface['name'] ?? (is_string($ifName) ? $ifName : ($iface['id'] ?? $iface['if'])); @endphp
-                                                <option value="{{ $ifVal }}">{{ $iface['descr'] ?? strtoupper($ifVal) }}</option>
+                                            @foreach($interfaces as $iface)
+                                                <option value="{{ $iface['descr'] ?? strtoupper($iface['id'] ?? $iface['if']) }}">
+                                                    {{ $iface['descr'] ?? strtoupper($iface['id'] ?? $iface['if']) }}
+                                                </option>
                                             @endforeach
                                         </select>
                                     </div>

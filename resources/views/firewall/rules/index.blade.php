@@ -616,8 +616,8 @@
                                                 <select id="rule-interface" name="interface" x-model="form.interface"
                                                     class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
                                                     @foreach($interfaces as $iface)
-                                                        <option value="{{ $iface['id'] ?? $iface['if'] }}">
-                                                            {{ strtoupper($iface['descr'] ?? $iface['id']) }}
+                                                        <option value="{{ $iface['descr'] ?? strtoupper($iface['id'] ?? $iface['if']) }}">
+                                                            {{ $iface['descr'] ?? strtoupper($iface['id'] ?? $iface['if']) }}
                                                         </option>
                                                     @endforeach
                                                 </select>

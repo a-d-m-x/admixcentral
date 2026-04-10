@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Firewall;
 use App\Services\PfSenseApiService;
+use App\Traits\NormalizesInterfaceData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class FirewallNatController extends Controller
 {
+    use NormalizesInterfaceData;
     // Port Forward
     public function portForward(Firewall $firewall)
     {
@@ -29,12 +31,22 @@ class FirewallNatController extends Controller
             $aliasMap = collect($aliasesData)->mapWithKeys(function ($item, $key) {
                 return [
                     $item['name'] => [
-                        'type' => $item['type'] ?? 'unknown',
+                        'type'  => $item['type'] ?? 'unknown',
                         'descr' => $item['descr'] ?? '',
-                        'id' => $item['id'] ?? $key
+                        'id'    => $item['id'] ?? $key
                     ]
                 ];
             })->toArray();
+
+            // Normalize rule interface values for consistent display in the view
+            $ifNameToId = $this->buildIfNameToId($interfaces);
+            $rules = array_map(function ($rule) use ($ifNameToId) {
+                if (isset($rule['interface'])) {
+                    $rule['interface'] = $ifNameToId[$this->normalizeInterface($rule['interface'])]
+                        ?? $this->normalizeInterface($rule['interface']);
+                }
+                return $rule;
+            }, $rules);
 
             return view('firewall.nat.port-forward', compact('firewall', 'rules', 'interfaces', 'aliasMap'));
         } catch (\Exception $e) {
@@ -432,6 +444,16 @@ class FirewallNatController extends Controller
             $rules = $rulesResponse['data'] ?? [];
             $interfaces = $interfacesResponse['data'] ?? [];
 
+            // Normalize rule interface values for consistent display
+            $ifNameToId = $this->buildIfNameToId($interfaces);
+            $rules = array_map(function ($rule) use ($ifNameToId) {
+                if (isset($rule['interface'])) {
+                    $rule['interface'] = $ifNameToId[$this->normalizeInterface($rule['interface'])]
+                        ?? $this->normalizeInterface($rule['interface']);
+                }
+                return $rule;
+            }, $rules);
+
             return view('firewall.nat.outbound', compact('firewall', 'mode', 'rules', 'interfaces'));
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to fetch outbound NAT configuration: ' . $e->getMessage());
@@ -637,6 +659,16 @@ class FirewallNatController extends Controller
 
             $rules = $response['data'] ?? [];
             $interfaces = $interfacesResponse['data'] ?? [];
+
+            // Normalize rule interface values for consistent display
+            $ifNameToId = $this->buildIfNameToId($interfaces);
+            $rules = array_map(function ($rule) use ($ifNameToId) {
+                if (isset($rule['interface'])) {
+                    $rule['interface'] = $ifNameToId[$this->normalizeInterface($rule['interface'])]
+                        ?? $this->normalizeInterface($rule['interface']);
+                }
+                return $rule;
+            }, $rules);
 
             return view('firewall.nat.one-to-one', compact('firewall', 'rules', 'interfaces'));
         } catch (\Exception $e) {
