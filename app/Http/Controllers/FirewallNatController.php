@@ -96,7 +96,7 @@ class FirewallNatController extends Controller
         }
 
         // Build destination from type + address + invert
-        $dstType = $validated['dst_type'] ?? 'wan:ip';
+        $dstType = $validated['dst_type'] ?? '(self)';
         if ($dstType === 'any') {
             $destination = 'any';
         } elseif (in_array($dstType, ['address', 'network'])) {
@@ -230,7 +230,7 @@ class FirewallNatController extends Controller
         }
 
         // Build destination from type + address + invert
-        $dstType = $validated['dst_type'] ?? 'wan:ip';
+        $dstType = $validated['dst_type'] ?? '(self)';
         if ($dstType === 'any') {
             $destination = 'any';
         } elseif (in_array($dstType, ['address', 'network'])) {

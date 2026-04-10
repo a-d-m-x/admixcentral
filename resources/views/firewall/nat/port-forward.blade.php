@@ -21,7 +21,7 @@
             src: '',
             src_not: false,
             srcport: '',
-            dst_type: 'wan:ip',
+            dst_type: '(self)',
             dst: '',
             dst_not: false,
             dstport: '',
@@ -42,7 +42,7 @@
                 src: '',
                 src_not: false,
                 srcport: '',
-                dst_type: 'wan:ip',
+                dst_type: '(self)',
                 dst: '',
                 dst_not: false,
                 dstport: '',
@@ -70,7 +70,7 @@
                 let invert = false;
                 let addr = String(val);
                 if (addr.startsWith('!')) { invert = true; addr = addr.slice(1); }
-                const knownTypes = ['wan:ip','lan:ip','opt1:ip','opt2:ip','wan','lan','opt1','opt2'];
+                const knownTypes = ['(self)','wan:ip','lan:ip','opt1:ip','opt2:ip','wan','lan','opt1','opt2'];
                 if (knownTypes.includes(addr)) return { type: addr, address: '', invert };
                 return { type: addr.includes('/') ? 'network' : 'address', address: addr, invert };
             };
@@ -509,12 +509,9 @@
                                         <select name="src_type" x-model="form.src_type"
                                             class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
                                             <option value="any">Any</option>
+                                            <option value="(self)">This Firewall (WAN IP)</option>
                                             <option value="address">Host / Alias</option>
-                                            <option value="network">Network</option>
-                                            <option value="wan:ip">WAN address</option>
-                                            <option value="lan:ip">LAN address</option>
-                                            <option value="wan">WAN net</option>
-                                            <option value="lan">LAN net</option>
+                                            <option value="network">Network / CIDR</option>
                                         </select>
                                     </div>
                                     <div class="flex-1">
@@ -553,12 +550,9 @@
                                         <select name="dst_type" x-model="form.dst_type"
                                             class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
                                             <option value="any">Any</option>
+                                            <option value="(self)">This Firewall (WAN IP)</option>
                                             <option value="address">Host / Alias</option>
-                                            <option value="network">Network</option>
-                                            <option value="wan:ip">WAN address</option>
-                                            <option value="lan:ip">LAN address</option>
-                                            <option value="wan">WAN net</option>
-                                            <option value="lan">LAN net</option>
+                                            <option value="network">Network / CIDR</option>
                                         </select>
                                     </div>
                                     <div class="flex-1">
