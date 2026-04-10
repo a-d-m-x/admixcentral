@@ -1,14 +1,6 @@
 <x-app-layout :firewall="$firewall">
     <x-slot name="header">
-        <x-firewall-header title="{{ __('Firewall NAT: 1:1') }}" :firewall="$firewall">
-            <x-slot name="actions">
-                @if(!auth()->user()->isReadOnly())
-                <x-button-add @click="$dispatch('open-create-modal')">
-                    Add Mapping
-                </x-button-add>
-                @endif
-            </x-slot>
-        </x-firewall-header>
+        <x-firewall-header title="{{ __('Firewall NAT: 1:1') }}" :firewall="$firewall" />
     </x-slot>
 
     <div class="py-12">
@@ -19,8 +11,13 @@
 
                     <div x-data="natOneToOneHandler()" @open-create-modal.window="openModal()"
                         class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-                        <div class="flex justify-between items-center mb-4">
+                        <div class="flex justify-between items-center mb-4 mt-4">
                             <h3 class="text-lg font-medium text-gray-900 dark:text-white">1:1 Mappings</h3>
+                            @if(!auth()->user()->isReadOnly())
+                            <x-button-add @click="$dispatch('open-create-modal')">
+                                Add Mapping
+                            </x-button-add>
+                            @endif
                         </div>
 
                         <div class="overflow-x-auto">
