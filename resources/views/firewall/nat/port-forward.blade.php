@@ -573,6 +573,17 @@
                                             <option value="(self)">This Firewall (WAN IP)</option>
                                             <option value="address">Host / Alias</option>
                                             <option value="network">Network / CIDR</option>
+                                            <option value="pptp">PPTP clients</option>
+                                            <option value="pppoe">PPPoE clients</option>
+                                            <option value="l2tp">L2TP clients</option>
+                                            @foreach($interfaces as $iface)
+                                                @php $ifId = $iface['id'] ?? $iface['if']; $ifDescr = $iface['descr'] ?? strtoupper($ifId); @endphp
+                                                <option value="{{ $ifId }}:ip">{{ $ifDescr }} address</option>
+                                            @endforeach
+                                            @foreach($interfaces as $iface)
+                                                @php $ifId = $iface['id'] ?? $iface['if']; $ifDescr = $iface['descr'] ?? strtoupper($ifId); @endphp
+                                                <option value="{{ $ifId }}">{{ $ifDescr }} subnets</option>
+                                            @endforeach
                                         </select>
                                     </div>
                                     <div class="flex-1">
