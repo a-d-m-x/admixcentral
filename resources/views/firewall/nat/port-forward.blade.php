@@ -10,6 +10,9 @@
         <x-firewall-header title="{{ __('Firewall NAT: Port Forward') }}" :firewall="$firewall" />
     </x-slot>
 
+    <script>
+        window._natKnownIfaceTypes = @json($knownIfaceTypes);
+    </script>
     <div class="py-12" x-data="{
         showModal: false,
         showDeleteModal: false,
@@ -77,7 +80,7 @@
                 let invert = false;
                 let addr = String(val);
                 if (addr.startsWith('!')) { invert = true; addr = addr.slice(1); }
-                const knownTypes = @json($knownIfaceTypes);
+                const knownTypes = (window._natKnownIfaceTypes || []);
                 if (knownTypes.includes(addr)) return { type: addr, address: '', invert };
                 return { type: addr.includes('/') ? 'network' : 'address', address: addr, invert };
             };
