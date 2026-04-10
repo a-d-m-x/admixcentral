@@ -133,11 +133,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Companies — read access for readonly, write access for admin/user only
     Route::resource('companies', App\Http\Controllers\CompanyController::class)
-        ->only(['index', 'show'])
-        ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user,readonly']);
-    Route::resource('companies', App\Http\Controllers\CompanyController::class)
         ->except(['index', 'show'])
         ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user']);
+    Route::resource('companies', App\Http\Controllers\CompanyController::class)
+        ->only(['index', 'show'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user,readonly']);
 
     Route::post('/firewalls/refresh-all', [App\Http\Controllers\FirewallController::class, 'refreshAll'])->name('firewalls.refresh-all');
     Route::post('/firewalls/status', [App\Http\Controllers\FirewallController::class, 'getCachedStatus'])->name('firewalls.status');

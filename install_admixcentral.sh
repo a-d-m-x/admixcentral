@@ -245,6 +245,72 @@ configure_arch_php() {
   fi
 }
 
+install_php_redis_extensions() {
+  log "Installing PHP Redis extensions"
+  case "$OS_FAMILY" in
+    debian)
+      if ! pkg_install "php${PHP_VER}-redis"; then
+        pkg_install php-redis
+      fi
+      ;;
+    redhat)
+      pkg_install php-pecl-igbinary php-pecl-redis || pkg_install php-igbinary php-pecl-redis || die "Failed to install php Redis packages on Red Hat/Fedora"
+      ;;
+    arch)
+      pkg_install php-igbinary php-redis
+      ;;
+    suse)
+      pkg_install php8-redis php8-igbinary || pkg_install php-redis php-igbinary || log "Warning: could not verify SUSE Redis PHP package names automatically"
+      ;;
+  esac
+}
+
+enable_php_redis_extensions() {
+  log "Ensuring PHP extensions igbinary + redis are enabled"
+  case "$OS_FAMILY" in
+    arch)
+      mkdir -p /etc/php/conf.d
+      printf 'extension=igbinary.so
+' >/etc/php/conf.d/20-igbinary.ini
+      printf 'extension=redis.so
+' >/etc/php/conf.d/30-redis.ini
+      ;;
+    redhat)
+      mkdir -p /etc/php.d
+      if [[ -f /etc/php.d/40-igbinary.ini ]]; then
+        sed -i 's/^;[[:space:]]*extension[[:space:]]*=[[:space:]]*igbinary.*/extension=igbinary.so/' /etc/php.d/40-igbinary.ini || true
+      elif [[ -f /etc/php.d/igbinary.ini ]]; then
+        sed -i 's/^;[[:space:]]*extension[[:space:]]*=[[:space:]]*igbinary.*/extension=igbinary.so/' /etc/php.d/igbinary.ini || true
+      else
+        printf 'extension=igbinary.so
+' >/etc/php.d/40-igbinary.ini
+      fi
+      if [[ -f /etc/php.d/50-redis.ini ]]; then
+        sed -i 's/^;[[:space:]]*extension[[:space:]]*=[[:space:]]*redis.*/extension=redis.so/' /etc/php.d/50-redis.ini || true
+      elif [[ -f /etc/php.d/redis.ini ]]; then
+        sed -i 's/^;[[:space:]]*extension[[:space:]]*=[[:space:]]*redis.*/extension=redis.so/' /etc/php.d/redis.ini || true
+      else
+        printf 'extension=redis.so
+' >/etc/php.d/50-redis.ini
+      fi
+      ;;
+    *)
+      :
+      ;;
+  esac
+}
+
+verify_php_redis_extensions() {
+  log "Verifying PHP extensions igbinary + redis"
+  php -m | grep -qi '^redis$' || die "PHP redis extension is not loaded"
+  if php -m | grep -qi '^igbinary$'; then
+    :
+  else
+    log "Warning: igbinary is not loaded; continuing only if redis works without it"
+  fi
+  php --ri redis >/dev/null 2>&1 || die "PHP redis extension is installed but not functioning"
+}
+
 detect_runtime_web_user_group() {
   local app_user=""
   local app_group=""
@@ -656,12 +722,16 @@ main() {
     pkg_install php8-cli php8-fpm php8-mysql php8-mbstring php8-curl php8-zip php8-gd php8-bcmath php8-intl || true
   fi
 
+  install_php_redis_extensions
+  enable_php_redis_extensions
+
   install_composer
   install_node
 
   log "Enabling services"
   systemctl enable --now nginx || true
   systemctl enable --now "${PHP_SERVICE}" || true
+  verify_php_redis_extensions
 
   detect_runtime_web_user_group
 
@@ -835,7 +905,7 @@ directory=${INSTALL_DIR}
 autostart=true
 autorestart=true
 user=${RUNTIME_WEB_USER}
-numprocs=3
+numprocs=1
 redirect_stderr=true
 stdout_logfile=${INSTALL_DIR}/storage/logs/reverb.log
 stopasgroup=true
