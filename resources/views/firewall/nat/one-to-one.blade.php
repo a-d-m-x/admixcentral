@@ -9,8 +9,7 @@
                 <div class="p-6 text-gray-900 dark:text-gray-100">
                     @include('firewall.nat.tabs', ['active' => 'one-to-one'])
 
-                    <div x-data="natOneToOneHandler()" @open-create-modal.window="openModal()"
-                        class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                    <div x-data="natOneToOneHandler()" @open-create-modal.window="openModal()">
                         <div class="flex justify-between items-center mb-4 mt-4">
                             <h3 class="text-lg font-medium text-gray-900 dark:text-white">1:1 Mappings</h3>
                             @if(!auth()->user()->isReadOnly())
@@ -25,27 +24,27 @@
                                 <thead class="bg-gray-50 dark:bg-gray-700">
                                     <tr>
                                         <th scope="col"
-                                            class="px-6 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider"
+                                            class="px-3 py-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider"
                                             style="width: 40px;">
                                             Status</th>
                                         <th scope="col"
-                                            class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                            class="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Interface</th>
                                         <th scope="col"
-                                            class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                            class="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             External IP</th>
                                         <th scope="col"
-                                            class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                            class="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Internal IP</th>
                                         <th scope="col"
-                                            class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                            class="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Destination IP</th>
                                         <th scope="col"
-                                            class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                            class="px-3 py-2 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Description</th>
                                         @if(!auth()->user()->isReadOnly())
                                         <th scope="col"
-                                            class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                            class="px-3 py-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Actions</th>
                                         @endif
                                     </tr>
@@ -53,7 +52,7 @@
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                     @forelse($rules as $index => $rule)
                                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-                                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                            <td class="px-3 py-2 whitespace-nowrap text-center">
                                                 @if(!empty($rule['disabled']))
                                                     <svg class="w-5 h-5 text-red-500 mx-auto" fill="none" stroke="currentColor"
                                                         viewBox="0 0 24 24">
@@ -68,23 +67,23 @@
                                                     </svg>
                                                 @endif
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                            <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                                                 {{ $rule['interface'] ?? '' }}
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                            <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                                                 {{ $rule['external'] ?? '' }}
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                            <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                                                 {{ is_array($rule['source']) ? ($rule['source']['network'] ?? $rule['source']['address'] ?? 'any') : $rule['source'] }}
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                            <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                                                 {{ is_array($rule['destination']) ? ($rule['destination']['network'] ?? $rule['destination']['address'] ?? 'any') : $rule['destination'] }}
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                                            <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                                                 {{ $rule['descr'] ?? '' }}
                                             </td>
                                             @if(!auth()->user()->isReadOnly())
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <td class="px-3 py-2 whitespace-nowrap text-sm font-medium">
                                                 <button @click="editRule({{ $index }}, {{ json_encode($rule) }})"
                                                     class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
                                                 <form
