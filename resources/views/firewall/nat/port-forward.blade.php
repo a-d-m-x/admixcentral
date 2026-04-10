@@ -1,3 +1,10 @@
+@php
+    $knownIfaceTypes = array_merge(
+        ['(self)', 'pptp', 'pppoe', 'l2tp'],
+        array_map(fn($i) => ($i['id'] ?? $i['if']) . ':ip', $interfaces),
+        array_map(fn($i) => $i['id'] ?? $i['if'], $interfaces)
+    );
+@endphp
 <x-app-layout :firewall="$firewall">
     <x-slot name="header">
         <x-firewall-header title="{{ __('Firewall NAT: Port Forward') }}" :firewall="$firewall" />
@@ -70,13 +77,6 @@
                 let invert = false;
                 let addr = String(val);
                 if (addr.startsWith('!')) { invert = true; addr = addr.slice(1); }
-                @php
-                    $knownIfaceTypes = array_merge(
-                        ['(self)', 'pptp', 'pppoe', 'l2tp'],
-                        array_map(fn($i) => ($i['id'] ?? $i['if']) . ':ip', $interfaces),
-                        array_map(fn($i) => $i['id'] ?? $i['if'], $interfaces)
-                    );
-                @endphp
                 const knownTypes = @json($knownIfaceTypes);
                 if (knownTypes.includes(addr)) return { type: addr, address: '', invert };
                 return { type: addr.includes('/') ? 'network' : 'address', address: addr, invert };
