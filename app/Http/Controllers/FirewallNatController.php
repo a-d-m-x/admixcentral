@@ -174,10 +174,18 @@ class FirewallNatController extends Controller
 
             $firewall->update(['is_dirty' => true]);
 
-            return redirect()->route('firewall.nat.port-forward', $firewall)
-                ->with('success', 'Port forward rule created successfully. Please apply changes.');
+            $redirect = route('firewall.nat.port-forward', $firewall);
+
+            if ($request->wantsJson()) {
+                return response()->json(['success' => true, 'redirect' => $redirect]);
+            }
+
+            return redirect($redirect)->with('success', 'Port forward rule created successfully. Please apply changes.');
         } catch (\Exception $e) {
             Log::error('PfSense API Error in storePortForward: ' . $e->getMessage());
+            if ($request->wantsJson()) {
+                return response()->json(['error' => $e->getMessage()], 422);
+            }
             return back()->withInput()->with('error', 'Failed to create port forward: ' . $e->getMessage());
         }
     }
@@ -300,9 +308,17 @@ class FirewallNatController extends Controller
 
             $firewall->update(['is_dirty' => true]);
 
-            return redirect()->route('firewall.nat.port-forward', $firewall)
-                ->with('success', 'Port forward rule updated successfully. Please apply changes.');
+            $redirect = route('firewall.nat.port-forward', $firewall);
+
+            if ($request->wantsJson()) {
+                return response()->json(['success' => true, 'redirect' => $redirect]);
+            }
+
+            return redirect($redirect)->with('success', 'Port forward rule updated successfully. Please apply changes.');
         } catch (\Exception $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['error' => $e->getMessage()], 422);
+            }
             return back()->withInput()->with('error', 'Failed to update port forward: ' . $e->getMessage());
         }
     }

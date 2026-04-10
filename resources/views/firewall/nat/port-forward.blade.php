@@ -8,6 +8,8 @@
         showDeleteModal: false,
         deleteId: null,
         isEdit: false,
+        modalError: null,
+        saving: false,
         selected: [],
         allSelected: false,
         form: {
@@ -52,6 +54,8 @@
                 associated_rule_id: 'new'
             };
             this.isEdit = false;
+            this.modalError = null;
+            this.saving = false;
         },
         editRule(rule, index) {
             this.isEdit = true;
@@ -122,6 +126,36 @@
                 form.appendChild(iInp);
             });
             form.submit();
+        },
+        async submitRule(form) {
+            this.saving = true;
+            this.modalError = null;
+            const url = form.action;
+            const formData = new FormData(form);
+            const method = (formData.get('_method') || 'POST').toUpperCase();
+            if (method !== 'POST') { formData.delete('_method'); }
+            try {
+                const resp = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: formData
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    window.location.href = data.redirect;
+                } else {
+                    const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : null;
+                    this.modalError = firstError || data.error || data.message || 'An error occurred. Please try again.';
+                }
+            } catch (e) {
+                this.modalError = 'Network error. Please try again.';
+            } finally {
+                this.saving = false;
+            }
         }
     }" @open-create-modal.window="resetForm(); showModal = true">
 
@@ -361,8 +395,8 @@
             {{-- Backdrop --}}
             <div x-show="showModal" class="absolute inset-0 bg-gray-900/80 backdrop-blur-sm"
                  x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-                 x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-                 @click="showModal = false"></div>
+                 x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+            </div>
 
             {{-- Dialog --}}
             <div x-show="showModal"
@@ -377,7 +411,8 @@
                     <form method="POST"
                           :action="isEdit
                               ? '{{ route('firewall.nat.port-forward.update', ['firewall' => $firewall, 'id' => 'REPLACE_ME']) }}'.replace('REPLACE_ME', form.id)
-                              : '{{ route('firewall.nat.port-forward.store', $firewall) }}'">
+                              : '{{ route('firewall.nat.port-forward.store', $firewall) }}'"
+                          @submit.prevent="submitRule($el)">
                         @csrf
                         <template x-if="isEdit">
                             <input type="hidden" name="_method" value="PUT">
@@ -394,6 +429,15 @@
                         </div>
 
                         <div class="px-6 py-5 space-y-6 max-h-[75vh] overflow-y-auto">
+
+                            {{-- Inline error banner --}}
+                            <div x-show="modalError" x-transition style="display:none;"
+                                class="flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700 px-4 py-3">
+                                <svg class="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <p class="text-sm text-red-700 dark:text-red-300" x-text="modalError"></p>
+                            </div>
 
                             {{-- Disabled checkbox --}}
                             <div class="flex items-center space-x-3">
@@ -597,13 +641,17 @@
 
                         {{-- Modal Footer --}}
                         <div class="bg-gray-50 dark:bg-gray-700 px-6 py-4 flex justify-end space-x-3 border-t border-gray-200 dark:border-gray-700">
-                            <button type="button" @click="showModal = false"
-                                class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                            <button type="button" :disabled="saving" @click="resetForm(); showModal = false"
+                                class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition disabled:opacity-60 disabled:cursor-not-allowed">
                                 Cancel
                             </button>
-                            <button type="submit"
-                                class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition">
-                                Save Rule
+                            <button type="submit" :disabled="saving"
+                                class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition inline-flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+                                <svg x-show="saving" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                </svg>
+                                <span x-text="saving ? 'Saving...' : 'Save Rule'"></span>
                             </button>
                         </div>
                     </form>

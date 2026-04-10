@@ -194,7 +194,8 @@
                             if (data.success) {
                                 window.location.href = data.redirect;
                             } else {
-                                this.modalError = data.error || data.message || 'An error occurred. Please try again.';
+                                const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : null;
+                                this.modalError = firstError || data.error || data.message || 'An error occurred. Please try again.';
                             }
                         } catch (e) {
                             this.modalError = 'Network error. Please try again.';
