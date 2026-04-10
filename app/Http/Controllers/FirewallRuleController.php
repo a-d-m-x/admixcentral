@@ -26,16 +26,36 @@ class FirewallRuleController extends Controller
             // or rely on the API if it supports filtering (it usually returns all).
             // The 'interface' field in the rule object matches the interface ID (e.g., 'wan', 'lan').
 
-            $filteredRules = collect($rules)->filter(function ($rule) use ($selectedInterface) {
+            // Build a reverse map: physical device name (if) -> pfSense interface ID
+            // pfSense may store rules using either the ID ('wan') or the physical name ('igb0')
+            $ifNameToId = [];
+            foreach ($interfaces as $iface) {
+                if (!empty($iface['if']) && !empty($iface['id'])) {
+                    // Store both original and lowercase keys for case-insensitive lookup
+                    $ifNameToId[strtolower($iface['if'])] = strtolower($iface['id']);
+                    $ifNameToId[strtolower($iface['id'])] = strtolower($iface['id']);
+                }
+            }
+
+            $selectedLower = strtolower($selectedInterface);
+
+            $filteredRules = collect($rules)->filter(function ($rule) use ($selectedLower, $ifNameToId) {
                 if (!isset($rule['interface'])) {
                     return false;
                 }
 
-                if (is_array($rule['interface'])) {
-                    return in_array($selectedInterface, $rule['interface']);
+                $ruleIfaces = is_array($rule['interface']) ? $rule['interface'] : [$rule['interface']];
+
+                foreach ($ruleIfaces as $ri) {
+                    $riLower = strtolower((string) $ri);
+                    // Normalize physical/aliased name to pfSense ID
+                    $normalized = $ifNameToId[$riLower] ?? $riLower;
+                    if ($normalized === $selectedLower) {
+                        return true;
+                    }
                 }
 
-                return $rule['interface'] === $selectedInterface;
+                return false;
             })->values();
 
             if (request()->wantsJson()) {
@@ -254,21 +274,28 @@ class FirewallRuleController extends Controller
             $rulesResponse = $api->getFirewallRules();
             $rules = $rulesResponse['data'] ?? [];
 
+            // Build reverse map: physical device name -> pfSense interface ID
+            $interfacesResp = $api->getInterfaces();
+            $ifNameToId = [];
+            foreach ($interfacesResp['data'] ?? [] as $iface) {
+                if (!empty($iface['if']) && !empty($iface['id'])) {
+                    $ifNameToId[$iface['if']] = $iface['id'];
+                }
+            }
+
             // Filter rules by interface to match UI order
             $filteredIndices = [];
             foreach ($rules as $index => $rule) {
-                // Check if rule belongs to interface
-                // Rule interface can be string or array
-                $ruleIf = $rule['interface'] ?? '';
-                $matches = false;
-                if (is_array($ruleIf)) {
-                    $matches = in_array($interface, $ruleIf);
-                } else {
-                    $matches = $ruleIf === $interface;
-                }
+                $ruleIfaces = isset($rule['interface'])
+                    ? (is_array($rule['interface']) ? $rule['interface'] : [$rule['interface']])
+                    : [];
 
-                if ($matches) {
-                    $filteredIndices[] = $index;
+                foreach ($ruleIfaces as $ri) {
+                    $normalized = $ifNameToId[$ri] ?? $ri;
+                    if ($normalized === $interface || $ri === $interface) {
+                        $filteredIndices[] = $index;
+                        break;
+                    }
                 }
             }
 
