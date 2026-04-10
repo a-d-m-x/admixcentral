@@ -175,8 +175,6 @@
 
                     @include('firewall.nat.tabs', ['active' => 'port-forward'])
 
-                    <x-apply-changes-banner :firewall="$firewall" />
-
                     @if(session('success'))
                         <div class="mt-4 mb-4 px-4 py-3 bg-green-100 border border-green-400 text-green-700 rounded">
                             {{ session('success') }}
