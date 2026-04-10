@@ -98,7 +98,6 @@
             @endif
 
             <x-card>
-                <div class="p-6">
                     {{-- Tabs --}}
                     @include('firewall.nat.tabs', ['active' => 'outbound'])
 
@@ -243,7 +242,6 @@
                             </tbody>
                         </table>
                     </div>
-                </div>
             </x-card>
         </div>
 
