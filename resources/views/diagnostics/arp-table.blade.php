@@ -39,12 +39,12 @@
                                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                             <td
                                                 class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                                                {{ $entry['ip-address'] ?? 'N/A' }}</td>
+                                                {{ $entry['ip_address'] ?? 'N/A' }}</td>
                                             <td
                                                 class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono">
-                                                {{ $entry['mac-address'] ?? 'N/A' }}</td>
+                                                {{ $entry['mac_address'] ?? 'N/A' }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                                {{ $entry['hostname'] ?? '' }}</td>
+                                                {{ $entry['dnsresolve'] ?? $entry['hostname'] ?? '' }}</td>
                                             <td
                                                 class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 uppercase">
                                                 {{ $entry['interface'] ?? '' }}</td>
