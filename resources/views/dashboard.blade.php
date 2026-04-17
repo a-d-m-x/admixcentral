@@ -1143,9 +1143,31 @@
                 updateFromStatus(status) {
                     if (!status) return;
 
-                    // Standardize Structure: If there's a nested data key (v2 API) and we're not flattened yet, merge it up
+                    // Normalize to the cache wrapper shape { online, api_version, data: {...} }
+                    // which the template reads as status.data.product_version etc.
+                    //
+                    // Two possible incoming shapes:
+                    // 1. Cache wrapper (from init or fetchStatus): { online, api_version, data: { product_version, ... } }
+                    // 2. WS broadcast (flat): { online, api_version, product_version, gateways, cpu_usage, ... }
+                    //
+                    // Detect flat broadcast: has top-level pfSense fields but no .data object.
+                    if (!status.data || typeof status.data !== 'object') {
+                        // Flat broadcast — promote all non-wrapper fields into .data
+                        const wrapperKeys = new Set(['online','error','api_version','updated_at','_source','firewall_id','timestamp']);
+                        const data = {};
+                        Object.keys(status).forEach(k => { if (!wrapperKeys.has(k)) data[k] = status[k]; });
+                        status = Object.assign({}, status, { data });
+                    }
+
+                    // Legacy: flatten status.data.data if it exists (defensive)
                     if (status.data && status.data.data && typeof status.data.data === 'object') {
                         Object.assign(status.data, status.data.data);
+                        delete status.data.data;
+                    }
+
+                    // Merge into existing status to preserve last-known values for null fields
+                    if (this.status && this.status.data) {
+                        status.data = Object.assign({}, this.status.data, status.data);
                     }
 
                     this.status = status;

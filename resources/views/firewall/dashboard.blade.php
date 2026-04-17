@@ -778,16 +778,22 @@
         <script>
             document.addEventListener('alpine:init', () => {
                 Alpine.data('firewallDashboard', () => ({
-                    systemLoading: true,
-                    systemConnected: false,
-                    systemStatus: null,
+@php
+    // $initialStatus is pre-resolved by DashboardController::firewall().
+    // No cache lookup here — keep data resolution in the controller.
+    $systemLoading    = $initialStatus ? 'false' : 'true';
+    $systemConnected  = ($initialStatus['online'] ?? false) ? 'true' : 'false';
+@endphp
+                    systemLoading: {{ $systemLoading }},
+                    systemConnected: {{ $systemConnected }},
+                    systemStatus: {!! json_encode($initialStatus) !!},
                     systemError: null,
 
                     interfaces: [],
                     interfacesLoading: true,
 
-                    gateways: [],
-                    gatewaysLoading: true,
+                    gateways: {!! json_encode($initialStatus['gateways'] ?? []) !!},
+                    gatewaysLoading: {{ empty($initialStatus['gateways'] ?? []) ? 'true' : 'false' }},
 
                     rules: [],
                     rulesLoading: true,
@@ -1013,24 +1019,20 @@
                     startIntervalManager() {
                         if (this.timer) clearTimeout(this.timer);
 
-                        const getDelay = () => {
-                            // Default to fast (Real-time) unless explicitly disconnected
-                            const state = window.Echo?.connector?.pusher?.connection?.state;
-                            const isExplicitlyDisconnected = (state === 'disconnected' || state === 'failed' || state === 'unavailable');
-
-                            if (isExplicitlyDisconnected) {
-                                return this.fallbackMs;
-                            }
-                            return this.realtimeMs;
-                        };
+                        const isWsHealthy = () =>
+                            window.Echo?.connector?.pusher?.connection?.state === 'connected';
 
                         const run = () => {
-                            this.fetchSystemStatus();
-                            this.timer = setTimeout(run, getDelay());
+                            // fetchSystemStatus() reads from cache only — it does not dispatch jobs.
+                            // Safe to suppress when WS is healthy and delivering updates.
+                            if (!isWsHealthy()) {
+                                this.fetchSystemStatus();
+                            }
+                            this.timer = setTimeout(run, this.fallbackMs);
                         };
 
-                        // Start the loop
-                        this.timer = setTimeout(run, getDelay());
+                        // Always schedule at fallbackMs.
+                        this.timer = setTimeout(run, this.fallbackMs);
                     },
 
                     fetchSystemStatus() {
@@ -1040,42 +1042,57 @@
                             .then(data => {
                                 this.systemLoading = false;
                                 this.systemConnected = data.online;
-                                if (data.online && data.status) {
-                                    // MERGE or REPLACE only if valid
-                                    this.systemStatus = data.status;
 
-                                    // Normalize interfaces (Consistency with WebSocket)
-                                    if (!this.systemStatus.interfaces && this.systemStatus.data && this.systemStatus.data.interfaces) {
-                                        this.systemStatus.interfaces = this.systemStatus.data.interfaces;
+                                if (data.status) {
+                                    // The check-status endpoint returns:
+                                    // { online, status: { online, api_version, data: { flat fields }, gateways, interfaces } }
+                                    // The template reads systemStatus.data.* — assign status directly.
+                                    // Preserve existing values for any null fields (stale-while-revalidate).
+                                    const incoming = data.status;
+                                    if (!this.systemStatus) {
+                                        this.systemStatus = incoming;
+                                    } else {
+                                        // Top-level fields
+                                        if (incoming.online    !== undefined) this.systemStatus.online     = incoming.online;
+                                        if (incoming.api_version)             this.systemStatus.api_version = incoming.api_version;
+                                        if (incoming.updated_at)              this.systemStatus.updated_at  = incoming.updated_at;
+                                        if (incoming.error !== undefined)      this.systemStatus.error       = incoming.error;
+                                        // Nested data fields — merge to preserve unknowns
+                                        if (incoming.data && typeof incoming.data === 'object') {
+                                            this.systemStatus.data = Object.assign({}, this.systemStatus.data || {}, incoming.data);
+                                        }
+                                        // Top-level gateways / interfaces (also stored at root by checkStatus)
+                                        if (incoming.gateways && incoming.gateways.length > 0)   this.systemStatus.gateways   = incoming.gateways;
+                                        if (incoming.interfaces)                                  this.systemStatus.interfaces = incoming.interfaces;
                                     }
 
-                                    if (this.systemStatus.interfaces) {
-                                        this.updateBandwidthFromInterfaces(this.systemStatus.interfaces);
-                                    }
+                                    // Sync gateways to separate Alpine property (gateway template reads 'gateways')
+                                    const gw = this.systemStatus.gateways || this.systemStatus.data?.gateways;
+                                    if (gw && gw.length > 0) this.gateways = gw;
+
+                                    const ifaces = this.systemStatus.interfaces || this.systemStatus.data?.interfaces;
+                                    if (ifaces) this.updateBandwidthFromInterfaces(ifaces);
 
                                     // Update Load History
-                                    if (data.status.data && data.status.data.cpu_load_avg && data.status.data.cpu_load_avg.length > 0) {
-                                        const oneMinLoad = parseFloat(data.status.data.cpu_load_avg[0]) || 0;
+                                    const loadAvg = this.systemStatus.data?.cpu_load_avg;
+                                    if (loadAvg?.length > 0) {
                                         this.loadHistory.shift();
-                                        this.loadHistory.push(oneMinLoad);
+                                        this.loadHistory.push(parseFloat(loadAvg[0]) || 0);
                                     }
+
                                     this.lastUpdated = new Date().toLocaleTimeString();
-                                    this.systemError = null;
-                                } else {
-                                    // If online=false, do NOT clear systemStatus immediately to prevent flicker
-                                    // Only set error
-                                    this.systemError = data.error || 'Firewall reported offline.';
+                                    if (data.online) this.systemError = null;
+                                    else this.systemError = incoming.error || 'Firewall reported offline.';
                                 }
                             })
                             .catch(err => {
                                 this.systemLoading = false;
-                                // Do NOT set systemConnected=false immediately if it's just a transient network glitch?
-                                // Actually, keep it simple: just don't clear systemStatus
-                                // this.systemConnected = false; 
-                                // this.systemError = 'Failed to load system status.';
+                                // Do not clear systemStatus on transient network error —
+                                // keep showing last-known values.
                                 console.error('Fetch error:', err);
                             });
                     },
+
 
                     fetchInterfaces() {
                         // Added Accept header to ensure JSON response from StatusController
@@ -1151,26 +1168,42 @@
                                 console.log('Listening for Websocket updates...');
                                 window.Echo.private('firewall.{{ $firewall->id }}')
                                     .listen('.firewall.status.update', (e) => {
-                                        console.log('WebSocket Update:', e);
-                                        this.systemLoading = false;
-                                        this.systemConnected = true;
-                                        this.systemStatus = e.status;
+                                        // Broadcast sends FLAT fields (e.status.product_version, e.status.gateways, ...).
+                                        // Template reads systemStatus.data.* so reconstruct the cache wrapper shape.
+                                        const s = e.status || {};
+                                        if (!this.systemStatus) this.systemStatus = { data: {} };
+                                        if (!this.systemStatus.data) this.systemStatus.data = {};
 
-                                        // Normalize interfaces
-                                        if (!this.systemStatus.interfaces && this.systemStatus.data && this.systemStatus.data.interfaces) {
-                                            this.systemStatus.interfaces = this.systemStatus.data.interfaces;
-                                        }
+                                        // Top-level wrapper fields
+                                        if (s.online    !== undefined) this.systemStatus.online     = s.online;
+                                        if (s.api_version)             this.systemStatus.api_version = s.api_version;
+                                        if (s.updated_at)              this.systemStatus.updated_at  = s.updated_at;
+                                        if (s.error !== undefined)     this.systemStatus.error       = s.error;
 
-                                        if (this.systemStatus.interfaces) {
-                                            this.updateBandwidthFromInterfaces(this.systemStatus.interfaces);
-                                        }
+                                        // Promote flat broadcast fields into .data where the template reads them
+                                        const dataFields = ['product_version','update_available','api_update_available',
+                                                            'cpu_load_avg','cpu_usage','mem_usage','swap_usage','disk_usage',
+                                                            'temp_c','uptime','bios_vendor','bios_version','bios_date',
+                                                            'cpu_model','cpu_count','platform','version','dns_servers',
+                                                            'last_config_change','last_config_change_ts','installed_packages_count'];
+                                        dataFields.forEach(k => {
+                                            if (s[k] !== null && s[k] !== undefined) this.systemStatus.data[k] = s[k];
+                                        });
 
-                                        // Update Load History
-                                        const loadData = this.systemStatus.data || this.systemStatus;
-                                        if (loadData.cpu_load_avg && loadData.cpu_load_avg.length > 0) {
-                                            const oneMinLoad = parseFloat(loadData.cpu_load_avg[0]) || 0;
+                                        // gateways / interfaces stay at root AND in data
+                                        if (s.gateways   && s.gateways.length > 0)   { this.systemStatus.gateways   = s.gateways;   this.gateways   = s.gateways; }
+                                        if (s.interfaces)                             { this.systemStatus.interfaces = s.interfaces; }
+
+                                        this.systemLoading   = false;
+                                        this.systemConnected = s.online ?? true;
+
+                                        const ifaces = this.systemStatus.interfaces;
+                                        if (ifaces) this.updateBandwidthFromInterfaces(ifaces);
+
+                                        const loadAvg = this.systemStatus.data?.cpu_load_avg;
+                                        if (loadAvg?.length > 0) {
                                             this.loadHistory.shift();
-                                            this.loadHistory.push(oneMinLoad);
+                                            this.loadHistory.push(parseFloat(loadAvg[0]) || 0);
                                         }
 
                                         this.lastUpdated = new Date().toLocaleTimeString();

@@ -208,15 +208,13 @@ main() {
   reverb_conf="$(find_reverb_conf "$supv_dir")"
 
   if [[ -n "$reverb_conf" ]]; then
-    # Ensure process_name exists (required by Supervisor when numprocs > 1)
-    if ! grep -q '^process_name=' "$reverb_conf"; then
-      sed -i "/^\[program:admix-reverb\]/a process_name=%(program_name)s_%(process_num)02d" "$reverb_conf"
-    fi
+    # Reverb cannot scale via numprocs on the same port — enforce numprocs=1.
+    # Setting numprocs=3 causes multiple processes to fight for port 8080 and crashes Supervisor.
     if grep -q '^numprocs=' "$reverb_conf"; then
-      sed -i "s/^numprocs=.*/numprocs=3/" "$reverb_conf"
-    else
-      sed -i "/^autostart=true/a numprocs=3" "$reverb_conf"
+      sed -i "s/^numprocs=.*/numprocs=1/" "$reverb_conf"
     fi
+    # Remove stale process_name directive written by old multi-process configuration.
+    sed -i "/^process_name=%(program_name)s_%(process_num)02d/d" "$reverb_conf" || true
     info "Reverb config: $reverb_conf"
     grep 'numprocs' "$reverb_conf" | sed 's/^/    /'
   else
@@ -296,6 +294,56 @@ EOF
   chmod 0440 /etc/sudoers.d/admixcentral || true
   info "Sudoers written for user: ${web_user}"
 
+  # ── Phase 1: Frontend asset rebuild ─────────────────────────────────────────
+  log "Phase 1 — Rebuilding frontend assets (echo.js timeout fix)"
+
+  local app_home
+  app_home="$(getent passwd "$web_user" | cut -d: -f6 2>/dev/null || echo "/tmp")"
+
+  if [[ -f "${INSTALL_DIR}/package.json" ]]; then
+    sudo -u "$web_user" -H env HOME="$app_home" bash -lc "
+      set -e
+      cd '${INSTALL_DIR}'
+      if [[ -f package-lock.json ]]; then
+        npm ci --prefer-offline 2>/dev/null || npm install
+      else
+        npm install
+      fi
+      npm run build
+    " && info "Frontend assets rebuilt" \
+      || info "Warning: npm build failed — rebuild manually: npm run build"
+  else
+    info "No package.json found — skipping frontend asset rebuild"
+  fi
+
+  if systemctl reload "$PHP_SERVICE" 2>/dev/null; then
+    info "PHP-FPM reloaded: $PHP_SERVICE"
+  elif systemctl restart "$PHP_SERVICE" 2>/dev/null; then
+    info "PHP-FPM restarted: $PHP_SERVICE"
+  else
+    info "Warning: PHP-FPM reload failed — check manually"
+  fi
+
+  # ── 8. Provision Laravel scheduler cron ──────────────────────────────────────
+  log "Step 8/8 — Provisioning Laravel scheduler cron"
+
+  local cron_line="* * * * * ${web_user} php ${INSTALL_DIR}/artisan schedule:run >> /dev/null 2>&1"
+  local cron_file="/etc/cron.d/admixcentral"
+
+  if [[ -f "$cron_file" ]] && grep -qF "artisan schedule:run" "$cron_file"; then
+    info "Laravel scheduler cron already present: $cron_file"
+  else
+    cat > "$cron_file" << EOF
+# AdmixCentral — Laravel task scheduler
+# Drives backend firewall status polling independently of browser activity.
+# Do not remove: without this, pfSense status checks only run when a browser has /firewalls open.
+${cron_line}
+EOF
+    chmod 0644 "$cron_file"
+    info "Cron installed: $cron_file"
+    info "Entry: ${cron_line}"
+  fi
+
   # ── Summary ───────────────────────────────────────────────────────────────
 
   echo
@@ -307,7 +355,7 @@ EOF
   echo
   info "Redis:          $(redis-cli ping)"
   info "Workers:        ${num_workers} processes"
-  info "Reverb:         3 processes"
+  info "Reverb:         1 process (numprocs=1 enforced — port-sharing not supported)"
   info "PHP-FPM:        pm.max_children=${max_children:-skipped}"
   info "Queue driver:   redis"
   info "Cache driver:   redis"

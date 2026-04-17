@@ -273,7 +273,10 @@ class DashboardController extends Controller
 
     public function firewall(Request $request, Firewall $firewall)
     {
-        // Data is now fetched asynchronously via AJAX to prevent page load delays/beeps
-        return view('firewall.dashboard', compact('firewall'));
+        // Pass the raw cache object to the view. The template reads systemStatus.data.*
+        // and systemStatus.api_version, which matches the cache wrapper shape exactly.
+        $initialStatus = Cache::get('firewall_status_' . $firewall->id) ?: null;
+
+        return view('firewall.dashboard', compact('firewall', 'initialStatus'));
     }
 }

@@ -27,10 +27,11 @@ if (reverbKey) {
         forceTLS: (reverbScheme === 'https'),
         enabledTransports: ['ws', 'wss'],
         disableStats: true,
-        // Tuning for faster reconnection
-        unavailable_timeout: 1000, 
-        pong_timeout: 1000,
-        activityTimeout: 1000,
+        // Stable connection timeouts — previously set to 1s which caused
+        // constant reconnect storms and made WS health detection unreliable.
+        activityTimeout: 120000,      // 2 min idle before sending ping (was 1s)
+        pongTimeout: 30000,           // 30s to wait for pong before disconnect (was 1s)
+        unavailableTimeout: 10000,    // 10s before marking connection unavailable (was 1s)
     });
 
     // Connection Status Handling

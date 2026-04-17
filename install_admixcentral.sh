@@ -664,6 +664,30 @@ final_fix_permissions() {
   systemctl restart nginx || true
 }
 
+provision_cron() {
+  log "Provisioning Laravel scheduler cron"
+
+  local cron_line="* * * * * ${RUNTIME_WEB_USER} php ${INSTALL_DIR}/artisan schedule:run >> /dev/null 2>&1"
+  local cron_file="/etc/cron.d/admixcentral"
+
+  # Idempotent: only write if the artisan schedule:run line is not already present.
+  if [[ -f "$cron_file" ]] && grep -qF "artisan schedule:run" "$cron_file"; then
+    log "Laravel scheduler cron already present — skipping"
+    return 0
+  fi
+
+  cat > "$cron_file" << EOF
+# AdmixCentral — Laravel task scheduler
+# Drives backend firewall status polling independently of browser activity.
+# Do not remove: without this, pfSense status checks only run when a browser has /firewalls open.
+${cron_line}
+EOF
+
+  chmod 0644 "$cron_file"
+  log "Cron installed: $cron_file"
+  log "Entry: ${cron_line}"
+}
+
 main() {
   os_detect
 
@@ -959,6 +983,7 @@ EOF
   unset DB_PASS
 
   final_fix_permissions
+  provision_cron
 
   log "INSTALL COMPLETE"
   echo
