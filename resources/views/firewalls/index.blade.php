@@ -573,11 +573,11 @@
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead class="bg-gray-50 dark:bg-gray-700">
                                     <tr>
+                                        @if(!auth()->user()->isReadOnly())
                                         <th class="px-6 py-3 text-left">
-                                            @if(!auth()->user()->isReadOnly())
                                             <input type="checkbox" id="selectAll" onclick="toggleSelectAll()">
-                                            @endif
                                         </th>
+                                        @endif
                                         <th scope="col"
                                             class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none group"
                                             @click="sortBy = 'name'; sortAsc = !sortAsc">
@@ -673,21 +673,23 @@
                                             </div>
                                         </th>
 
+                                        @if(!auth()->user()->isReadOnly())
                                         <th scope="col"
                                             class="px-6 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Actions
                                         </th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                     <template x-for="firewall in filteredRows" :key="firewall.id">
                                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                                            @if(!auth()->user()->isReadOnly())
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                @if(!auth()->user()->isReadOnly())
                                                 <input type="checkbox" name="firewall_ids[]" :value="firewall.id"
                                                     form="bulkForm" class="firewall-checkbox">
-                                                @endif
                                             </td>
+                                            @endif
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <a :href="firewall.dashboard_url"
                                                     class="font-medium text-indigo-600 hover:text-indigo-900 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
@@ -826,8 +828,8 @@
                                                 </div>
                                             </td>
 
+                                            @if(!auth()->user()->isReadOnly())
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                @if(!auth()->user()->isReadOnly())
                                                 <div class="flex items-center justify-end space-x-3">
                                                     <a :href="firewall.edit_url"
                                                         class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
@@ -839,12 +841,12 @@
                                                         Delete
                                                     </button>
                                                 </div>
-                                                @endif
                                             </td>
+                                            @endif
                                         </tr>
                                     </template>
                                     <tr x-show="filteredRows.length === 0">
-                                        <td colspan="{{ auth()->user()->isGlobalAdmin() ? '9' : '8' }}"
+                                        <td colspan="{{ (auth()->user()->isGlobalAdmin() ? 9 : 8) - (auth()->user()->isReadOnly() ? 2 : 0) }}"
                                             class="px-6 py-4 text-center text-gray-500">
                                             No firewalls found. <a href="{{ route('firewalls.create') }}"
                                                 class="text-blue-600 hover:underline">Add one now</a>.

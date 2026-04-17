@@ -257,11 +257,13 @@
                             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                 @forelse($rules as $index => $rule)
                                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition {{ !empty($rule['disabled']) ? 'opacity-50' : '' }}">
+                                        @if(!auth()->user()->isReadOnly())
                                         {{-- Checkbox --}}
                                         <td class="px-2 py-2 whitespace-nowrap">
                                             <input type="checkbox" value="{{ $index }}" x-model="selected"
                                                 class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
                                         </td>
+                                        @endif
                                         {{-- Toggle Status --}}
                                         <td class="px-3 py-2 whitespace-nowrap text-center">
                                             @if(!auth()->user()->isReadOnly())
@@ -385,7 +387,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="12" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                        <td colspan="{{ auth()->user()->isReadOnly() ? '10' : '12' }}" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
                                             No port forward rules found.
                                         </td>
                                     </tr>

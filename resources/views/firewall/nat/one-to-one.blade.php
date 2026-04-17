@@ -100,7 +100,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6"
+                                            <td colspan="{{ auth()->user()->isReadOnly() ? '6' : '7' }}"
                                                 class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-center">
                                                 No 1:1
                                                 NAT rules found.</td>

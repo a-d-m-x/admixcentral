@@ -502,7 +502,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="12"
+                                            <td colspan="{{ auth()->user()->isReadOnly() ? '9' : '12' }}"
                                                 class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-center">
                                                 No rules found for this interface.
                                             </td>
