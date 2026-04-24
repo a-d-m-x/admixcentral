@@ -417,7 +417,8 @@
                                     {{-- Header Row: Name & Actions --}}
                                     <div class="flex flex-row justify-between items-center mb-4 gap-2">
                                         <div class="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
-                                            <h4 class="font-semibold text-2xl whitespace-nowrap truncate">{{ $firewall->name }}
+                                            <h4 class="font-semibold text-2xl whitespace-nowrap truncate">
+                                                <a href="{{ route('firewall.dashboard', $firewall) }}" class="hover:underline decoration-indigo-500 underline-offset-2 transition-colors hover:text-indigo-600 dark:hover:text-indigo-400">{{ $firewall->name }}</a>
                                             </h4>
 
                                             <template x-if="loading">
@@ -434,8 +435,8 @@
                                             </template>
 
                                             @if(auth()->user()->role === 'admin')
-                                                <span
-                                                    class="text-xs text-gray-500 border-l pl-3 dark:border-gray-600 whitespace-nowrap hidden sm:inline">{{ $firewall->company->name }}</span>
+                                                <a href="{{ route('companies.show', $firewall->company) }}"
+                                                    class="text-xs text-gray-500 border-l pl-3 dark:border-gray-600 whitespace-nowrap hidden sm:inline hover:underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors">{{ $firewall->company->name }}</a>
                                             @endif
                                         </div>
 
