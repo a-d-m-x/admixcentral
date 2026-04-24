@@ -17,7 +17,7 @@
     </div>
 
     <div class="card-body-modern !pt-2">
-        <form method="post" action="{{ route('password.update') }}" class="space-y-6">
+        <form method="post" action="/user/password" class="space-y-6">
             @csrf
             @method('put')
 
