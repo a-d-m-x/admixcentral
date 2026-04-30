@@ -49,10 +49,8 @@ class SystemRetune extends Command
 
         $recWorkers  = max(8, min(16, $cpuCores * 2));
         $recChildren = max(10, min(40, (int) ($ramMb / 50)));
-        $recReverb   = 3;
 
         $workerConf = $this->findSupervisorConf('admix-worker');
-        $reverbConf = $this->findSupervisorConf('admix-reverb');
         $fpmConf    = $this->findFpmPoolConf();
 
         $this->result = [
@@ -63,12 +61,6 @@ class SystemRetune extends Command
                 'recommended' => $recWorkers,
                 'applied'     => false,
                 'conf'        => $workerConf,
-            ],
-            'reverb' => [
-                'current'     => $reverbConf ? $this->readNumprocs($reverbConf) : 0,
-                'recommended' => $recReverb,
-                'applied'     => false,
-                'conf'        => $reverbConf,
             ],
             'fpm_children' => [
                 'current'     => $fpmConf ? $this->readFpmChildren($fpmConf) : 0,
@@ -82,7 +74,6 @@ class SystemRetune extends Command
 
         if (!$dryRun) {
             $this->tuneWorkers($workerConf, $recWorkers);
-            $this->tuneReverb($reverbConf, $recReverb);
             $this->tuneFpm($fpmConf, $recChildren);
             $this->reloadServices($fpmConf);
         }

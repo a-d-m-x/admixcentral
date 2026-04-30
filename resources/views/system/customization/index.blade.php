@@ -538,9 +538,8 @@
                                         this.status = d;
                                         this.needsTuning = d.needs_tuning;
                                         this.tuningRows = [
-                                            { key: 'workers',  label: 'Queue Workers',       current: d.current.workers,      recommended: d.recommended.workers },
-                                            { key: 'reverb',   label: 'Reverb Processes',    current: d.current.reverb,       recommended: d.recommended.reverb },
-                                            { key: 'fpm',      label: 'PHP-FPM Children',    current: d.current.fpm_children, recommended: d.recommended.fpm_children },
+                                            { key: 'workers', label: 'Queue Workers',    current: d.current.workers,      recommended: d.recommended.workers },
+                                            { key: 'fpm',     label: 'PHP-FPM Children', current: d.current.fpm_children, recommended: d.recommended.fpm_children },
                                         ];
                                     } catch(e) {
                                         console.error('Tuning status fetch failed', e);
@@ -562,7 +561,6 @@
                                             this.previewData = d.result;
                                             this.previewRows = [
                                                 { label: 'Queue Workers',    current: d.result.workers.current,      recommended: d.result.workers.recommended },
-                                                { label: 'Reverb Processes', current: d.result.reverb.current,       recommended: d.result.reverb.recommended },
                                                 { label: 'PHP-FPM Children', current: d.result.fpm_children.current, recommended: d.result.fpm_children.recommended },
                                             ];
                                             this.showPreview = true;
@@ -1385,9 +1383,7 @@
                                         $nextTick(() => $refs.intervalInput.focus()); 
                                     } 
                                 }">
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">System
-                                        Status
-                                        Check Interval</label>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">System Health Check Interval</label>
                                     <div class="mt-1 relative rounded-md shadow-sm w-full">
                                         <input type="number" name="status_check_interval" x-ref="intervalInput" min="5"
                                             max="300" value="{{ $settings['status_check_interval'] ?? 5 }}"
@@ -1708,7 +1704,7 @@
             // const protocolElement = form.querySelector('[name="site_protocol"]');
 
             const hostname = hostnameInput.value.trim();
-            const protocol = 'http'; // Force HTTP for verification
+            const protocol = '{{ $settings["site_protocol"] ?? "http" }}';
 
             if (!hostname) {
                 form.submit();
@@ -1775,7 +1771,7 @@
             // const protocolElement = document.querySelector('[name="site_protocol"]');
 
             const hostname = hostnameInput.value.trim();
-            const protocol = 'http'; // Force HTTP for verification
+            const protocol = '{{ $settings["site_protocol"] ?? "http" }}';
 
             if (!hostname) return;
 

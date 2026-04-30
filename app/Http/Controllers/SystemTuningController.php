@@ -37,12 +37,10 @@ class SystemTuningController extends Controller
         }
 
         $currentWorkers  = $this->readNumprocs('admix-worker');
-        $currentReverb   = $this->readNumprocs('admix-reverb');
         $currentChildren = $this->readFpmChildren();
 
         $recWorkers  = max(8, min(16, $cpuCores * 2));
         $recChildren = max(10, min(40, (int) ($ramMb / 50)));
-        $recReverb   = 3;
 
         return response()->json([
             'hardware' => [
@@ -51,17 +49,14 @@ class SystemTuningController extends Controller
             ],
             'current' => [
                 'workers'      => $currentWorkers,
-                'reverb'       => $currentReverb,
                 'fpm_children' => $currentChildren,
             ],
             'recommended' => [
                 'workers'      => $recWorkers,
-                'reverb'       => $recReverb,
                 'fpm_children' => $recChildren,
             ],
             'needs_tuning' => (
                 $currentWorkers  !== $recWorkers  ||
-                $currentReverb   !== $recReverb   ||
                 $currentChildren !== $recChildren
             ),
         ]);
