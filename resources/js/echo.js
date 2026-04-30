@@ -46,25 +46,34 @@ if (reverbKey) {
         }
     };
 
+    // Stable flat boolean for coordinator/card state detection.
+    // Avoids deep property chains like Echo?.connector?.pusher?.connection?.state.
+    window.wsConnected = false;
+
     window.Echo.connector.pusher.connection.bind('connected', () => {
+        window.wsConnected = true;
         updateStatus('connected', 'bg-green-500', 'Connected');
     });
 
     window.Echo.connector.pusher.connection.bind('unavailable', () => {
+        window.wsConnected = false;
         updateStatus('disconnected', 'bg-red-500', 'Disconnected');
     });
 
     window.Echo.connector.pusher.connection.bind('failed', () => {
+        window.wsConnected = false;
         updateStatus('disconnected', 'bg-red-600', 'Connection Failed');
     });
 
     window.Echo.connector.pusher.connection.bind('disconnected', () => {
+        window.wsConnected = false;
         updateStatus('disconnected', 'bg-gray-400', 'Disconnected');
     });
 
     window.Echo.connector.pusher.connection.bind('connecting', () => {
         updateStatus('connecting', 'bg-yellow-400', 'Connecting...');
     });
+
 } else {
     console.warn('Reverb App Key not found. Real-time updates disabled.');
     // Mock Echo to prevent crashes in other components

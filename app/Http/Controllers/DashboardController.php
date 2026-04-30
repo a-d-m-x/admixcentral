@@ -23,8 +23,8 @@ class DashboardController extends Controller
      */
     public function index(Request $request)
     {
-        \Illuminate\Support\Facades\Log::info("!!! ARRAY STRATEGY ACTIVE - TIMESTAMP: " . now() . " !!!");
         $user = $request->user();
+
 
         // Get firewalls based on user role
         // Fetch firewalls based on User Role.
@@ -66,16 +66,14 @@ class DashboardController extends Controller
         // Assuming user wants to see "Companies Managed":
         $totalCompanies = $firewalls->pluck('company_id')->unique()->count();
 
-        // Offline Devices (No Active WebSocket Connection)
-        // Since we already have the collection, we can iterate or fetch count separately for performance if collection is huge.
-        // For Dashboard, separate query is often cleaner/faster than hydrating relationships just for a count.
-        if ($user->isGlobalAdmin()) {
-            $offlineFirewalls = Firewall::whereDoesntHave('activeConnection')->count();
-        } else {
-            $offlineFirewalls = Firewall::where('company_id', $user->company_id)
-                ->whereDoesntHave('activeConnection')
-                ->count();
-        }
+        // Offline Devices — derived from pfSense API reachability cache, not WebSocket device connections.
+        // This matches the same data source the firewall cards display, so the widget stays consistent.
+        $offlineFirewalls = $firewalls->filter(function ($fw) {
+            $status = $fw->cached_status;
+            // Only count as offline if we have a cache entry that explicitly says offline.
+            // Firewalls with no cache entry (null) are "pending", not offline.
+            return $status !== null && ($status['online'] ?? true) === false;
+        })->count();
 
         // Calculate Gateway Metrics from Cached Status
         $totalGateways = 0;

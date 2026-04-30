@@ -142,6 +142,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/firewalls/refresh-all', [App\Http\Controllers\FirewallController::class, 'refreshAll'])->name('firewalls.refresh-all');
     Route::post('/firewalls/status', [App\Http\Controllers\FirewallController::class, 'getCachedStatus'])->name('firewalls.status');
 
+    // Dashboard status-poll: dispatches dedup'd jobs + returns cached status with freshness metadata.
+    // Throttled to 4 req/user/min (~1 per 15s). Per-firewall dispatch debounce is enforced in the controller.
+    Route::post('/firewalls/status-poll', [App\Http\Controllers\FirewallController::class, 'statusPoll'])
+        ->middleware('throttle:4,1')
+        ->name('firewalls.status-poll');
+
     // Firewalls CRUD - Place BEFORE the specific firewall routes
     // Exclude 'show' because we use a custom dashboard instead
     Route::resource('firewalls', App\Http\Controllers\FirewallController::class)

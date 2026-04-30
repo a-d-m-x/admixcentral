@@ -152,9 +152,93 @@ class FirewallController extends Controller
         ]);
     }
 
+    /**
+     * Dashboard status-poll endpoint.
+     *
+     * Returns cached status + freshness metadata for all requested firewalls,
+     * and dispatches CheckFirewallStatusJob per firewall (deduplicated at three levels):
+     *   1. Route throttle:4,1  — 4 requests/user/minute max
+     *   2. dispatch_debounce cache key (45s) — prevents re-dispatching per firewall within one cycle
+     *   3. ShouldBeUnique + Cache::lock in the job itself
+     *
+     * No synchronous pfSense API calls are ever made in this method.
+     */
+    public function statusPoll(Request $request)
+    {
+        // Release session lock immediately — don't block concurrent requests
+        session_write_close();
+
+        $ids = $request->input('ids', []);
+
+        if (!empty($ids)) {
+            $firewalls = Firewall::whereIn('id', $ids)->get();
+        } else {
+            $user = $request->user();
+            $firewalls = $user->isGlobalAdmin()
+                ? Firewall::all()
+                : Firewall::where('company_id', $user->company_id)->get();
+        }
+
+        // Dispatch debounce window (seconds).
+        // ShouldBeUnique covers most duplicates, but this prevents even the
+        // cheap dispatch() call from being made on every poll from every tab.
+        $dispatchDebounceSeconds = 45;
+
+        // Cache age threshold for 'fresh' vs 'stale' classification.
+        // One job cycle is ~10-30s, so 90s gives two missed cycles before stale.
+        $staleThresholdSeconds = 90;
+
+        $results = [];
+
+        foreach ($firewalls as $firewall) {
+            $cacheKey    = 'firewall_status_' . $firewall->id;
+            $debounceKey = 'firewall_dispatch_debounce_' . $firewall->id;
+
+            // Only dispatch if no debounce lock is held for this firewall.
+            // All three dedup layers prevent actual duplicate API calls,
+            // but this stops even the Redis enqueue attempt from repeating.
+            if (!\Illuminate\Support\Facades\Cache::has($debounceKey)) {
+                \App\Jobs\CheckFirewallStatusJob::dispatch($firewall);
+                \Illuminate\Support\Facades\Cache::put($debounceKey, 1, now()->addSeconds($dispatchDebounceSeconds));
+            }
+
+            $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+
+            if (!$cached) {
+                $results[$firewall->id] = [
+                    'freshness'  => 'pending',
+                    'online'     => null,
+                    'updated_at' => null,
+                    'data'       => null,
+                    'api_version'=> null,
+                    'error'      => null,
+                ];
+                continue;
+            }
+
+            $updatedAt  = $cached['updated_at'] ?? null;
+            $ageSeconds = $updatedAt
+                ? now()->diffInSeconds(\Carbon\Carbon::parse($updatedAt))
+                : PHP_INT_MAX;
+
+            $results[$firewall->id] = [
+                'online'      => (bool) ($cached['online'] ?? false),
+                'updated_at'  => $updatedAt,
+                'freshness'   => $ageSeconds < $staleThresholdSeconds ? 'fresh' : 'stale',
+                'data'        => $cached['data'] ?? null,
+                'api_version' => $cached['api_version'] ?? null,
+                'error'       => $cached['error'] ?? null,
+            ];
+        }
+
+        return response()->json(['results' => $results]);
+    }
+
+
     public function create()
     {
         $user = auth()->user();
+
         if ($user->isGlobalAdmin()) {
             $companies = Company::orderBy('name')->get();
         } else {
@@ -162,6 +246,7 @@ class FirewallController extends Controller
         }
         return view('firewalls.create', compact('companies'));
     }
+
 
     /**
      * Store a newly created firewall in storage.
