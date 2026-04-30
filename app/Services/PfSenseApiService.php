@@ -1849,19 +1849,24 @@ class PfSenseApiService
             }
         }
 
-        // Handle string-based percentages (e.g., "5.2%")
+        // Handle string-based percentages (e.g., "5.2%") and round to 1 decimal place
         foreach (['cpu_usage', 'mem_usage', 'swap_usage', 'disk_usage'] as $key) {
-            if (isset($dynamicStatus[$key]) && is_string($dynamicStatus[$key])) {
-                $dynamicStatus[$key] = floatval(preg_replace('/[^0-9.]/', '', $dynamicStatus[$key]));
+            if (isset($dynamicStatus[$key])) {
+                $dynamicStatus[$key] = round(floatval(
+                    is_string($dynamicStatus[$key])
+                        ? preg_replace('/[^0-9.]/', '', $dynamicStatus[$key])
+                        : $dynamicStatus[$key]
+                ), 2);
             }
         }
+
 
         // Handle swap objects if present (common in some API forks)
         if (!isset($dynamicStatus['swap_usage']) || $dynamicStatus['swap_usage'] == 0) {
             if (isset($dynamicStatus['swap']) && is_array($dynamicStatus['swap'])) {
                 $swap = $dynamicStatus['swap'];
                 if (isset($swap['used']) && isset($swap['total']) && $swap['total'] > 0) {
-                    $dynamicStatus['swap_usage'] = round(($swap['used'] / $swap['total']) * 100, 1);
+                    $dynamicStatus['swap_usage'] = round(($swap['used'] / $swap['total']) * 100, 2);
                 }
             }
         }

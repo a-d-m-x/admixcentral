@@ -695,7 +695,7 @@
                                                                         Usage</span>
                                                                     <span
                                                                         class="text-xs font-medium text-gray-700 dark:text-gray-300"
-                                                                        x-text="(status?.data?.cpu_usage || 0) + '%'"></span>
+                                                                        x-text="parseFloat(parseFloat(status?.data?.cpu_usage || 0).toFixed(2)) + '%'"></span>
                                                                 </div>
                                                                 <div
                                                                     class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
@@ -713,7 +713,7 @@
                                                                         Usage</span>
                                                                     <span
                                                                         class="text-xs font-medium text-gray-700 dark:text-gray-300"
-                                                                        x-text="(status?.data?.mem_usage || 0) + '%'"></span>
+                                                                        x-text="parseFloat(parseFloat(status?.data?.mem_usage || 0).toFixed(2)) + '%'"></span>
                                                                 </div>
                                                                 <div
                                                                     class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
@@ -731,7 +731,7 @@
                                                                         Usage</span>
                                                                     <span
                                                                         class="text-xs font-medium text-gray-700 dark:text-gray-300"
-                                                                        x-text="(status?.data?.swap_usage != null) ? (status.data.swap_usage + '%') : 'N/A'"></span>
+                                                                        x-text="(status?.data?.swap_usage != null) ? (parseFloat(parseFloat(status.data.swap_usage).toFixed(2)) + '%') : 'N/A'"></span>
                                                                 </div>
                                                                 <div
                                                                     class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
@@ -749,7 +749,7 @@
                                                                         Usage (/)</span>
                                                                     <span
                                                                         class="text-xs font-medium text-gray-700 dark:text-gray-300"
-                                                                        x-text="(status?.data?.disk_usage || 0) + '%'"></span>
+                                                                        x-text="parseFloat(parseFloat(status?.data?.disk_usage || 0).toFixed(2)) + '%'"></span>
                                                                 </div>
                                                                 <div
                                                                     class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">

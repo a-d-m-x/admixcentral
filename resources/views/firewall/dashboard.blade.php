@@ -248,7 +248,7 @@
                                     <div class="flex justify-between mb-1 text-sm">
                                         <span class="font-medium text-gray-700 dark:text-gray-300">CPU Usage</span>
                                         <span class="text-gray-700 dark:text-gray-300"
-                                            x-text="(systemStatus?.data?.cpu_usage || 0) + '%'"></span>
+                                            x-text="parseFloat(parseFloat(systemStatus?.data?.cpu_usage || 0).toFixed(2)) + '%'"></span>
                                     </div>
                                     <div class="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
                                         <div class="bg-blue-600 h-2 rounded-full transition-all duration-500"
@@ -261,7 +261,7 @@
                                     <div class="flex justify-between mb-1 text-sm">
                                         <span class="font-medium text-gray-700 dark:text-gray-300">Memory Usage</span>
                                         <span class="text-gray-700 dark:text-gray-300"
-                                            x-text="(systemStatus?.data?.mem_usage || 0) + '%'"></span>
+                                            x-text="parseFloat(parseFloat(systemStatus?.data?.mem_usage || 0).toFixed(2)) + '%'"></span>
                                     </div>
                                     <div class="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
                                         <div class="bg-purple-600 h-2 rounded-full transition-all duration-500"
@@ -274,7 +274,7 @@
                                     <div class="flex justify-between mb-1 text-sm">
                                         <span class="font-medium text-gray-700 dark:text-gray-300">Swap Usage</span>
                                         <span class="text-gray-700 dark:text-gray-300"
-                                            x-text="(systemStatus?.data?.swap_usage != null) ? (systemStatus.data.swap_usage + '%') : 'N/A'"></span>
+                                            x-text="(systemStatus?.data?.swap_usage != null) ? (parseFloat(parseFloat(systemStatus.data.swap_usage).toFixed(2)) + '%') : 'N/A'"></span>
                                     </div>
                                     <div class="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
                                         <div class="bg-red-500 h-2 rounded-full transition-all duration-500"
@@ -287,7 +287,7 @@
                                     <div class="flex justify-between mb-1 text-sm">
                                         <span class="font-medium text-gray-700 dark:text-gray-300">Disk Usage (/)</span>
                                         <span class="text-gray-700 dark:text-gray-300"
-                                            x-text="(systemStatus?.data?.disk_usage || 0) + '%'"></span>
+                                            x-text="parseFloat(parseFloat(systemStatus?.data?.disk_usage || 0).toFixed(2)) + '%'"></span>
                                     </div>
                                     <div class="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
                                         <div class="bg-yellow-500 h-2 rounded-full transition-all duration-500"

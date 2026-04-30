@@ -598,33 +598,6 @@
                                             <input type="checkbox" id="selectAll" onclick="toggleSelectAll()">
                                         </th>
                                         @endif
-                                        <th scope="col"
-                                            class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none group"
-                                            @click="sortBy = 'name'; sortAsc = !sortAsc">
-                                            <div class="flex items-center gap-1">
-                                                Name
-                                                <svg class="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-colors"
-                                                    :class="{ 'text-indigo-600 dark:text-indigo-400': sortBy === 'name', 'rotate-180': sortBy === 'name' && !sortAsc }"
-                                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                                </svg>
-                                            </div>
-                                        </th>
-                                        <th scope="col"
-                                            class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none group"
-                                            @click="sortBy = 'isOnline'; sortAsc = !sortAsc">
-                                            <div class="flex items-center gap-1">
-                                                Status
-                                                <svg class="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-colors"
-                                                    :class="{ 'text-indigo-600 dark:text-indigo-400': sortBy === 'isOnline', 'rotate-180': sortBy === 'isOnline' && !sortAsc }"
-                                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                                </svg>
-                                            </div>
-                                        </th>
-
                                         @if(auth()->user()->isGlobalAdmin())
                                             <th scope="col"
                                                 class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none group"
@@ -640,6 +613,19 @@
                                                 </div>
                                             </th>
                                         @endif
+                                        <th scope="col"
+                                            class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none group"
+                                            @click="sortBy = 'name'; sortAsc = !sortAsc">
+                                            <div class="flex items-center gap-1">
+                                                Name
+                                                <svg class="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-colors"
+                                                    :class="{ 'text-indigo-600 dark:text-indigo-400': sortBy === 'name', 'rotate-180': sortBy === 'name' && !sortAsc }"
+                                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                </svg>
+                                            </div>
+                                        </th>
                                         <th scope="col"
                                             class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none group"
                                             @click="sortBy = 'displayUrl'; sortAsc = !sortAsc">
@@ -710,6 +696,15 @@
                                                     form="bulkForm" class="firewall-checkbox">
                                             </td>
                                             @endif
+                                            @if(auth()->user()->isGlobalAdmin())
+                                                <td
+                                                    class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                                    <a :href="firewall.company_url"
+                                                        class="text-indigo-600 hover:text-indigo-900 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
+                                                        x-text="firewall.company_name">
+                                                    </a>
+                                                </td>
+                                            @endif
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <a :href="firewall.dashboard_url"
                                                     class="font-medium text-indigo-600 hover:text-indigo-900 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
@@ -731,27 +726,14 @@
                                                             }" fill="currentColor" viewBox="0 0 8 8">
                                                             <circle cx="4" cy="4" r="3" />
                                                         </svg>
-                                                        <span
-                                                            x-text="firewall.isOnline === true ? 'Online' : 'Offline'"></span>
+                                                        <span x-text="firewall.isOnline === true ? 'Online' : 'Offline'"></span>
                                                     </span>
                                                 </template>
-
                                                 <!-- Skeleton Loading State (Null) -->
                                                 <template x-if="firewall.isOnline === null">
-                                                    <span
-                                                        class="inline-block w-16 h-5 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></span>
+                                                    <span class="inline-block w-16 h-5 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></span>
                                                 </template>
                                             </td>
-
-                                            @if(auth()->user()->isGlobalAdmin())
-                                                <td
-                                                    class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                                    <a :href="firewall.company_url"
-                                                        class="text-indigo-600 hover:text-indigo-900 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
-                                                        x-text="firewall.company_name">
-                                                    </a>
-                                                </td>
-                                            @endif
                                             <td
                                                 class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                 <a :href="firewall.linkUrl" target="_blank" rel="noopener noreferrer"

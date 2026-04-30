@@ -3,6 +3,9 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Auth\Events\Login;
+use App\Listeners\RecordLastLogin;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -57,5 +60,7 @@ class AppServiceProvider extends ServiceProvider
         \Illuminate\Support\Facades\Gate::define('global-admin', function ($user) {
             return $user->isGlobalAdmin();
         });
+
+        Event::listen(Login::class, RecordLastLogin::class);
     }
 }

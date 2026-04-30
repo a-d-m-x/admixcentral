@@ -118,7 +118,8 @@
     'company_name' => $u->company ? $u->company->name : 'MSP / Global',
     'company_url' => $u->company ? route('companies.show', $u->company) : null,
     'edit_url' => route('users.edit', $u),
-    'delete_url' => route('users.destroy', $u)
+    'delete_url' => route('users.destroy', $u),
+    'last_active' => $u->last_login_at?->toIso8601String(),
 ])) }};
                 },
 
@@ -141,10 +142,17 @@
                     return result.sort((a, b) => {
                         let valA = a[this.sortBy];
                         let valB = b[this.sortBy];
-                        
+
+                        // Nulls last for last_active
+                        if (this.sortBy === 'last_active') {
+                            if (valA === null && valB === null) return 0;
+                            if (valA === null) return 1;
+                            if (valB === null) return -1;
+                        }
+
                         if (typeof valA === 'string') valA = valA.toLowerCase();
                         if (typeof valB === 'string') valB = valB.toLowerCase();
-                        
+
                         if (valA < valB) return this.sortAsc ? -1 : 1;
                         if (valA > valB) return this.sortAsc ? 1 : -1;
                         return 0;
@@ -384,6 +392,19 @@
                                                     </svg>
                                                 </div>
                                             </th>
+                                            <th scope="col"
+                                                class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none group"
+                                                @click="sortBy = 'last_active'; sortAsc = !sortAsc">
+                                                <div class="flex items-center gap-1">
+                                                    Last Active
+                                                    <svg class="w-4 h-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-colors"
+                                                        :class="{ 'text-indigo-600 dark:text-indigo-400': sortBy === 'last_active', 'rotate-180': sortBy === 'last_active' && !sortAsc }"
+                                                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                    </svg>
+                                                </div>
+                                            </th>
                                             @if(!auth()->user()->isUser() && !auth()->user()->isReadOnly())
                                             <th scope="col"
                                                 class="px-6 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -436,6 +457,17 @@
                                                         <span class="text-gray-500 italic dark:text-gray-600"
                                                             x-text="user.company_name"></span>
                                                     </template>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400"
+                                                    :title="user.last_active ? new Date(user.last_active).toLocaleString() : 'Never logged in'">
+                                                    <span x-text="user.last_active ? (() => {
+                                                        const diff = Math.floor((Date.now() - new Date(user.last_active)) / 1000);
+                                                        if (diff < 60) return 'Just now';
+                                                        if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+                                                        if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+                                                        if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+                                                        return new Date(user.last_active).toLocaleDateString();
+                                                    })() : 'Never'"></span>
                                                 </td>
                                                 @if(!auth()->user()->isUser() && !auth()->user()->isReadOnly())
                                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

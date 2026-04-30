@@ -38,7 +38,7 @@
                                         <span class="text-sm font-medium text-gray-700 dark:text-gray-300">CPU
                                             Usage</span>
                                         <span
-                                            class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $system['cpu_usage'] ?? 0 }}%</span>
+                                            class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ round($system['cpu_usage'] ?? 0, 2) }}%</span>
                                     </div>
                                     <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600">
                                         <div class="bg-blue-600 h-2.5 rounded-full"
@@ -50,7 +50,7 @@
                                         <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Memory
                                             Usage</span>
                                         <span
-                                            class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $system['mem_usage'] ?? 0 }}%</span>
+                                            class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ round($system['mem_usage'] ?? 0, 2) }}%</span>
                                     </div>
                                     <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600">
                                         <div class="bg-blue-600 h-2.5 rounded-full"
@@ -62,7 +62,7 @@
                                         <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Disk
                                             Usage</span>
                                         <span
-                                            class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $system['disk_usage'] ?? 0 }}%</span>
+                                            class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ round($system['disk_usage'] ?? 0, 2) }}%</span>
                                     </div>
                                     <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600">
                                         <div class="bg-blue-600 h-2.5 rounded-full"

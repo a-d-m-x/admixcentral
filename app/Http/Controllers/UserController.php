@@ -26,10 +26,10 @@ class UserController extends Controller
 
 
         $stats = [
-            'total' => $users->count(),
-            'users' => $users->where('role', 'user')->count(),
-            'admins' => $users->filter(fn($u) => $u->isCompanyAdmin())->count(),
-            'global_admins' => $users->filter(fn($u) => $u->isGlobalAdmin())->count(),
+            'total'        => $users->count(),
+            'users'        => $users->where('role', 'user')->count(),
+            'admins'       => $users->filter(fn($u) => $u->isCompanyAdmin())->count(),
+            'global_admins'=> $users->filter(fn($u) => $u->isGlobalAdmin())->count(),
         ];
 
         return view('users.index', compact('users', 'stats'));
