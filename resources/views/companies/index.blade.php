@@ -464,9 +464,7 @@
                                                 </svg>
                                             </div>
                                         </th>
-                                        <th scope="col"
-                                            class="px-6 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                            Actions</th>
+                                        <th scope="col" class="px-6 py-3 w-12"></th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -547,21 +545,29 @@
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 @if(!auth()->user()->isReadOnly())
-                                                <div class="flex justify-end gap-3">
-                                                    <a :href="company.editUrl"
-                                                        class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900">Edit</a>
-
-                                                    <!-- Delete Form (Using x-ref or generic function would be cleaner, but straightforward inline here) -->
-                                                    <button type="button"
-                                                        class="text-red-600 dark:text-red-400 hover:text-red-900"
-                                                        @click="if(confirm('Are you sure? This will delete all associated users and firewalls.')) { $el.nextElementSibling.submit() }">
-                                                        Delete
+                                                <div class="relative flex justify-end" x-data="{ open: false, dropTop: 0, dropRight: 0 }" @click.away="open = false" @scroll.window.capture="open = false">
+                                                    <button @click="const r = $event.currentTarget.getBoundingClientRect(); dropTop = r.bottom + 4; dropRight = window.innerWidth - r.right; open = !open"
+                                                        class="p-1.5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none"
+                                                        aria-label="Row actions">
+                                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z"/>
+                                                        </svg>
                                                     </button>
-                                                    <form :action="company.deleteUrl" method="POST"
-                                                        style="display: none;">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                    </form>
+                                                    <div x-show="open" x-transition
+                                                        :style="'top:' + dropTop + 'px;right:' + dropRight + 'px;'"
+                                                        class="fixed w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-[9999] py-1">
+                                                        <a :href="company.editUrl"
+                                                            class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                                            Edit
+                                                        </a>
+                                                        <button type="button"
+                                                            @click="open = false; Swal.fire({ title: 'Delete Company?', text: 'This will permanently delete all associated users and firewalls.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc2626', cancelButtonColor: '#6b7280', confirmButtonText: 'Yes, delete it!' }).then(r => { if (r.isConfirmed) { let f = document.createElement('form'); f.method = 'POST'; f.action = company.deleteUrl; f.innerHTML = '<input type=hidden name=_token value={{ csrf_token() }}><input type=hidden name=_method value=DELETE>'; document.body.appendChild(f); f.submit(); } })"
+                                                            class="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                            Delete
+                                                        </button>
+                                                    </div>
                                                 </div>
                                                 @endif
                                             </td>
