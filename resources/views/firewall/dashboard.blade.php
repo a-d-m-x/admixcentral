@@ -457,7 +457,7 @@
                                 <div class="flex items-center gap-2 mb-1.5">
                                     <span class="flex w-2.5 h-2.5 bg-green-500 rounded-full"></span>
                                     <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Backup Successful</span>
-                                    <span class="text-xs text-gray-400 ml-1">{{ $backup->pulled_at->diffForHumans() }}</span>
+                                    <span class="text-xs text-gray-400 ml-1">{{ $backup->pulled_at->format('M j, Y g:i A') }}</span>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                                     <span class="flex items-center gap-1 bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded border border-gray-200 dark:border-gray-700"><svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> {{ number_format($backup->size_bytes / 1024, 2) }} KB</span>
@@ -467,7 +467,7 @@
                                 <div class="flex items-center gap-2 mb-1.5">
                                     <span class="flex w-2.5 h-2.5 bg-red-500 rounded-full"></span>
                                     <span class="text-sm font-semibold text-red-600 dark:text-red-400">Backup Failed</span>
-                                    <span class="text-xs text-red-400 ml-1">{{ $backup->last_attempted_at?->diffForHumans() }}</span>
+                                    <span class="text-xs text-red-400 ml-1">{{ $backup->last_attempted_at?->format('M j, Y g:i A') }}</span>
                                 </div>
                                 @if($backup->error_message)
                                     <p class="text-xs text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 px-2 py-1.5 rounded border border-red-100 dark:border-red-800/50 truncate w-full max-w-sm" title="{{ $backup->error_message }}">{{ $backup->error_message }}</p>
