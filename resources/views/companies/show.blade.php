@@ -147,6 +147,7 @@
                                 <thead class="bg-gray-50 dark:bg-gray-700/80">
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
+                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">URL</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider"></th>
                                     </tr>
@@ -154,12 +155,39 @@
                                 <tbody class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
                                     @foreach($company->firewalls as $firewall)
                                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition duration-150">
+                                            {{-- Name --}}
                                             <td class="px-4 py-3">
                                                 <a href="{{ route('firewall.dashboard', $firewall) }}" class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium hover:underline">
                                                     {{ $firewall->name }}
                                                 </a>
                                             </td>
-                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{{ $firewall->url }}</td>
+                                            {{-- Status Badge --}}
+                                            <td class="px-4 py-3">
+                                                @if($firewall->is_online === true)
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                                                        <svg class="-ml-0.5 mr-1.5 h-2 w-2 text-green-400" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3"/></svg>
+                                                        Online
+                                                    </span>
+                                                @elseif($firewall->is_online === false)
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                                                        <svg class="-ml-0.5 mr-1.5 h-2 w-2 text-red-400" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3"/></svg>
+                                                        Offline
+                                                    </span>
+                                                @else
+                                                    <span class="inline-block w-16 h-5 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></span>
+                                                @endif
+                                            </td>
+                                            {{-- URL as external link --}}
+                                            <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                                @if($firewall->url)
+                                                    <a href="{{ $firewall->url }}" target="_blank" rel="noopener noreferrer"
+                                                        class="text-indigo-600 hover:text-indigo-900 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300">
+                                                        {{ $firewall->url }}
+                                                    </a>
+                                                @else
+                                                    <span class="text-gray-400">—</span>
+                                                @endif
+                                            </td>
                                             <td class="px-4 py-3 text-right text-sm">
                                                 <a href="{{ route('firewalls.edit', $firewall) }}" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 font-medium">Edit</a>
                                             </td>

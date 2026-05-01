@@ -627,6 +627,10 @@
                                             </div>
                                         </th>
                                         <th scope="col"
+                                            class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                            Status
+                                        </th>
+                                        <th scope="col"
                                             class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none group"
                                             @click="sortBy = 'displayUrl'; sortAsc = !sortAsc">
                                             <div class="flex items-center gap-1">

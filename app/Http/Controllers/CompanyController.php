@@ -79,7 +79,18 @@ class CompanyController extends Controller
 
         $company->load(['users', 'firewalls' => fn($q) => $q->orderBy('name')]);
 
+        // Enrich firewalls with cached status (same logic as FirewallController@index)
+        $cacheSetting = \App\Models\SystemSetting::where('key', 'enable_status_cache')->value('value');
+        $useCache = $cacheSetting !== null ? filter_var($cacheSetting, FILTER_VALIDATE_BOOLEAN) : true;
+
+        $company->firewalls->each(function ($firewall) use ($useCache) {
+            $cached = $useCache ? \Illuminate\Support\Facades\Cache::get('firewall_status_' . $firewall->id) : null;
+            $firewall->cached_status = $cached;
+            $firewall->is_online = $cached ? (bool) ($cached['online'] ?? false) : null;
+        });
+
         return view('companies.show', compact('company'));
+
     }
 
     public function edit(\App\Models\Company $company)
