@@ -388,9 +388,11 @@
                             f.isOnline           = e.detail.online;
                             f.sysUpdateAvailable = e.detail.sys;
                             f.apiUpdateAvailable = e.detail.api;
-                            // e.detail.data is the flat e.status object — no .data nesting.
+                            // e.detail.data is a ServiceResult wrapper — product_version may be
+                            // directly on it or nested one level deeper under .data.
                             const s = e.detail.data || {};
-                            f.sysVersion = s.product_version || '-';
+                            const flat = (s.data && typeof s.data === 'object') ? s.data : s;
+                            f.sysVersion = flat.product_version || flat.version || '-';
                             f.apiVersion = e.detail.apiVersion || '-';
                         }
                     });
