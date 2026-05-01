@@ -8,6 +8,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
 class PullFirewallConfigBackupJob implements ShouldQueue
@@ -65,11 +66,16 @@ class PullFirewallConfigBackupJob implements ShouldQueue
                 return;
             }
 
-            $backupDir = 'firewall-backups/' . $firewall->id;
+            // Build human-readable paths: folder = slug of firewall name, file = hostname.xml
+            $folderSlug  = Str::slug($firewall->name);
+            $filename    = $host . '.xml';
+            $backupDir   = 'firewall-backups/' . $folderSlug;
             Storage::disk('local')->makeDirectory($backupDir);
+            // Ensure the directory is writable by the queue worker process
+            @chmod(Storage::disk('local')->path($backupDir), 0777);
 
-            $tmpFile = $backupDir . '/config.xml.tmp';
-            $finalFile = $backupDir . '/config.xml';
+            $tmpFile     = $backupDir . '/' . $filename . '.tmp';
+            $finalFile   = $backupDir . '/' . $filename;
             $tmpFilePath = Storage::disk('local')->path($tmpFile);
 
             $process = new Process([
