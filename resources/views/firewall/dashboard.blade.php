@@ -433,93 +433,6 @@
                 </div>
             </div>
 
-            @if(auth()->user()->isGlobalAdmin())
-            {{-- Config Backup Panel --}}
-            <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg mt-6 border border-gray-100 dark:border-gray-700">
-                <div class="p-6">
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
-                        
-                        {{-- Column 1: Title and Icon --}}
-                        <div class="flex items-center gap-4">
-                            <div class="bg-indigo-50 dark:bg-indigo-900/30 p-3.5 rounded-xl text-indigo-600 dark:text-indigo-400 shrink-0 border border-indigo-100 dark:border-indigo-800/50">
-                                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-                            </div>
-                            <div>
-                                <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">Configuration Backup</h3>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Secure your firewall settings</p>
-                            </div>
-                        </div>
-
-                        {{-- Column 2: Status & Details --}}
-                        <div class="flex flex-col justify-center">
-                            @php $backup = $firewall->configBackup; @endphp
-                            @if($backup && $backup->status === 'success')
-                                <div class="flex items-center gap-2 mb-1.5">
-                                    <span class="flex w-2.5 h-2.5 bg-green-500 rounded-full"></span>
-                                    <span class="text-sm font-semibold text-gray-700 dark:text-gray-300">Backup Successful</span>
-                                    <span class="text-xs text-gray-400 ml-1">{{ $backup->pulled_at->format('M j, Y g:i A') }}</span>
-                                </div>
-                                <div class="flex flex-wrap items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                                    <span class="flex items-center gap-1 bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded border border-gray-200 dark:border-gray-700"><svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> {{ number_format($backup->size_bytes / 1024, 2) }} KB</span>
-                                    <span class="flex items-center gap-1 bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded border border-gray-200 dark:border-gray-700"><svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg> {{ substr($backup->sha256_hash, 0, 16) }}...</span>
-                                </div>
-                            @elseif($backup && $backup->status === 'failed')
-                                <div class="flex items-center gap-2 mb-1.5">
-                                    <span class="flex w-2.5 h-2.5 bg-red-500 rounded-full"></span>
-                                    <span class="text-sm font-semibold text-red-600 dark:text-red-400">Backup Failed</span>
-                                    <span class="text-xs text-red-400 ml-1">{{ $backup->last_attempted_at?->format('M j, Y g:i A') }}</span>
-                                </div>
-                                @if($backup->error_message)
-                                    <p class="text-xs text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 px-2 py-1.5 rounded border border-red-100 dark:border-red-800/50 truncate w-full max-w-sm" title="{{ $backup->error_message }}">{{ $backup->error_message }}</p>
-                                @endif
-                            @else
-                                <div class="flex items-center gap-2 mb-1">
-                                    <span class="flex w-2.5 h-2.5 bg-gray-400 rounded-full"></span>
-                                    <span class="text-sm font-semibold text-gray-600 dark:text-gray-400">No backup available</span>
-                                </div>
-                                <p class="text-xs text-gray-500 dark:text-gray-500">Run a manual backup to get started.</p>
-                            @endif
-
-                            @if(empty($firewall->ssh_username) || empty($firewall->ssh_password))
-                                <div class="mt-2 inline-flex items-center gap-1.5 text-xs text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30 px-2 py-1.5 rounded border border-orange-200 dark:border-orange-800/50 w-fit">
-                                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                                    <span>SSH credentials missing.</span>
-                                </div>
-                            @endif
-                        </div>
-                        
-                        {{-- Column 3: Actions --}}
-                        <div class="flex flex-wrap lg:justify-end items-center gap-3 w-full lg:w-auto">
-                            @if(empty($firewall->ssh_username) || empty($firewall->ssh_password))
-                                <a href="{{ route('firewalls.edit', $firewall) }}" class="inline-flex justify-center items-center px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-sm transition-all w-full sm:w-auto">
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                                    Configure SSH
-                                </a>
-                            @else
-                                @if($backup && $backup->status === 'success')
-                                    <a href="{{ route('firewall.backup.download', $firewall) }}" class="inline-flex justify-center items-center px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg font-medium text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-sm transition-all w-full sm:w-auto group">
-                                        <svg class="w-4 h-4 mr-2 text-indigo-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                                        Download XML
-                                    </a>
-                                @endif
-                                
-                                <form action="{{ route('firewall.backup.trigger', $firewall) }}" method="POST" class="w-full sm:w-auto">
-                                    @csrf
-                                    <button type="submit" class="w-full inline-flex justify-center items-center px-4 py-2.5 bg-indigo-600 border border-transparent rounded-lg font-medium text-sm text-white hover:bg-indigo-700 active:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-sm transition-all">
-                                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                                        Run Backup
-                                    </button>
-                                </form>
-                                <a href="{{ route('firewalls.edit', $firewall) }}" class="hidden sm:flex text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 ml-1 transition-colors" title="Edit Firewall Settings">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                                </a>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-            </div>
-            @endif
-
             {{-- Layout Flex: Traffic (1/3) | Tables (2/3) --}}
             <style>
                 @media (min-width: 1024px) {
@@ -790,6 +703,101 @@
                             </div>
                         </div>
                     </div>
+
+                    {{-- Config Backup (GlobalAdmin only) --}}
+                    @if(auth()->user()->isGlobalAdmin())
+                    @php $backup = $firewall->configBackup; @endphp
+                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg"
+                         x-data="backupCard({
+                             triggerUrl:  '{{ route('firewall.backup.trigger', $firewall) }}',
+                             statusUrl:   '{{ route('firewall.backup.status', $firewall) }}',
+                             downloadUrl: '{{ route('firewall.backup.download', $firewall) }}',
+                             csrf:        '{{ csrf_token() }}',
+                             initial: {
+                                 status:      '{{ $backup?->status ?? 'none' }}',
+                                 pulledAt:    '{{ $backup?->pulled_at?->timezone(config('app.timezone'))->format('M j, Y g:i A') ?? '' }}',
+                                 attemptedAt: '{{ $backup?->last_attempted_at?->timezone(config('app.timezone'))->format('M j, Y g:i A') ?? '' }}',
+                                 sizeKb:      '{{ $backup && $backup->size_bytes ? number_format($backup->size_bytes / 1024, 2) : '' }}',
+                                 hash:        '{{ $backup?->sha256_hash ? substr($backup->sha256_hash, 0, 12) : '' }}',
+                                 error:       '{{ str_replace("'", "\\'", trim(preg_replace('/\s+/', ' ', $backup?->error_message ?? ''))) }}',
+                             }
+                         })"
+                         >
+                        <div class="p-6 text-gray-900 dark:text-gray-100">
+
+                            {{-- Header --}}
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-xl font-semibold">Configuration Backup</h3>
+
+                                <div class="flex items-center gap-2 shrink-0">
+                                    @if(empty($firewall->ssh_username) || empty($firewall->ssh_password))
+                                        <a href="{{ route('firewalls.edit', $firewall) }}"
+                                            class="inline-flex items-center px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors shadow-sm">
+                                            <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                            Configure SSH
+                                        </a>
+                                    @else
+                                        <a x-show="status === 'success'" x-bind:href="downloadUrl"
+                                            class="inline-flex items-center px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors shadow-sm"
+                                            style="display:none;">
+                                            <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                            Download
+                                        </a>
+                                        <button @click="runBackup()" x-bind:disabled="status === 'running'"
+                                            class="inline-flex items-center px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-md text-xs font-medium transition-colors shadow-sm">
+                                            <svg x-show="status !== 'running'" class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                            <svg x-show="status === 'running'" class="animate-spin w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                            <span x-text="status === 'running' ? 'Running…' : 'Run Backup'"></span>
+                                        </button>
+                                    @endif
+                                </div>
+                            </div>
+
+                            {{-- Status body --}}
+                            <div class="text-sm">
+                                {{-- None / Missing --}}
+                                <template x-if="status === 'none' || status === 'missing'">
+                                    <p class="text-gray-400 dark:text-gray-500 italic">No backup on record. Run a backup to get started.</p>
+                                </template>
+
+                                {{-- Running --}}
+                                <template x-if="status === 'running'">
+                                    <div class="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                                        <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                        <span>Backup in progress…</span>
+                                    </div>
+                                </template>
+
+                                {{-- Success --}}
+                                <template x-if="status === 'success'">
+                                    <div class="space-y-2">
+                                        <div class="flex items-center gap-1.5 text-green-600 dark:text-green-400 text-xs font-medium">
+                                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                            Backup successful
+                                        </div>
+                                        <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                                            <span>Pulled: <span class="text-gray-400" x-text="pulledAt"></span></span>
+                                            <span x-show="sizeKb">Size: <span x-text="sizeKb + ' KB'"></span></span>
+                                            <span x-show="hash">SHA256: <span class="bg-gray-50 dark:bg-gray-700/50 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700 font-mono" x-text="hash + '…'"></span></span>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                {{-- Failed --}}
+                                <template x-if="status === 'failed'">
+                                    <div class="space-y-1">
+                                        <div class="flex items-center gap-1.5 text-red-600 dark:text-red-400 text-xs font-medium">
+                                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+                                            Backup failed <span class="font-normal text-gray-400 ml-1" x-text="attemptedAt ? '(' + attemptedAt + ')' : ''"></span>
+                                        </div>
+                                        <p x-show="errorMsg" x-text="errorMsg" class="mt-2 text-xs text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30 px-2 py-1.5 rounded border border-red-100 dark:border-red-800/50 truncate" style="display:none;"></p>
+                                    </div>
+                                </template>
+                            </div>
+
+                        </div>
+                    </div>
+                    @endif
 
                     {{-- Packages Summary --}}
                     <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg mb-6">
@@ -1301,6 +1309,69 @@
                         };
                         subscribe();
                     }
+                }));
+
+                Alpine.data('backupCard', (config) => ({
+                    triggerUrl:  config.triggerUrl,
+                    statusUrl:   config.statusUrl,
+                    downloadUrl: config.downloadUrl,
+                    csrf:        config.csrf,
+                    status:      (config.initial && config.initial.status)      || 'none',
+                    pulledAt:    (config.initial && config.initial.pulledAt)    || '',
+                    attemptedAt: (config.initial && config.initial.attemptedAt) || '',
+                    sizeKb:      (config.initial && config.initial.sizeKb)      || '',
+                    hash:        (config.initial && config.initial.hash)        || '',
+                    errorMsg:    (config.initial && config.initial.error)       || '',
+                    _pollTimer:  null,
+
+                    init() {
+                        if (this.status === 'running') this._startPolling();
+                    },
+
+                    async runBackup() {
+                        if (this.status === 'running') return;
+                        this.status = 'running';
+                        this.errorMsg = this.pulledAt = this.attemptedAt = this.sizeKb = this.hash = '';
+                        try {
+                            await fetch(this.triggerUrl, {
+                                method: 'POST',
+                                headers: { 'X-CSRF-TOKEN': this.csrf, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                            });
+                        } catch (e) {
+                            this.status = 'failed';
+                            this.errorMsg = 'Failed to reach the server. Please try again.';
+                            return;
+                        }
+                        this._startPolling();
+                    },
+
+                    _startPolling() {
+                        if (this._pollTimer) return;
+                        this._pollTimer = setInterval(() => this._poll(), 3000);
+                    },
+
+                    _stopPolling() {
+                        if (this._pollTimer) { clearInterval(this._pollTimer); this._pollTimer = null; }
+                    },
+
+                    async _poll() {
+                        try {
+                            const res  = await fetch(this.statusUrl, { headers: { 'Accept': 'application/json' } });
+                            const data = await res.json();
+                            this.status = data.status;
+                            if (data.status === 'success') {
+                                this.pulledAt = data.pulled_at || '';
+                                this.sizeKb   = data.size_kb   || '';
+                                this.hash     = data.hash      || '';
+                                this.errorMsg = '';
+                                this._stopPolling();
+                            } else if (data.status === 'failed') {
+                                this.attemptedAt = data.attempted_at || '';
+                                this.errorMsg    = data.error        || '';
+                                this._stopPolling();
+                            }
+                        } catch (e) { /* network blip — keep polling */ }
+                    },
                 }));
             });
         </script>

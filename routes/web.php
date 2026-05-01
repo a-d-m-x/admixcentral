@@ -248,6 +248,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::prefix('backup')->middleware(\App\Http\Middleware\CheckRole::class . ':global_admin')->group(function () {
                 Route::get('/download', [\App\Http\Controllers\FirewallBackupController::class, 'download'])->name('backup.download');
                 Route::post('/trigger', [\App\Http\Controllers\FirewallBackupController::class, 'trigger'])->name('backup.trigger');
+                Route::get('/status',   [\App\Http\Controllers\FirewallBackupController::class, 'status'])->name('backup.status');
             });
 
             // Nested Firewall Configuration (Matches menu structure)

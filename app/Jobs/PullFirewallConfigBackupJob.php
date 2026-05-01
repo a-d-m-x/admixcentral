@@ -3,13 +3,12 @@
 namespace App\Jobs;
 
 use App\Models\Firewall;
-use App\Models\FirewallConfigBackup;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Symfony\Component\Process\Process;
+use phpseclib3\Net\SFTP;
 
 class PullFirewallConfigBackupJob implements ShouldQueue
 {
@@ -17,123 +16,68 @@ class PullFirewallConfigBackupJob implements ShouldQueue
 
     public int $firewallId;
 
-    /**
-     * Create a new job instance.
-     */
     public function __construct(int $firewallId)
     {
         $this->firewallId = $firewallId;
     }
 
-    /**
-     * Execute the job.
-     */
     public function handle(): void
     {
         $lock = Cache::lock("firewall-backup:{$this->firewallId}", 120);
-
-        if (!$lock->get()) {
-            return;
-        }
+        if (!$lock->get()) return;
 
         try {
             $firewall = Firewall::find($this->firewallId);
-            if (!$firewall) {
-                return;
-            }
+            if (!$firewall) return;
 
             $backupRecord = $firewall->configBackup()->firstOrCreate(
                 ['firewall_id' => $firewall->id],
                 ['status' => 'missing']
             );
 
-            $backupRecord->update(['last_attempted_at' => now()]);
+            $backupRecord->update(['status' => 'running', 'last_attempted_at' => now(), 'error_message' => null]);
 
             if (empty($firewall->ssh_username) || empty($firewall->ssh_password)) {
-                $backupRecord->update([
-                    'status' => 'failed',
-                    'error_message' => 'SSH credentials missing for this firewall.'
-                ]);
+                $backupRecord->update(['status' => 'failed', 'error_message' => 'SSH credentials are not configured. Add SSH username and password in firewall settings.']);
                 return;
             }
 
             $host = parse_url($firewall->url, PHP_URL_HOST);
             if (!$host) {
-                $backupRecord->update([
-                    'status' => 'failed',
-                    'error_message' => 'Could not determine host from firewall URL.'
-                ]);
+                $backupRecord->update(['status' => 'failed', 'error_message' => 'Could not determine host from firewall URL.']);
                 return;
             }
 
-            // Build human-readable paths: folder = slug of firewall name, file = hostname.xml
-            $folderSlug  = Str::slug($firewall->name);
-            $filename    = $host . '.xml';
-            $backupDir   = 'firewall-backups/' . $folderSlug;
-            Storage::disk('local')->makeDirectory($backupDir);
-            // Ensure the directory is writable by the queue worker process
-            @chmod(Storage::disk('local')->path($backupDir), 0777);
+            $sftp = new SFTP($host, (int) ($firewall->ssh_port ?? 22), 15);
 
-            $tmpFile     = $backupDir . '/' . $filename . '.tmp';
-            $finalFile   = $backupDir . '/' . $filename;
-            $tmpFilePath = Storage::disk('local')->path($tmpFile);
-
-            $process = new Process([
-                'sshpass', '-p', $firewall->ssh_password,
-                'scp', '-P', (string) ($firewall->ssh_port ?? 22),
-                '-o', 'StrictHostKeyChecking=no',
-                '-o', 'UserKnownHostsFile=/dev/null',
-                '-o', 'ConnectTimeout=10',
-                $firewall->ssh_username . '@' . $host . ':/cf/conf/config.xml',
-                $tmpFilePath
-            ]);
-
-            $process->setTimeout(60);
-            $process->run();
-
-            if (!$process->isSuccessful()) {
-                $backupRecord->update([
-                    'status' => 'failed',
-                    'error_message' => 'SCP failed: ' . $process->getErrorOutput()
-                ]);
-                if (Storage::disk('local')->exists($tmpFile)) {
-                    Storage::disk('local')->delete($tmpFile);
-                }
+            if (!$sftp->login($firewall->ssh_username, $firewall->ssh_password)) {
+                $backupRecord->update(['status' => 'failed', 'error_message' => 'SSH authentication failed. Check username and password.']);
                 return;
             }
 
-            // Validate file
-            if (!Storage::disk('local')->exists($tmpFile)) {
-                $backupRecord->update([
-                    'status' => 'failed',
-                    'error_message' => 'File downloaded but not found.'
-                ]);
+            $content = $sftp->get('/cf/conf/config.xml');
+
+            if ($content === false || empty($content)) {
+                $backupRecord->update(['status' => 'failed', 'error_message' => 'SFTP download failed or returned empty file.']);
                 return;
             }
 
-            $content = Storage::disk('local')->get($tmpFile);
-            if (empty($content) || !str_contains($content, '<pfsense>')) {
-                $backupRecord->update([
-                    'status' => 'failed',
-                    'error_message' => 'Invalid configuration file. Missing <pfsense> tag.'
-                ]);
-                Storage::disk('local')->delete($tmpFile);
+            if (!str_contains($content, '<pfsense>')) {
+                $backupRecord->update(['status' => 'failed', 'error_message' => 'Downloaded file is not a valid pfSense configuration.']);
                 return;
             }
 
-            // Rename and replace
-            if (Storage::disk('local')->exists($finalFile)) {
-                Storage::disk('local')->delete($finalFile);
-            }
-            Storage::disk('local')->move($tmpFile, $finalFile);
+            $folderSlug = Str::slug($firewall->name);
+            $finalFile  = "firewall-backups/{$folderSlug}/{$host}.xml";
+            Storage::disk('local')->makeDirectory("firewall-backups/{$folderSlug}");
+            Storage::disk('local')->put($finalFile, $content);
 
-            // Update metadata
             $backupRecord->update([
-                'path' => $finalFile,
-                'sha256_hash' => hash_file('sha256', Storage::disk('local')->path($finalFile)),
-                'size_bytes' => Storage::disk('local')->size($finalFile),
-                'status' => 'success',
-                'pulled_at' => now(),
+                'path'          => $finalFile,
+                'sha256_hash'   => hash('sha256', $content),
+                'size_bytes'    => strlen($content),
+                'status'        => 'success',
+                'pulled_at'     => now(),
                 'error_message' => null,
             ]);
 
