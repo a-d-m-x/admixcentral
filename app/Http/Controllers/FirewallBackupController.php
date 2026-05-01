@@ -22,7 +22,7 @@ class FirewallBackupController extends Controller
 
     public function trigger(\App\Models\Firewall $firewall)
     {
-        \App\Jobs\PullFirewallConfigBackupJob::dispatch($firewall->id)->onQueue('backups');
-        return back()->with('success', 'Backup job dispatched successfully. It will run in the background.');
+        \App\Jobs\PullFirewallConfigBackupJob::dispatch($firewall->id);
+        return back()->with('success', 'Backup job queued. The configuration will be pulled shortly.');
     }
 }

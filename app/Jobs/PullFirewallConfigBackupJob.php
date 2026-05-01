@@ -2,8 +2,13 @@
 
 namespace App\Jobs;
 
+use App\Models\Firewall;
+use App\Models\FirewallConfigBackup;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Process\Process;
 
 class PullFirewallConfigBackupJob implements ShouldQueue
 {
@@ -24,14 +29,14 @@ class PullFirewallConfigBackupJob implements ShouldQueue
      */
     public function handle(): void
     {
-        $lock = \Illuminate\Support\Facades\Cache::lock("firewall-backup:{$this->firewallId}", 120);
+        $lock = Cache::lock("firewall-backup:{$this->firewallId}", 120);
 
         if (!$lock->get()) {
             return;
         }
 
         try {
-            $firewall = \App\Models\Firewall::find($this->firewallId);
+            $firewall = Firewall::find($this->firewallId);
             if (!$firewall) {
                 return;
             }
@@ -60,14 +65,14 @@ class PullFirewallConfigBackupJob implements ShouldQueue
                 return;
             }
 
-            $privateDir = 'private/firewall-backups/' . $firewall->id;
-            \Illuminate\Support\Facades\Storage::disk('local')->makeDirectory($privateDir);
+            $backupDir = 'firewall-backups/' . $firewall->id;
+            Storage::disk('local')->makeDirectory($backupDir);
 
-            $tmpFile = $privateDir . '/config.xml.tmp';
-            $finalFile = $privateDir . '/config.xml';
-            $tmpFilePath = \Illuminate\Support\Facades\Storage::disk('local')->path($tmpFile);
+            $tmpFile = $backupDir . '/config.xml.tmp';
+            $finalFile = $backupDir . '/config.xml';
+            $tmpFilePath = Storage::disk('local')->path($tmpFile);
 
-            $process = new \Symfony\Component\Process\Process([
+            $process = new Process([
                 'sshpass', '-p', $firewall->ssh_password,
                 'scp', '-P', (string) ($firewall->ssh_port ?? 22),
                 '-o', 'StrictHostKeyChecking=no',
@@ -85,14 +90,14 @@ class PullFirewallConfigBackupJob implements ShouldQueue
                     'status' => 'failed',
                     'error_message' => 'SCP failed: ' . $process->getErrorOutput()
                 ]);
-                if (\Illuminate\Support\Facades\Storage::disk('local')->exists($tmpFile)) {
-                    \Illuminate\Support\Facades\Storage::disk('local')->delete($tmpFile);
+                if (Storage::disk('local')->exists($tmpFile)) {
+                    Storage::disk('local')->delete($tmpFile);
                 }
                 return;
             }
 
             // Validate file
-            if (!\Illuminate\Support\Facades\Storage::disk('local')->exists($tmpFile)) {
+            if (!Storage::disk('local')->exists($tmpFile)) {
                 $backupRecord->update([
                     'status' => 'failed',
                     'error_message' => 'File downloaded but not found.'
@@ -100,27 +105,27 @@ class PullFirewallConfigBackupJob implements ShouldQueue
                 return;
             }
 
-            $content = \Illuminate\Support\Facades\Storage::disk('local')->get($tmpFile);
+            $content = Storage::disk('local')->get($tmpFile);
             if (empty($content) || !str_contains($content, '<pfsense>')) {
                 $backupRecord->update([
                     'status' => 'failed',
                     'error_message' => 'Invalid configuration file. Missing <pfsense> tag.'
                 ]);
-                \Illuminate\Support\Facades\Storage::disk('local')->delete($tmpFile);
+                Storage::disk('local')->delete($tmpFile);
                 return;
             }
 
             // Rename and replace
-            if (\Illuminate\Support\Facades\Storage::disk('local')->exists($finalFile)) {
-                \Illuminate\Support\Facades\Storage::disk('local')->delete($finalFile);
+            if (Storage::disk('local')->exists($finalFile)) {
+                Storage::disk('local')->delete($finalFile);
             }
-            \Illuminate\Support\Facades\Storage::disk('local')->move($tmpFile, $finalFile);
+            Storage::disk('local')->move($tmpFile, $finalFile);
 
             // Update metadata
             $backupRecord->update([
                 'path' => $finalFile,
-                'sha256_hash' => hash_file('sha256', \Illuminate\Support\Facades\Storage::disk('local')->path($finalFile)),
-                'size_bytes' => \Illuminate\Support\Facades\Storage::disk('local')->size($finalFile),
+                'sha256_hash' => hash_file('sha256', Storage::disk('local')->path($finalFile)),
+                'size_bytes' => Storage::disk('local')->size($finalFile),
                 'status' => 'success',
                 'pulled_at' => now(),
                 'error_message' => null,

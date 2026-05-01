@@ -44,7 +44,7 @@ class BackupStaleConfigsCommand extends Command
 
         foreach ($firewalls as $firewall) {
             $this->info("Dispatching backup job for firewall ID: {$firewall->id}");
-            \App\Jobs\PullFirewallConfigBackupJob::dispatch($firewall->id)->onQueue('backups');
+            \App\Jobs\PullFirewallConfigBackupJob::dispatch($firewall->id);
         }
 
         $this->info("Done dispatching jobs.");
