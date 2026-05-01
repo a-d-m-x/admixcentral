@@ -191,6 +191,39 @@
                             </div>
                         </div>
 
+                        <div class="mt-8 mb-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">SSH Access for Config Backup</h3>
+                            
+                            <div class="mb-4">
+                                <label for="ssh_port" class="block text-sm font-medium mb-2">SSH Port</label>
+                                <input type="number" name="ssh_port" id="ssh_port" value="{{ old('ssh_port', 22) }}" required
+                                    class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                @error('ssh_port')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="ssh_username" class="block text-sm font-medium mb-2">SSH Username</label>
+                                <input type="text" name="ssh_username" id="ssh_username" value="{{ old('ssh_username') }}"
+                                    class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                                    placeholder="admin">
+                                @error('ssh_username')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="ssh_password" class="block text-sm font-medium mb-2">SSH Password</label>
+                                <input type="password" name="ssh_password" id="ssh_password"
+                                    class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                                    placeholder="Enter SSH password">
+                                @error('ssh_password')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        </div>
+
                         <div class="mb-4">
                             <label for="description"
                                 class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Description

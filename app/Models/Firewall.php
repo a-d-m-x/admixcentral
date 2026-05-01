@@ -20,12 +20,16 @@ class Firewall extends Model
         'address',
         'latitude',
         'longitude',
+        'ssh_port',
+        'ssh_username',
+        'ssh_password',
     ];
 
     protected $casts = [
         'api_key' => 'encrypted',
         'api_secret' => 'encrypted',
         'api_token' => 'encrypted',
+        'ssh_password' => 'encrypted',
         'is_dirty' => 'boolean',
     ];
 
@@ -63,5 +67,13 @@ class Firewall extends Model
     public function isConnectedViaWebSocket(): bool
     {
         return $this->activeConnection()->exists();
+    }
+
+    /**
+     * Get the config backup for this firewall.
+     */
+    public function configBackup()
+    {
+        return $this->hasOne(FirewallConfigBackup::class);
     }
 }

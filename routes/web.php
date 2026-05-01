@@ -244,6 +244,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(App\Http\Middleware\EnsureTenantScope::class)
         ->group(function () {
 
+            // Config Backup Routes (Global Admin Only)
+            Route::prefix('backup')->middleware(\App\Http\Middleware\CheckRole::class . ':global_admin')->group(function () {
+                Route::get('/download', [\App\Http\Controllers\FirewallBackupController::class, 'download'])->name('backup.download');
+                Route::post('/trigger', [\App\Http\Controllers\FirewallBackupController::class, 'trigger'])->name('backup.trigger');
+            });
+
             // Nested Firewall Configuration (Matches menu structure)
             Route::prefix('firewall')->group(function () {
                 // Rules

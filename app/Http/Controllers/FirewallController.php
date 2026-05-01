@@ -267,6 +267,9 @@ class FirewallController extends Controller
             'api_secret' => 'required_if:auth_method,basic|nullable|string',
             'api_token' => 'required_if:auth_method,token|nullable|string',
             'description' => 'nullable|string',
+            'ssh_port' => 'nullable|integer',
+            'ssh_username' => 'nullable|string|max:255',
+            'ssh_password' => 'nullable|string',
         ]);
 
         if ($user->isCompanyAdmin()) {
@@ -386,6 +389,9 @@ class FirewallController extends Controller
             'address' => 'nullable|string|max:255',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
+            'ssh_port' => 'nullable|integer',
+            'ssh_username' => 'nullable|string|max:255',
+            'ssh_password' => 'nullable|string',
         ]);
 
         if ($user->isCompanyAdmin()) {
@@ -406,6 +412,10 @@ class FirewallController extends Controller
                 }
                 unset($validated['api_secret']);
             }
+        }
+
+        if (empty($validated['ssh_password'])) {
+            unset($validated['ssh_password']);
         }
 
         $firewall->update($validated);

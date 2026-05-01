@@ -31,3 +31,8 @@ Schedule::call(function () {
 })->everyMinute()
   ->name('firewall-status-poll')
   ->withoutOverlapping(120);
+
+Schedule::command('firewalls:backup-stale-configs')
+    ->dailyAt('02:00')
+    ->withoutOverlapping()
+    ->onOneServer();
