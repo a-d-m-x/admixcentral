@@ -960,8 +960,10 @@
                 ...window.filterableMixin(initialFirewalls, 'device-updated'),
 
                 // Dashboard-specific properties
-                offlineCount: 0,
-                showOnlineBadge: false,
+                // Seed from PHP cache pre-load so the widget resolves immediately,
+                // matching the same pattern as the individual firewall cards.
+                offlineCount: {{ $offlineFirewalls }},
+                showOnlineBadge: {{ $firewallsWithStatus->filter(fn($f) => $f->cached_status !== null)->count() > 0 ? 'true' : 'false' }},
                 customerFilter: 'all',
                 statusFilter: 'all',
 
@@ -969,8 +971,11 @@
                     // Initialize filterable functionality
                     this.initFilterable();
 
-                    // Dashboard-specific init
-                    setTimeout(() => this.showOnlineBadge = true, 2500);
+                    // Fallback: if no cache data was available at render time, reveal after 2.5s
+                    // so the widget doesn't stay as a skeleton forever on a cold start.
+                    if (!this.showOnlineBadge) {
+                        setTimeout(() => this.showOnlineBadge = true, 2500);
+                    }
                     window.addEventListener('device-offline', () => this.offlineCount++);
                     window.addEventListener('device-online', () => this.offlineCount = Math.max(0, this.offlineCount - 1));
                 }
