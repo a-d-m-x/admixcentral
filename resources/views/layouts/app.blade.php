@@ -389,15 +389,23 @@
                     ? stored[def.key]
                     : (def.default !== false);
             }
+
+            const countHidden = (c) => columnDefs.filter(d => !d.always && !c[d.key]).length;
+
             return {
                 _columnDefs: columnDefs,
                 cols,
                 colSelectorOpen: false,
+                hiddenColCount: countHidden(cols), // plain reactive property — safe to spread
 
                 initColumns() {
-                    this.$watch('cols', () => {
-                        localStorage.setItem(storageKey, JSON.stringify(this.cols));
-                    }, { deep: true });
+                    // Re-compute hiddenColCount and persist whenever cols changes.
+                    // We replace the whole cols object in toggleCol/resetColumns so
+                    // a shallow $watch is sufficient.
+                    this.$watch('cols', (val) => {
+                        this.hiddenColCount = countHidden(val);
+                        localStorage.setItem(storageKey, JSON.stringify(val));
+                    });
                 },
 
                 toggleCol(key) {
@@ -412,10 +420,6 @@
                     this.cols = defaults;
                     localStorage.removeItem(storageKey);
                 },
-
-                get hiddenColCount() {
-                    return this._columnDefs.filter(d => !d.always && !this.cols[d.key]).length;
-                }
             };
         };
     </script>

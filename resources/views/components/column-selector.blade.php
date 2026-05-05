@@ -38,8 +38,8 @@
         <span
             x-show="hiddenColCount > 0"
             x-text="hiddenColCount"
-            class="absolute -top-1.5 -right-1.5 min-w-[1rem] h-4 flex items-center justify-center px-1 text-[10px] font-bold bg-indigo-600 text-white rounded-full leading-none"
-            style="display:none;"
+            class="flex items-center justify-center font-bold bg-indigo-600 text-white rounded-full leading-none"
+            style="display:none; position:absolute; top:-6px; right:-6px; min-width:1rem; width:auto; height:1rem; padding:0 3px; font-size:10px;"
         ></span>
     </button>
 
