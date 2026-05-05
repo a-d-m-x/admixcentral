@@ -331,12 +331,15 @@
                         // refreshSystemStatus() flattens everything into cache['data'] directly.
                         // product_version, api_version, gateways etc. are all at cache['data'][key].
                         $flat = is_array($cached['data'] ?? null) ? $cached['data'] : [];
+                        $onlineRaw = array_key_exists('online', $cached) ? $cached['online'] : null;
                         $firewallCaches[$fw->id] = [
-                            'online'               => $cached['online']           ?? null,
+                            // Preserve null (unknown) but cast 1/0 to true/false.
+                            // Redis stores PHP booleans as integers; strict === comparisons break without this.
+                            'online'               => $onlineRaw !== null ? (bool) $onlineRaw : null,
                             'api_version'          => $cached['api_version'] ?? $flat['api_version'] ?? null,
                             'product_version'      => $flat['product_version']   ?? $flat['version'] ?? null,
-                            'update_available'     => $flat['update_available']   ?? false,
-                            'api_update_available' => $flat['api_update_available'] ?? false,
+                            'update_available'     => (bool) ($flat['update_available']     ?? false),
+                            'api_update_available' => (bool) ($flat['api_update_available'] ?? false),
                         ];
                     } else {
                         $firewallCaches[$fw->id] = null;
