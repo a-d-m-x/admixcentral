@@ -342,6 +342,19 @@
                         $firewallCaches[$fw->id] = null;
                     }
                 }
+
+                // Pre-load backup metadata for the Backup column (GlobalAdmin only).
+                $firewallBackups = [];
+                if (auth()->user()->isGlobalAdmin()) {
+                    foreach ($firewalls as $fw) {
+                        $bk = $fw->configBackup;
+                        $firewallBackups[$fw->id] = ($bk && $bk->status === 'success') ? [
+                            'url'       => route('firewall.backup.download', $fw),
+                            'pulled_at' => $bk->pulled_at?->utc()->toIso8601String(),
+                            'size_kb'   => $bk->size_bytes ? number_format($bk->size_bytes / 1024, 2) : null,
+                        ] : null;
+                    }
+                }
             @endphp
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg" x-data="{
                 search: '',
@@ -377,6 +390,9 @@
     'edit_url'           => route('firewalls.edit', $f),
     'delete_url'         => route('firewalls.destroy', $f),
     'check_status_url'   => route('firewall.check-status', $f),
+    'backup_url'         => auth()->user()->isGlobalAdmin() ? ($firewallBackups[$f->id]['url']       ?? null) : null,
+    'backup_pulled_at'   => auth()->user()->isGlobalAdmin() ? ($firewallBackups[$f->id]['pulled_at']  ?? null) : null,
+    'backup_size_kb'     => auth()->user()->isGlobalAdmin() ? ($firewallBackups[$f->id]['size_kb']    ?? null) : null,
     'searchData'         => strtolower($f->name . ' ' . $f->company->name . ' ' . $f->url . ' ' . $f->hostname)
 ])) }};
 
@@ -684,11 +700,14 @@
                                             </div>
                                         </th>
 
-                                        @if(!auth()->user()->isReadOnly())
+                                        @if(auth()->user()->isGlobalAdmin())
                                         <th scope="col"
-                                            class="px-6 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                            Actions
+                                            class="px-6 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                            Backup
                                         </th>
+                                        @endif
+                                        @if(!auth()->user()->isReadOnly())
+                                        <th scope="col" class="px-6 py-3 w-12"></th>
                                         @endif
                                     </tr>
                                 </thead>
@@ -835,25 +854,60 @@
                                                 </div>
                                             </td>
 
+                                            @if(auth()->user()->isGlobalAdmin())
+                                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                                <template x-if="firewall.backup_url">
+                                                    <a :href="firewall.backup_url"
+                                                        :title="'Download backup · ' + (firewall.backup_pulled_at ? new Date(firewall.backup_pulled_at).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '') + (firewall.backup_size_kb ? ' · ' + firewall.backup_size_kb + ' KB' : '')"
+                                                        class="inline-flex items-center justify-center text-green-500 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 transition-colors"
+                                                        aria-label="Download backup">
+                                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                                        </svg>
+                                                    </a>
+                                                </template>
+                                                <template x-if="!firewall.backup_url">
+                                                    <span class="inline-flex items-center justify-center text-gray-300 dark:text-gray-600" title="No backup available">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/>
+                                                        </svg>
+                                                    </span>
+                                                </template>
+                                            </td>
+                                            @endif
+
                                             @if(!auth()->user()->isReadOnly())
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <div class="flex items-center justify-end space-x-3">
-                                                    <a :href="firewall.edit_url"
-                                                        class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300">
-                                                        Edit
-                                                    </a>
-                                                    <button type="button"
-                                                        @click="openDeleteModal(firewall.delete_url, firewall.name)"
-                                                        class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
-                                                        Delete
+                                                <div class="relative flex justify-end" x-data="{ open: false, dropTop: 0, dropRight: 0 }" @click.away="open = false" @scroll.window.capture="open = false">
+                                                    <button @click="const r = $event.currentTarget.getBoundingClientRect(); dropTop = r.bottom + 4; dropRight = window.innerWidth - r.right; open = !open"
+                                                        class="p-1.5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors focus:outline-none"
+                                                        aria-label="Row actions">
+                                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z"/>
+                                                        </svg>
                                                     </button>
+                                                    <div x-show="open" x-transition
+                                                        :style="'top:' + dropTop + 'px;right:' + dropRight + 'px;'"
+                                                        class="fixed w-36 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-[9999] py-1">
+                                                        <a :href="firewall.edit_url"
+                                                            class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                                            Edit
+                                                        </a>
+                                                        <button type="button"
+                                                            @click="open = false; openDeleteModal(firewall.delete_url, firewall.name)"
+                                                            class="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                            Delete
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </td>
                                             @endif
                                         </tr>
                                     </template>
                                     <tr x-show="filteredRows.length === 0">
-                                        <td colspan="{{ (auth()->user()->isGlobalAdmin() ? 9 : 8) - (auth()->user()->isReadOnly() ? 2 : 0) }}"
+                                        <td colspan="{{ (auth()->user()->isGlobalAdmin() ? 10 : 8) - (auth()->user()->isReadOnly() ? 2 : 0) }}"
                                             class="px-6 py-4 text-center text-gray-500">
                                             No firewalls found. <a href="{{ route('firewalls.create') }}"
                                                 class="text-blue-600 hover:underline">Add one now</a>.

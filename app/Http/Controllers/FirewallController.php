@@ -21,7 +21,7 @@ class FirewallController extends Controller
         $user = $request->user();
 
         if ($user->isGlobalAdmin()) {
-            $firewalls = Firewall::with('company')->orderBy('name')->get();
+            $firewalls = Firewall::with(['company', 'configBackup'])->orderBy('name')->get();
         } else {
             $firewalls = Firewall::where('company_id', $user->company_id)->orderBy('name')->get();
         }
