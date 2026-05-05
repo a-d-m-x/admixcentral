@@ -706,7 +706,7 @@
 
                     {{-- Config Backup (GlobalAdmin only) --}}
                     @if(auth()->user()->isGlobalAdmin())
-                    @php $backup = $firewall->configBackup; @endphp
+                    @php $backup = $firewall->configBackup; $sshMissing = empty($firewall->ssh_username) || empty($firewall->ssh_password); @endphp
                     <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg"
                          x-data="backupCard({
                              triggerUrl:  '{{ route('firewall.backup.trigger', $firewall) }}',
@@ -714,12 +714,12 @@
                              downloadUrl: '{{ route('firewall.backup.download', $firewall) }}',
                              csrf:        '{{ csrf_token() }}',
                              initial: {
-                                 status:      '{{ $backup?->status ?? 'none' }}',
-                                 pulledAt:    '{{ $backup?->pulled_at?->timezone(config('app.timezone'))->format('M j, Y g:i A') ?? '' }}',
-                                 attemptedAt: '{{ $backup?->last_attempted_at?->timezone(config('app.timezone'))->format('M j, Y g:i A') ?? '' }}',
-                                 sizeKb:      '{{ $backup && $backup->size_bytes ? number_format($backup->size_bytes / 1024, 2) : '' }}',
-                                 hash:        '{{ $backup?->sha256_hash ? substr($backup->sha256_hash, 0, 12) : '' }}',
-                                 error:       '{{ str_replace("'", "\\'", trim(preg_replace('/\s+/', ' ', $backup?->error_message ?? ''))) }}',
+                                 status:      '{{ $sshMissing ? 'none' : ($backup?->status ?? 'none') }}',
+                                 pulledAt:    '{{ $sshMissing ? '' : ($backup?->pulled_at?->utc()->toIso8601String() ?? '') }}',
+                                 attemptedAt: '{{ $sshMissing ? '' : ($backup?->last_attempted_at?->utc()->toIso8601String() ?? '') }}',
+                                 sizeKb:      '{{ $sshMissing ? '' : ($backup && $backup->size_bytes ? number_format($backup->size_bytes / 1024, 2) : '') }}',
+                                 hash:        '{{ $sshMissing ? '' : ($backup?->sha256_hash ? substr($backup->sha256_hash, 0, 12) : '') }}',
+                                 error:       '{{ $sshMissing ? '' : str_replace("'", "\\'", trim(preg_replace('/\s+/', ' ', $backup?->error_message ?? ''))) }}',
                              }
                          })"
                          >
@@ -1317,14 +1317,26 @@
                     downloadUrl: config.downloadUrl,
                     csrf:        config.csrf,
                     status:      (config.initial && config.initial.status)      || 'none',
-                    pulledAt:    (config.initial && config.initial.pulledAt)    || '',
-                    attemptedAt: (config.initial && config.initial.attemptedAt) || '',
+                    pulledAt:    '',
+                    attemptedAt: '',
                     sizeKb:      (config.initial && config.initial.sizeKb)      || '',
                     hash:        (config.initial && config.initial.hash)        || '',
                     errorMsg:    (config.initial && config.initial.error)       || '',
                     _pollTimer:  null,
 
+                    formatDate(isoString) {
+                        if (!isoString) return '';
+                        try {
+                            return new Date(isoString).toLocaleString(undefined, {
+                                month: 'short', day: 'numeric', year: 'numeric',
+                                hour: 'numeric', minute: '2-digit',
+                            });
+                        } catch (e) { return isoString; }
+                    },
+
                     init() {
+                        this.pulledAt    = this.formatDate(config.initial?.pulledAt    || '');
+                        this.attemptedAt = this.formatDate(config.initial?.attemptedAt || '');
                         if (this.status === 'running') this._startPolling();
                     },
 
@@ -1333,10 +1345,16 @@
                         this.status = 'running';
                         this.errorMsg = this.pulledAt = this.attemptedAt = this.sizeKb = this.hash = '';
                         try {
-                            await fetch(this.triggerUrl, {
+                            const res = await fetch(this.triggerUrl, {
                                 method: 'POST',
                                 headers: { 'X-CSRF-TOKEN': this.csrf, 'Accept': 'application/json', 'Content-Type': 'application/json' },
                             });
+                            if (!res.ok) {
+                                const data = await res.json().catch(() => ({}));
+                                this.status = 'failed';
+                                this.errorMsg = data.error || 'Could not start backup. Please check firewall settings.';
+                                return;
+                            }
                         } catch (e) {
                             this.status = 'failed';
                             this.errorMsg = 'Failed to reach the server. Please try again.';
@@ -1360,14 +1378,14 @@
                             const data = await res.json();
                             this.status = data.status;
                             if (data.status === 'success') {
-                                this.pulledAt = data.pulled_at || '';
+                                this.pulledAt = this.formatDate(data.pulled_at || '');
                                 this.sizeKb   = data.size_kb   || '';
                                 this.hash     = data.hash      || '';
                                 this.errorMsg = '';
                                 this._stopPolling();
                             } else if (data.status === 'failed') {
-                                this.attemptedAt = data.attempted_at || '';
-                                this.errorMsg    = data.error        || '';
+                                this.attemptedAt = this.formatDate(data.attempted_at || '');
+                                this.errorMsg    = data.error || '';
                                 this._stopPolling();
                             }
                         } catch (e) { /* network blip — keep polling */ }

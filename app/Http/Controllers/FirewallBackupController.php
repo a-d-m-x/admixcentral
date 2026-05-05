@@ -19,6 +19,12 @@ class FirewallBackupController extends Controller
 
     public function trigger(Firewall $firewall)
     {
+        if (empty($firewall->ssh_username) || empty($firewall->ssh_password)) {
+            return response()->json([
+                'error' => 'SSH credentials are not configured. Add a username and password in the firewall settings before running a backup.',
+            ], 422);
+        }
+
         \App\Jobs\PullFirewallConfigBackupJob::dispatch($firewall->id);
         return response()->json(['queued' => true]);
     }
@@ -33,11 +39,10 @@ class FirewallBackupController extends Controller
             $backup->update(['status' => 'failed', 'error_message' => 'Backup timed out. Please try again.']);
         }
 
-        $tz = config('app.timezone');
         return response()->json([
             'status'       => $backup->status,
-            'pulled_at'    => $backup->pulled_at?->timezone($tz)->format('M j, Y g:i A'),
-            'attempted_at' => $backup->last_attempted_at?->timezone($tz)->format('M j, Y g:i A'),
+            'pulled_at'    => $backup->pulled_at?->utc()->toIso8601String(),
+            'attempted_at' => $backup->last_attempted_at?->utc()->toIso8601String(),
             'size_kb'      => $backup->size_bytes ? number_format($backup->size_bytes / 1024, 2) : null,
             'hash'         => $backup->sha256_hash ? substr($backup->sha256_hash, 0, 12) : null,
             'error'        => $backup->error_message,
