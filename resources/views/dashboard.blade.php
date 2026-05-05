@@ -300,10 +300,12 @@
 
                                         <!-- Trigger Button -->
                                         <button @click="open = !open" type="button"
-                                            class="flex items-center justify-between w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition ease-in-out duration-150">
-                                            <span x-text="customerFilter === 'all' ? 'All Customers' : customerFilter"
-                                                :class="{'text-gray-500': customerFilter === 'all', 'text-gray-900 dark:text-gray-200': customerFilter !== 'all'}"></span>
-                                            <svg class="h-4 w-4 ml-2 text-gray-500 transform transition-transform duration-200"
+                                            class="flex items-center justify-between w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition ease-in-out duration-150 min-w-0">
+                                            <span class="truncate block min-w-0 text-left"
+                                                x-text="customerFilter === 'all' ? 'All Customers' : (customerFilter.length > 22 ? customerFilter.substring(0, 20) + '…' : customerFilter)"
+                                                :class="{'text-gray-500': customerFilter === 'all', 'text-gray-900 dark:text-gray-200': customerFilter !== 'all'}"
+                                                :title="customerFilter !== 'all' ? customerFilter : ''"></span>
+                                            <svg class="h-4 w-4 ml-2 flex-shrink-0 text-gray-500 transform transition-transform duration-200"
                                                 :class="{'rotate-180': open}" fill="none" stroke="currentColor"
                                                 viewBox="0 0 24 24">
                                                 <path d="M19 9l-7 7-7-7" stroke-width="2" stroke-linecap="round"
@@ -964,8 +966,7 @@
                 // matching the same pattern as the individual firewall cards.
                 offlineCount: {{ $offlineFirewalls }},
                 showOnlineBadge: {{ $firewallsWithStatus->filter(fn($f) => $f->cached_status !== null)->count() > 0 ? 'true' : 'false' }},
-                customerFilter: 'all',
-                statusFilter: 'all',
+                // customerFilter and statusFilter come from filterableMixin (initialized from URL params)
 
                 init() {
                     // Initialize filterable functionality

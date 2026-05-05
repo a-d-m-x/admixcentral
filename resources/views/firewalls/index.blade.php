@@ -360,9 +360,26 @@
                 }
             @endphp
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg" x-data="{
+                ...window.columnSelectorMixin('firewalls_cols_v1', [
+                    @if(auth()->user()->isGlobalAdmin())
+                    { key: 'company', label: 'Company', default: true },
+                    @endif
+                    { key: 'host',    label: 'Host',    default: true },
+                    { key: 'address', label: 'Address', default: true },
+                    { key: 'system',  label: 'System',  default: true },
+                    { key: 'api',     label: 'API',     default: true },
+                    @if(auth()->user()->isGlobalAdmin())
+                    { key: 'backup',  label: 'Backup',  default: true },
+                    @endif
+                ]),
+
                 search: '',
                 statusFilter: 'all',
                 customerFilter: 'all',
+                systemFilter: 'all',
+                apiFilter: 'all',
+                backupFilter: 'all',
+                filtersOpen: false,
                 sortBy: 'name',
                 sortAsc: true,
                 firewalls: [],
@@ -371,8 +388,55 @@
                 deleteAction: '',
                 firewallName: '',
                 confirmEmail: '',
-                
+
+                get activeFilterCount() {
+                    let n = 0;
+                    if (this.statusFilter !== 'all')   n++;
+                    if (this.customerFilter !== 'all') n++;
+                    if (this.systemFilter !== 'all')   n++;
+                    if (this.apiFilter !== 'all')      n++;
+                    if (this.backupFilter !== 'all')   n++;
+                    return n;
+                },
+
+                clearFilters() {
+                    this.statusFilter   = 'all';
+                    this.customerFilter = 'all';
+                    this.systemFilter   = 'all';
+                    this.apiFilter      = 'all';
+                    this.backupFilter   = 'all';
+                },
+
+                _updateUrl(key, value) {
+                    const url = new URL(window.location);
+                    if (value && value !== 'all') { url.searchParams.set(key, value); }
+                    else { url.searchParams.delete(key); }
+                    window.history.replaceState(null, '', url);
+                },
+
                 init() {
+                    this.initColumns();
+
+                    // Initialise from URL params (supports deep-linking e.g. ?customer=Acme)
+                    const p = new URLSearchParams(window.location.search);
+                    this.search         = p.get('search')   || '';
+                    this.customerFilter = p.get('customer') || 'all';
+                    this.statusFilter   = p.get('status')   || 'all';
+                    this.systemFilter   = p.get('system')   || 'all';
+                    this.apiFilter      = p.get('api')      || 'all';
+                    this.backupFilter   = p.get('backup')   || 'all';
+
+                    // Open filter panel if any non-default filter is active
+                    if (this.activeFilterCount > 0) this.filtersOpen = true;
+
+                    // Persist filter state to URL on change
+                    this.$watch('search',         v => this._updateUrl('search',   v));
+                    this.$watch('customerFilter', v => this._updateUrl('customer', v));
+                    this.$watch('statusFilter',   v => this._updateUrl('status',   v));
+                    this.$watch('systemFilter',   v => this._updateUrl('system',   v));
+                    this.$watch('apiFilter',      v => this._updateUrl('api',      v));
+                    this.$watch('backupFilter',   v => this._updateUrl('backup',   v));
+
                     this.firewalls = {{ json_encode($firewalls->map(fn($f) => [
     'id'                 => $f->id,
     'name'               => $f->name,
@@ -433,37 +497,33 @@
                 
                 get filteredRows() {
                     let result = this.firewalls.filter(f => {
-                         const matchesSearch = this.search === '' || f.searchData.includes(this.search.toLowerCase());
-                         
-                         const matchesStatus = this.statusFilter === 'all' 
-                              || (this.statusFilter === 'online' && f.isOnline === true)
-                              || (this.statusFilter === 'offline' && f.isOnline === false);
+                        const matchesSearch   = this.search === '' || f.searchData.includes(this.search.toLowerCase());
+                        const matchesStatus   = this.statusFilter === 'all'
+                            || (this.statusFilter === 'online'  && f.isOnline === true)
+                            || (this.statusFilter === 'offline' && f.isOnline === false);
+                        const matchesCustomer = this.customerFilter === 'all' || f.company_name === this.customerFilter;
+                        const matchesSystem   = this.systemFilter === 'all'
+                            || (this.systemFilter === 'update' && f.sysUpdateAvailable);
+                        const matchesApi      = this.apiFilter === 'all'
+                            || (this.apiFilter === 'update' && f.apiUpdateAvailable);
+                        const matchesBackup   = this.backupFilter === 'all'
+                            || (this.backupFilter === 'has'  &&  f.backup_url)
+                            || (this.backupFilter === 'none' && !f.backup_url);
 
-                         const matchesCustomer = this.customerFilter === 'all' || f.company_name === this.customerFilter;
-
-                         return matchesSearch && matchesStatus && matchesCustomer;
+                        return matchesSearch && matchesStatus && matchesCustomer && matchesSystem && matchesApi && matchesBackup;
                     });
-                    
+
                     return result.sort((a, b) => {
                         let valA = a[this.sortBy];
                         let valB = b[this.sortBy];
-                        
-                        // Handle specific fields
-                        if (this.sortBy === 'company') {
-                             valA = a.company_name;
-                             valB = b.company_name;
-                        }
 
-                        if (this.sortBy === 'address') {
-                            valA = !!valA;
-                            valB = !!valB;
-                        }
-
+                        if (this.sortBy === 'company') { valA = a.company_name; valB = b.company_name; }
+                        if (this.sortBy === 'address') { valA = !!valA; valB = !!valB; }
                         if (typeof valA === 'string') valA = valA.toLowerCase();
                         if (typeof valB === 'string') valB = valB.toLowerCase();
-                        
+
                         if (valA < valB) return this.sortAsc ? -1 : 1;
-                        if (valA > valB) return this.sortAsc ? 1 : -1;
+                        if (valA > valB) return this.sortAsc ?  1 : -1;
                         return 0;
                     });
                 },
@@ -477,139 +537,201 @@
             }">
                 <div class="p-6 text-gray-900 dark:text-gray-100">
                     <div class="flex flex-col space-y-4 mb-6">
+                        <!-- Title + Add Button -->
                         <div class="flex justify-between items-center">
                             <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
                                 {{ __('Managed Firewalls') }}
                             </h3>
                             @if(!auth()->user()->isReadOnly())
                             <a href="{{ route('firewalls.create') }}"
-                                class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-medium text-sm text-white hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                    xmlns="http://www.w3.org/2000/svg">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 4v16m8-8H4"></path>
+                                class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-medium text-sm text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                                 </svg>
                                 {{ __('Add Firewall') }}
                             </a>
                             @endif
                         </div>
 
-                        <!-- Toolbar -->
-                        <div
-                            class="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg mb-6">
+                        <!-- ── Primary Toolbar ─────────────────────────────────── -->
+                        <div class="flex flex-wrap gap-2 items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl">
 
-                            <!-- Left Side: Filters & Search (Flex Grow) -->
-                            <div class="flex flex-col sm:flex-row gap-4 w-full lg:flex-1">
-                                <!-- Search (Expandable) -->
-                                <div class="relative w-full sm:w-64 lg:w-auto lg:flex-1">
-                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <svg class="h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg"
-                                            fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                        </svg>
-                                    </div>
-                                    <input type="text" x-model="search" placeholder="Search firewalls..."
-                                        class="pl-10 w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-indigo-500 focus:border-indigo-500 text-sm">
-                                    <button x-show="search.length > 0" @click="search = ''"
-                                        class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 focus:outline-none"
-                                        style="display: none;">
-                                        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                            viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </button>
+                            <!-- Search -->
+                            <div class="relative flex-1 min-w-[180px]">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                    </svg>
                                 </div>
-
-                                <!-- Filters Group -->
-                                <div class="flex gap-2 w-full sm:w-auto shrink-0">
-                                    <!-- Customer Filter -->
-                                    <div class="relative w-1/2 sm:w-auto min-w-[160px]"
-                                        x-data="{ open: false, filter: '' }">
-                                        <button @click="open = !open" type="button"
-                                            class="flex items-center justify-between w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 dark:text-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                            <span x-text="customerFilter === 'all' ? 'All Customers' : customerFilter"
-                                                class="truncate block text-left"></span>
-                                            <svg class="h-4 w-4 ml-2 text-gray-500 transform transition-transform duration-200"
-                                                :class="{'rotate-180': open}" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path d="M19 9l-7 7-7-7" stroke-width="2" stroke-linecap="round"
-                                                    stroke-linejoin="round" />
-                                            </svg>
-                                        </button>
-                                        <div x-show="open" @click.outside="open = false" x-transition
-                                            class="absolute z-10 mt-1 w-full sm:w-[200px] bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                                            <div
-                                                class="p-2 border-b dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
-                                                <input x-model="filter" type="text" placeholder="Search..."
-                                                    class="w-full text-xs rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600">
-                                            </div>
-                                            <div @click="customerFilter = 'all'; open = false"
-                                                class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm">
-                                                All Customers</div>
-                                            <template
-                                                x-for="c in customers.filter(x => x.toLowerCase().includes(filter.toLowerCase()))"
-                                                :key="c">
-                                                <div @click="customerFilter = c; open = false"
-                                                    class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm truncate"
-                                                    x-text="c"></div>
-                                            </template>
-                                        </div>
-                                    </div>
-
-                                    <!-- Status Filter -->
-                                    <select x-model="statusFilter"
-                                        class="w-1/2 sm:w-auto rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 text-sm focus:ring-indigo-500 focus:border-indigo-500">
-                                        <option value="all">All Status</option>
-                                        <option value="online">Online</option>
-                                        <option value="offline">Offline</option>
-                                    </select>
-
-                                    <span
-                                        class="text-xs text-gray-500 font-normal self-center whitespace-nowrap sm:ml-2 hidden sm:block"
-                                        x-text="'Showing ' + filteredRows.length + ' of ' + firewalls.length + ' firewalls'"></span>
-                                </div>
+                                <input type="text" x-model="search" placeholder="Search firewalls…"
+                                    class="pl-9 pr-8 w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                                <button x-show="search.length > 0" @click="search = ''" style="display:none;"
+                                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
                             </div>
 
-                            <!-- Right Side: Bulk Actions -->
+                            <!-- Divider -->
+                            <div class="hidden sm:block h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+
+                            <!-- Filters Toggle -->
+                            <div class="relative">
+                                <button type="button" @click="filtersOpen = !filtersOpen"
+                                    :class="filtersOpen || activeFilterCount > 0 ? 'ring-2 ring-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'"
+                                    class="relative inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border transition-colors focus:outline-none">
+                                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/>
+                                    </svg>
+                                    <span class="hidden sm:inline">Filters</span>
+                                    <span x-show="activeFilterCount > 0" x-text="activeFilterCount" style="display:none;"
+                                        class="inline-flex items-center justify-center w-5 h-5 text-xs font-bold bg-indigo-600 text-white rounded-full leading-none"></span>
+                                </button>
+                            </div>
+
+                            <!-- Column Selector -->
+                            <x-column-selector :columns="array_filter([
+                                auth()->user()->isGlobalAdmin() ? ['key' => 'company', 'label' => 'Company'] : null,
+                                ['key' => 'host',    'label' => 'Host'],
+                                ['key' => 'address', 'label' => 'Address'],
+                                ['key' => 'system',  'label' => 'System'],
+                                ['key' => 'api',     'label' => 'API'],
+                                auth()->user()->isGlobalAdmin() ? ['key' => 'backup', 'label' => 'Backup'] : null,
+                            ])" />
+
+                            <!-- Result count -->
+                            <span class="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap ml-1 hidden lg:inline"
+                                x-text="filteredRows.length + ' of ' + firewalls.length + ' firewalls'"></span>
+
+                            <!-- Spacer -->
+                            <div class="flex-1"></div>
+
+                            <!-- Bulk Actions (non-readonly) -->
                             @if(!auth()->user()->isReadOnly())
-                            <div
-                                class="flex gap-2 w-full lg:w-auto items-center border-t lg:border-t-0 lg:border-l lg:pl-4 pt-4 lg:pt-0 border-gray-200 dark:border-gray-600">
-                                <span class="text-sm text-gray-500 whitespace-nowrap hidden xl:inline">With
-                                    selected:</span>
-                                <div class="flex gap-2 w-full">
-                                    <select id="bulkActionSelect" name="action" form="bulkForm"
-                                        class="block w-full lg:w-48 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300 sm:text-sm">
-                                        <option value="">Bulk Actions...</option>
-                                        <optgroup label="System">
-                                            <option value="reboot">Reboot</option>
-                                            <option value="update">System Update</option>
-                                            <option value="update_rest_api">Update REST API</option>
-                                            <option value="create_package">Install Package</option>
-                                        </optgroup>
-                                        <optgroup label="Configuration (Add to All)">
-                                            <option value="create_alias">Add Alias</option>
-                                            <option value="create_nat">Add NAT 1:1 / Port Forward</option>
-                                            <option value="create_rule">Add Firewall Rule</option>
-                                            <option value="create_ipsec">Add IPSec Tunnel</option>
-                                        </optgroup>
-                                    </select>
-                                    <x-secondary-button type="button" onclick="submitBulkAction()" class="rounded-lg">
-                                        Apply
-                                    </x-secondary-button>
-                                </div>
+                            <div class="flex items-center gap-2 border-l border-gray-200 dark:border-gray-600 pl-3">
+                                <span class="text-xs text-gray-500 whitespace-nowrap hidden xl:inline">With selected:</span>
+                                <select id="bulkActionSelect" name="action" form="bulkForm"
+                                    class="rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300 text-sm w-40">
+                                    <option value="">Bulk Actions…</option>
+                                    <optgroup label="System">
+                                        <option value="reboot">Reboot</option>
+                                        <option value="update">System Update</option>
+                                        <option value="update_rest_api">Update REST API</option>
+                                        <option value="create_package">Install Package</option>
+                                    </optgroup>
+                                    <optgroup label="Configuration (Add to All)">
+                                        <option value="create_alias">Add Alias</option>
+                                        <option value="create_nat">Add NAT 1:1 / Port Forward</option>
+                                        <option value="create_rule">Add Firewall Rule</option>
+                                        <option value="create_ipsec">Add IPSec Tunnel</option>
+                                    </optgroup>
+                                </select>
+                                <x-secondary-button type="button" onclick="submitBulkAction()" class="rounded-lg text-sm py-2">
+                                    Apply
+                                </x-secondary-button>
                             </div>
                             @endif
                         </div>
 
+                        <!-- ── Expandable Filters Panel ────────────────────────── -->
+                        <div x-show="filtersOpen"
+                            x-transition:enter="transition ease-out duration-150"
+                            x-transition:enter-start="opacity-0 -translate-y-1"
+                            x-transition:enter-end="opacity-100 translate-y-0"
+                            x-transition:leave="transition ease-in duration-100"
+                            x-transition:leave-start="opacity-100 translate-y-0"
+                            x-transition:leave-end="opacity-0 -translate-y-1"
+                            class="flex flex-wrap gap-3 items-end bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3"
+                            style="display:none;">
+
+                            <!-- Status -->
+                            <div class="flex flex-col gap-1 min-w-[130px]">
+                                <label class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</label>
+                                <select x-model="statusFilter"
+                                    class="rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="all">All Status</option>
+                                    <option value="online">Online</option>
+                                    <option value="offline">Offline</option>
+                                </select>
+                            </div>
+
+                            @if(auth()->user()->isGlobalAdmin())
+                            <!-- Customer (GlobalAdmin only) -->
+                            <div class="flex flex-col gap-1 min-w-[160px]" x-data="{ custOpen: false, custSearch: '' }" @click.outside="custOpen = false">
+                                <label class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Company</label>
+                                <div class="relative">
+                                    <button @click="custOpen = !custOpen" type="button"
+                                        :class="customerFilter !== 'all' ? 'border-indigo-400 ring-1 ring-indigo-400' : 'border-gray-300 dark:border-gray-600'"
+                                        class="flex items-center justify-between w-full rounded-lg bg-white dark:bg-gray-700 dark:text-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 border">
+                                        <span x-text="customerFilter === 'all' ? 'All Companies' : customerFilter" class="truncate block text-left"></span>
+                                        <svg class="h-4 w-4 ml-2 text-gray-400 transition-transform" :class="{'rotate-180': custOpen}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path d="M19 9l-7 7-7-7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </button>
+                                    <div x-show="custOpen" x-transition class="absolute z-20 mt-1 w-full min-w-[200px] bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl max-h-56 overflow-y-auto" style="display:none;">
+                                        <div class="p-2 border-b dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
+                                            <input x-model="custSearch" type="text" placeholder="Search…" class="w-full text-xs rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600">
+                                        </div>
+                                        <div @click="customerFilter = 'all'; custOpen = false" class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm">All Companies</div>
+                                        <template x-for="c in customers.filter(x => x.toLowerCase().includes(custSearch.toLowerCase()))" :key="c">
+                                            <div @click="customerFilter = c; custOpen = false" class="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm truncate" x-text="c"></div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                            @endif
+
+                            <!-- System -->
+                            <div class="flex flex-col gap-1 min-w-[140px]">
+                                <label class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">System</label>
+                                <select x-model="systemFilter"
+                                    class="rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="all">All System</option>
+                                    <option value="update">Update Available</option>
+                                </select>
+                            </div>
+
+                            <!-- API -->
+                            <div class="flex flex-col gap-1 min-w-[130px]">
+                                <label class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">API</label>
+                                <select x-model="apiFilter"
+                                    class="rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="all">All API</option>
+                                    <option value="update">Update Available</option>
+                                </select>
+                            </div>
+
+                            @if(auth()->user()->isGlobalAdmin())
+                            <!-- Backup (GlobalAdmin only) -->
+                            <div class="flex flex-col gap-1 min-w-[140px]">
+                                <label class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Backup</label>
+                                <select x-model="backupFilter"
+                                    class="rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 text-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="all">All Backups</option>
+                                    <option value="has">Has Backup</option>
+                                    <option value="none">No Backup</option>
+                                </select>
+                            </div>
+                            @endif
+
+                            <!-- Clear all -->
+                            <div class="flex flex-col justify-end pb-0.5">
+                                <button type="button" @click="clearFilters()" x-show="activeFilterCount > 0" style="display:none;"
+                                    class="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                    Clear all
+                                </button>
+                            </div>
+                        </div>
+
                         <form id="bulkForm" action="{{ route('firewalls.bulk.action') }}" method="POST">
                             @csrf
-                            {{-- Hidden form, inputs will reference it by ID --}}
                         </form>
 
                         <div class="overflow-x-auto">
-
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead class="bg-gray-50 dark:bg-gray-700">
                                     <tr>
@@ -620,6 +742,7 @@
                                         @endif
                                         @if(auth()->user()->isGlobalAdmin())
                                             <th scope="col"
+                                                x-show="cols.company"
                                                 class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none group"
                                                 @click="sortBy = 'company'; sortAsc = !sortAsc">
                                                 <div class="flex items-center gap-1">
@@ -651,6 +774,7 @@
                                             Status
                                         </th>
                                         <th scope="col"
+                                            x-show="cols.host"
                                             class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none group"
                                             @click="sortBy = 'displayUrl'; sortAsc = !sortAsc">
                                             <div class="flex items-center gap-1">
@@ -664,6 +788,7 @@
                                             </div>
                                         </th>
                                         <th scope="col"
+                                            x-show="cols.address"
                                             class="px-6 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none group"
                                             @click="sortBy = 'address'; sortAsc = !sortAsc">
                                             <div class="flex items-center justify-center gap-1">
@@ -677,6 +802,7 @@
                                             </div>
                                         </th>
                                         <th scope="col"
+                                            x-show="cols.system"
                                             class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none group"
                                             @click="sortBy = 'sysUpdateAvailable'; sortAsc = !sortAsc">
                                             <div class="flex items-center gap-1">
@@ -690,6 +816,7 @@
                                             </div>
                                         </th>
                                         <th scope="col"
+                                            x-show="cols.api"
                                             class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer select-none group"
                                             @click="sortBy = 'apiUpdateAvailable'; sortAsc = !sortAsc">
                                             <div class="flex items-center gap-1">
@@ -705,6 +832,7 @@
 
                                         @if(auth()->user()->isGlobalAdmin())
                                         <th scope="col"
+                                            x-show="cols.backup"
                                             class="px-6 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Backup
                                         </th>
@@ -724,7 +852,7 @@
                                             </td>
                                             @endif
                                             @if(auth()->user()->isGlobalAdmin())
-                                                <td
+                                                <td x-show="cols.company"
                                                     class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                     <a :href="firewall.company_url"
                                                         class="text-indigo-600 hover:text-indigo-900 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
@@ -761,14 +889,14 @@
                                                     <span class="inline-block w-16 h-5 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></span>
                                                 </template>
                                             </td>
-                                            <td
+                                            <td x-show="cols.host"
                                                 class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                 <a :href="firewall.linkUrl" target="_blank" rel="noopener noreferrer"
                                                     class="text-indigo-600 hover:text-indigo-900 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
                                                     x-text="firewall.displayUrl">
                                                 </a>
                                             </td>
-                                            <td
+                                            <td x-show="cols.address"
                                                 class="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500 dark:text-gray-400">
                                                 <template x-if="firewall.address">
                                                     <a :href="'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(firewall.address)"
@@ -796,7 +924,7 @@
                                                     </svg>
                                                 </template>
                                             </td>
-                                            <td
+                                            <td x-show="cols.system"
                                                 class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                 <div class="flex items-center space-x-2">
                                                     <span x-text="firewall.sysVersion"></span>
@@ -816,7 +944,7 @@
                                                     </template>
                                                 </div>
                                             </td>
-                                            <td
+                                            <td x-show="cols.api"
                                                 class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                 <div class="flex items-center space-x-2">
                                                     <!-- Error State: Long string (likely an error message) -->
@@ -858,7 +986,7 @@
                                             </td>
 
                                             @if(auth()->user()->isGlobalAdmin())
-                                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                            <td x-show="cols.backup" class="px-6 py-4 whitespace-nowrap text-center">
                                                 <template x-if="firewall.backup_url">
                                                     <a :href="firewall.backup_url"
                                                         :title="'Download backup · ' + (firewall.backup_pulled_at ? new Date(firewall.backup_pulled_at).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : '') + (firewall.backup_size_kb ? ' · ' + firewall.backup_size_kb + ' KB' : '')"

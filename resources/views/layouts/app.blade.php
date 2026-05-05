@@ -363,6 +363,61 @@
                 }
             };
         };
+
+        /**
+         * Column Selector Mixin
+         * Provides show/hide column state for any table, persisted to localStorage.
+         *
+         * Usage:
+         *   x-data="{
+         *     ...window.columnSelectorMixin('my_table_v1', [
+         *       { key: 'host',    label: 'Host',    default: true  },
+         *       { key: 'address', label: 'Address', default: false },
+         *     ]),
+         *     // your other props...
+         *     init() { this.initColumns(); }
+         *   }"
+         *
+         * Then use x-show="cols.host" on <th> and <td> pairs.
+         * Drop the <column-selector> component (column-selector.blade.php) in the toolbar.
+         */
+        window.columnSelectorMixin = function (storageKey, columnDefs) {
+            const stored = JSON.parse(localStorage.getItem(storageKey) || 'null') || {};
+            const cols = {};
+            for (const def of columnDefs) {
+                cols[def.key] = Object.prototype.hasOwnProperty.call(stored, def.key)
+                    ? stored[def.key]
+                    : (def.default !== false);
+            }
+            return {
+                _columnDefs: columnDefs,
+                cols,
+                colSelectorOpen: false,
+
+                initColumns() {
+                    this.$watch('cols', () => {
+                        localStorage.setItem(storageKey, JSON.stringify(this.cols));
+                    }, { deep: true });
+                },
+
+                toggleCol(key) {
+                    const def = this._columnDefs.find(d => d.key === key);
+                    if (def?.always) return;
+                    this.cols = { ...this.cols, [key]: !this.cols[key] };
+                },
+
+                resetColumns() {
+                    const defaults = {};
+                    for (const def of this._columnDefs) defaults[def.key] = def.default !== false;
+                    this.cols = defaults;
+                    localStorage.removeItem(storageKey);
+                },
+
+                get hiddenColCount() {
+                    return this._columnDefs.filter(d => !d.always && !this.cols[d.key]).length;
+                }
+            };
+        };
     </script>
     <!-- PWA INSTALL BUTTON -->
     <div id="pwa-install-container" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2"
