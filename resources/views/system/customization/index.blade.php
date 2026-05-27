@@ -1390,6 +1390,7 @@
                                         this.cfTokenConfigured    = !!s.cf_token_configured;
                                         this.cfZoneId             = s.cf_zone_id         || '';
                                         this.sslActive            = !!s.ssl_active;
+                                        if (s.ssl_email)          this.email = s.ssl_email;
                                     } catch (_) {
                                         // Non-fatal — defaults remain
                                     }

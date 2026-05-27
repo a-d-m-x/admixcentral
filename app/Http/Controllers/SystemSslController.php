@@ -73,8 +73,9 @@ class SystemSslController extends Controller
 
             if ($result['success']) {
                 // Update database settings to reflect the change in UI
-                SystemSetting::updateOrCreate(['key' => 'site_url'], ['value' => $domain]);
+                SystemSetting::updateOrCreate(['key' => 'site_url'],      ['value' => $domain]);
                 SystemSetting::updateOrCreate(['key' => 'site_protocol'], ['value' => 'https']);
+                SystemSetting::updateOrCreate(['key' => 'ssl_email'],     ['value' => $request->input('email')]);
 
                 return response()->json([
                     'success'  => true,
@@ -138,6 +139,7 @@ class SystemSslController extends Controller
             'cf_token_configured' => SystemSetting::where('key', 'cf_api_token')->exists(),
             'cf_zone_id'          => SystemSetting::where('key', 'cf_zone_id')->value('value') ?? '',
             'ssl_active'          => (SystemSetting::where('key', 'site_protocol')->value('value') === 'https'),
+            'ssl_email'           => SystemSetting::where('key', 'ssl_email')->value('value') ?? '',
         ]);
     }
 }
