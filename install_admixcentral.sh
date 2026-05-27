@@ -723,16 +723,16 @@ main() {
 
   log "Installing Nginx + Database Server + Supervisor + Redis"
   if [[ "$OS_FAMILY" == "debian" ]]; then
-    pkg_install nginx mysql-server supervisor certbot python3-certbot-nginx redis-server
+    pkg_install nginx mysql-server supervisor certbot python3-certbot-nginx python3-certbot-dns-cloudflare redis-server
   elif [[ "$OS_FAMILY" == "redhat" ]]; then
-    pkg_install nginx mariadb-server supervisor certbot python3-certbot-nginx redis
+    pkg_install nginx mariadb-server supervisor certbot python3-certbot-nginx python3-certbot-dns-cloudflare redis
   elif [[ "$OS_FAMILY" == "arch" ]]; then
-    pkg_install nginx mariadb supervisor certbot certbot-nginx redis
+    pkg_install nginx mariadb supervisor certbot certbot-nginx certbot-dns-cloudflare redis
     if [[ ! -d "/var/lib/mysql/mysql" ]]; then
       mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql || true
     fi
   elif [[ "$OS_FAMILY" == "suse" ]]; then
-    pkg_install nginx mariadb supervisor certbot python3-certbot-nginx redis
+    pkg_install nginx mariadb supervisor certbot python3-certbot-nginx python3-certbot-dns-cloudflare redis
   fi
 
   log "Enabling and starting Redis"
@@ -865,9 +865,13 @@ main() {
   "
 
   log "Configuring sudoers for SSL management, Certbot, and Performance Tuning"
+  # Resolve actual certbot binary (may differ between /usr/bin and /snap/bin)
+  local certbot_bin
+  certbot_bin="$(command -v certbot || echo /usr/bin/certbot)"
+
   cat >/etc/sudoers.d/admixcentral <<EOF
 # SSL / Nginx
-${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot, /usr/sbin/nginx, /usr/bin/systemctl reload nginx, /usr/bin/tee /etc/nginx/sites-available/admixcentral, /usr/bin/tee /etc/nginx/conf.d/admixcentral.conf
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot, ${certbot_bin}, /usr/sbin/nginx, /usr/bin/systemctl reload nginx, /usr/bin/tee /etc/nginx/sites-available/admixcentral, /usr/bin/tee /etc/nginx/conf.d/admixcentral.conf
 # Performance Tuning — supervisor config writes
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor/conf.d/admix-worker.conf
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor/conf.d/admix-worker.ini
@@ -887,6 +891,16 @@ ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8.1-fpm
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php-fpm
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8-fpm
 EOF
+
+  # If RUNTIME_WEB_USER is not www-data, also add www-data explicitly —
+  # PHP-FPM pool often runs as www-data regardless of the detected install user.
+  if [[ "${RUNTIME_WEB_USER}" != "www-data" ]] && id www-data >/dev/null 2>&1; then
+    cat >>/etc/sudoers.d/admixcentral <<EOF
+# SSL / Nginx (www-data — PHP-FPM pool user)
+www-data ALL=(ALL) NOPASSWD: /usr/bin/certbot, ${certbot_bin}, /usr/sbin/nginx, /usr/bin/systemctl reload nginx, /usr/bin/tee /etc/nginx/sites-available/admixcentral, /usr/bin/tee /etc/nginx/conf.d/admixcentral.conf
+EOF
+  fi
+
   chmod 0440 /etc/sudoers.d/admixcentral || true
 
   configure_nginx_site

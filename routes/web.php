@@ -360,6 +360,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.ssl.uninstall');
 
+    Route::get('/system/ssl/status', [App\Http\Controllers\SystemSslController::class, 'status'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
+        ->name('system.ssl.status');
+
     // Global System Backups
     Route::get('/system/backups', [App\Http\Controllers\SystemBackupController::class, 'index'])
         ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])

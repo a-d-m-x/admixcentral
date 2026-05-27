@@ -20,7 +20,7 @@ class SslManagerService
     /**
      * Install SSL certificate for the given domain
      */
-    public function install(string $domain, string $email): array
+    public function install(string $domain, string $email, string $method = 'http', ?string $cfToken = null): array
     {
         // Strict domain validation to prevent Nginx config injection
         if (!preg_match('/^(?!:\/\/)(?=.{1,255}$)((.{1,63}\.){1,127}(?![0-9]*$)[a-z0-9-]+\.?)$/i', $domain) || preg_match('/[;{}\n\r]/', $domain)) {
@@ -29,7 +29,14 @@ class SslManagerService
 
         try {
             // 1. Request Certificate
-            $this->requestCertificate($domain, $email);
+            if ($method === 'cloudflare') {
+                if (!$cfToken) {
+                    throw new \Exception('A Cloudflare API token is required for DNS-01 verification.');
+                }
+                $this->requestCertificateViaCloudflareDns($domain, $email, $cfToken);
+            } else {
+                $this->requestCertificate($domain, $email);
+            }
 
             // 2. Safely Apply Nginx Configuration
             // We use a separate try-catch to rollback if applying config fails
@@ -80,7 +87,8 @@ class SslManagerService
         // Run certbot safely
         // --webroot using public dir as root for challenges
         $cmd = "sudo certbot certonly --webroot -w " . escapeshellarg(public_path()) .
-            " -d " . escapeshellarg($domain) . " --non-interactive --agree-tos -m " . escapeshellarg($email) . " --deploy-hook ''";
+            " -d " . escapeshellarg($domain) . " --non-interactive --agree-tos -m " . escapeshellarg($email) .
+            " --deploy-hook 'sudo systemctl reload nginx'";
 
         $result = Process::run($cmd);
 
@@ -90,6 +98,47 @@ class SslManagerService
 
         // Verify certificates exist (skipped due to permissions - nginx -t will verify later)
         // Note: www-data cannot read /etc/letsencrypt/live directly, causing false negatives.
+    }
+
+    protected function requestCertificateViaCloudflareDns(string $domain, string $email, string $cfToken): void
+    {
+        // Check if certbot exists
+        $check = Process::run('which certbot');
+        if ($check->failed()) {
+            throw new \Exception('Certbot is not installed. Please run the installer script.');
+        }
+
+        // Check if the dns-cloudflare plugin Python package is importable (no sudo needed)
+        $pluginCheck = Process::run('python3 -c "import certbot_dns_cloudflare"');
+        if ($pluginCheck->failed()) {
+            throw new \Exception(
+                'The certbot-dns-cloudflare plugin is not installed. ' .
+                'Please run: sudo apt install python3-certbot-dns-cloudflare (or equivalent for your OS).'
+            );
+        }
+
+        // Write temp credentials file — chmod 600 immediately, deleted in finally block
+        $credPath = storage_path('app/cf-credentials-' . uniqid() . '.ini');
+        file_put_contents($credPath, "dns_cloudflare_api_token = {$cfToken}\n");
+        chmod($credPath, 0600);
+
+        try {
+            $cmd = "sudo certbot certonly --dns-cloudflare" .
+                " --dns-cloudflare-credentials " . escapeshellarg($credPath) .
+                " -d " . escapeshellarg($domain) .
+                " --non-interactive --agree-tos -m " . escapeshellarg($email);
+
+            $result = Process::run($cmd);
+
+            if ($result->failed()) {
+                throw new \Exception("Certbot (DNS-01) failed: " . $result->errorOutput());
+            }
+        } finally {
+            // Always remove the credentials file — even on failure
+            if (file_exists($credPath)) {
+                unlink($credPath);
+            }
+        }
     }
 
     public function deleteCertificate(string $domain): void

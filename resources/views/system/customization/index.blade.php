@@ -1046,12 +1046,17 @@
                                                         clip-rule="evenodd" />
                                                 </svg>
                                             </div>
-                                            <div class="ml-3 flex-1 md:flex md:justify-between">
+                                            <div class="ml-3 flex-1 md:flex md:justify-between md:items-center">
                                                 <p class="text-sm text-green-700 dark:text-green-300">
                                                     <span class="font-medium">Secure Connection.</span>
                                                     SSL is installed and active.
                                                 </p>
-                                                <p class="mt-3 text-sm md:ml-6 md:mt-0">
+                                                <p class="mt-3 text-sm md:ml-6 md:mt-0 flex items-center gap-4">
+                                                    <button type="button"
+                                                        @click="openModal('{{ $settings['site_url'] ?? '' }}')"
+                                                        class="whitespace-nowrap font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 hover:underline">
+                                                        Reconfigure
+                                                    </button>
                                                     <button type="button" @click="confirmUninstall()"
                                                         class="whitespace-nowrap font-medium text-red-600 dark:text-red-400 hover:text-red-500 hover:underline">
                                                         Uninstall SSL
@@ -1065,43 +1070,114 @@
                         </div>
 
                         <!-- SSL Modal -->
-                        <x-modal name="install-ssl-modal" :show="$errors->isNotEmpty()" focusable maxWidth="md">
+                        <x-modal name="install-ssl-modal" :show="$errors->isNotEmpty()" focusable maxWidth="lg">
                             <div class="p-6">
-                                <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-4">Install
-                                    Let's Encrypt SSL</h3>
+                                <h3 class="text-lg font-medium leading-6 text-gray-900 dark:text-white mb-1">Install Let's Encrypt SSL</h3>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">Certificate is issued free via Let's Encrypt. Choose how your domain ownership is verified.</p>
 
-                                <div class="space-y-4">
+                                <div class="space-y-5">
+                                    <!-- Domain -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Domain
-                                            Name</label>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Domain Name</label>
                                         <input type="text" x-model="domain"
-                                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                             placeholder="central.example.com">
                                     </div>
+
+                                    <!-- Email -->
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Email
-                                            Address (for renewal)</label>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address <span class="font-normal text-gray-400">(for renewal notices)</span></label>
                                         <input type="email" x-model="email"
-                                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                             placeholder="admin@example.com">
                                     </div>
 
+                                    <!-- Verification Method -->
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Verification Method</label>
+                                        <div class="grid grid-cols-2 gap-3">
+                                            <!-- HTTP option -->
+                                            <label class="relative cursor-pointer">
+                                                <input type="radio" x-model="challengeMethod" value="http" class="peer sr-only">
+                                                <div class="flex flex-col gap-1 p-3 rounded-lg border-2 border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 peer-checked:border-indigo-600 peer-checked:bg-indigo-50 dark:peer-checked:bg-indigo-900/30 transition-all cursor-pointer">
+                                                    <div class="flex items-center gap-2">
+                                                        <svg class="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                                                        <span class="text-sm font-medium text-gray-900 dark:text-white">HTTP Verification</span>
+                                                    </div>
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400 pl-6">Port 80 must be open and reachable</p>
+                                                </div>
+                                            </label>
+                                            <!-- Cloudflare DNS option -->
+                                            <label class="relative cursor-pointer">
+                                                <input type="radio" x-model="challengeMethod" value="cloudflare" class="peer sr-only">
+                                                <div class="flex flex-col gap-1 p-3 rounded-lg border-2 border-gray-200 dark:border-gray-600 hover:border-orange-300 dark:hover:border-orange-500 peer-checked:border-orange-500 peer-checked:bg-orange-50 dark:peer-checked:bg-orange-900/20 transition-all cursor-pointer">
+                                                    <div class="flex items-center gap-2">
+                                                        <svg class="w-4 h-4 text-orange-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
+                                                        <span class="text-sm font-medium text-gray-900 dark:text-white">Cloudflare DNS</span>
+                                                    </div>
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400 pl-6">No port 80 needed &mdash; works with proxied domains</p>
+                                                </div>
+                                            </label>
+                                        </div>
+
+                                        <!-- Re-issue warning (shown when SSL is active and method changes) -->
+                                        <div x-show="sslActive && statusLoaded && challengeMethod !== savedChallengeMethod"
+                                            class="mt-2 flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-md p-2.5">
+                                            <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                            <span>Changing the verification method will <strong>re-issue your certificate</strong>. There will be a brief reload during the switchover.</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Cloudflare Fields -->
+                                    <div x-show="challengeMethod === 'cloudflare'" class="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                        <!-- API Token -->
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                                Cloudflare API Token
+                                                <span class="ml-1 text-xs font-normal text-gray-400">(write-only)</span>
+                                            </label>
+                                            <input type="password" x-model="cfToken" autocomplete="new-password"
+                                                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white font-mono"
+                                                placeholder="Enter API token">
+                                            <!-- Token configured hint -->
+                                            <p x-show="cfTokenConfigured && !cfToken"
+                                                class="mt-1.5 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                                                Token already configured &mdash; leave blank to keep, or type a new value to replace
+                                            </p>
+                                            <p x-show="!cfTokenConfigured"
+                                                class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                                Requires <strong>Zone &rarr; DNS &rarr; Edit</strong> permission. Token is encrypted before storage and never retrievable.
+                                            </p>
+                                        </div>
+
+                                        <!-- Zone ID -->
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Zone ID</label>
+                                            <input type="text" x-model="cfZoneId"
+                                                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white font-mono"
+                                                placeholder="e.g. a1b2c3d4e5f6...  (32 hex chars)">
+                                            <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                                Found in Cloudflare Dashboard &rarr; your domain &rarr; Overview &rarr; API section.
+                                            </p>
+                                        </div>
+                                    </div>
+
                                     <!-- Error Message -->
-                                    <div x-show="error" class="text-red-500 text-sm mt-2" x-text="error"></div>
+                                    <div x-show="error" class="flex items-start gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-md p-3">
+                                        <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        <span x-text="error"></span>
+                                    </div>
                                 </div>
 
                                 <div class="mt-6 flex justify-end gap-3">
                                     <button type="button" x-on:click="$dispatch('close')"
-                                        class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Cancel</button>
+                                        class="rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</button>
                                     <button type="button" @click="installSsl" :disabled="loading"
                                         class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 flex items-center gap-2">
-                                        <svg x-show="loading" class="animate-spin h-4 w-4 text-white" fill="none"
-                                            viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                                stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor"
-                                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                                            </path>
+                                        <svg x-show="loading" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
                                         <span x-text="loading ? 'Installing...' : 'Install Certificate'"></span>
                                     </button>
@@ -1286,30 +1362,86 @@
                                 showModal: false,
                                 domain: '',
                                 email: '',
+                                // Challenge method state
+                                challengeMethod: 'http',
+                                savedChallengeMethod: 'http', // from DB — used to detect change
+                                cfToken: '',                   // never pre-filled — write-only
+                                cfZoneId: '',
+                                cfTokenConfigured: false,
+                                sslActive: false,
+                                statusLoaded: false,
                                 loading: false,
                                 error: null,
-                                openModal(currentUrl) {
+
+                                async openModal(currentUrl) {
                                     this.domain = currentUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
                                     this.error = null;
+                                    this.cfToken = '';           // always blank on open — write-only
+                                    this.statusLoaded = false;
+
+                                    // Fetch non-sensitive SSL status to hydrate modal fields
+                                    try {
+                                        const res = await fetch('{{ route("system.ssl.status") }}', {
+                                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                                        });
+                                        const s = await res.json();
+                                        this.challengeMethod      = s.challenge_method   || 'http';
+                                        this.savedChallengeMethod = s.challenge_method   || 'http';
+                                        this.cfTokenConfigured    = !!s.cf_token_configured;
+                                        this.cfZoneId             = s.cf_zone_id         || '';
+                                        this.sslActive            = !!s.ssl_active;
+                                    } catch (_) {
+                                        // Non-fatal — defaults remain
+                                    }
+
+                                    this.statusLoaded = true;
                                     window.dispatchEvent(new CustomEvent('open-modal', { detail: 'install-ssl-modal' }));
                                 },
+
                                 async installSsl() {
                                     if (!this.domain || !this.email) {
                                         this.error = 'Please fill in all fields.';
                                         return;
                                     }
 
+                                    // Cloudflare-specific validation
+                                    if (this.challengeMethod === 'cloudflare') {
+                                        if (!this.cfZoneId || !/^[a-f0-9]{32}$/.test(this.cfZoneId.trim())) {
+                                            this.error = 'Please enter a valid Cloudflare Zone ID (32-character hex string).';
+                                            return;
+                                        }
+                                        if (!this.cfToken && !this.cfTokenConfigured) {
+                                            this.error = 'A Cloudflare API Token is required.';
+                                            return;
+                                        }
+                                    }
+
                                     this.loading = true;
                                     this.error = null;
 
                                     try {
+                                        // Build payload — only include CF fields when needed
+                                        const body = {
+                                            domain: this.domain,
+                                            email: this.email,
+                                            challenge_method: this.challengeMethod,
+                                        };
+
+                                        if (this.challengeMethod === 'cloudflare') {
+                                            body.cf_zone_id = this.cfZoneId.trim();
+                                            // Only send token if user entered a new one
+                                            if (this.cfToken) {
+                                                body.cf_token = this.cfToken;
+                                            }
+                                        }
+
                                         const response = await fetch('{{ route("system.ssl.install") }}', {
                                             method: 'POST',
                                             headers: {
                                                 'Content-Type': 'application/json',
                                                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
                                             },
-                                            body: JSON.stringify({ domain: this.domain, email: this.email })
+                                            body: JSON.stringify(body)
                                         });
 
                                         const data = await response.json();

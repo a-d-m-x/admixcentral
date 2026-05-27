@@ -125,26 +125,35 @@ main() {
 
   log "AdmixCentral found at $INSTALL_DIR"
 
-  # ── 1. Install Redis + PHP extension ──────────────────────────────────────
-  log "Step 1/6 — Installing Redis and PHP Redis extension"
+  # ── 1. Install Redis + PHP extension + Certbot DNS plugin ─────────────────
+  log "Step 1/6 — Installing Redis, PHP Redis extension, and Certbot DNS-Cloudflare plugin"
 
   case "$OS_FAMILY" in
     debian)
       apt-get update -y -q
       pkg_install redis-server "php${PHP_VER}-redis"
       systemctl enable --now redis-server || true
+      # Certbot DNS-01 Cloudflare plugin (idempotent — no-op if already installed)
+      pkg_install python3-certbot-dns-cloudflare || \
+        info "Warning: python3-certbot-dns-cloudflare not available via apt — Cloudflare DNS SSL will not work on this server"
       ;;
     redhat)
       pkg_install redis php-redis
       systemctl enable --now redis || true
+      pkg_install python3-certbot-dns-cloudflare || \
+        info "Warning: python3-certbot-dns-cloudflare not available — install manually for Cloudflare DNS SSL"
       ;;
     arch)
       pkg_install redis php-redis
       systemctl enable --now redis || true
+      pkg_install certbot-dns-cloudflare || \
+        info "Warning: certbot-dns-cloudflare not available — install manually for Cloudflare DNS SSL"
       ;;
     suse)
       pkg_install redis php8-redis
       systemctl enable --now redis || true
+      pkg_install python3-certbot-dns-cloudflare || \
+        info "Warning: python3-certbot-dns-cloudflare not available — install manually for Cloudflare DNS SSL"
       ;;
   esac
 
@@ -269,9 +278,18 @@ main() {
   local web_user
   web_user="$(stat -c '%U' "${INSTALL_DIR}/artisan" 2>/dev/null || echo "www-data")"
 
+  # Resolve the actual certbot binary (may be /snap/bin/certbot on Ubuntu 22+)
+  local certbot_bin
+  certbot_bin="$(command -v certbot 2>/dev/null || echo /usr/bin/certbot)"
+
+  # Detect the PHP-FPM pool runtime user (may differ from the artisan file owner)
+  local fpm_user
+  fpm_user="$(ps aux 2>/dev/null | awk '/php-fpm.*pool www/ && !/root/{print $1; exit}')"
+  fpm_user="${fpm_user:-www-data}"
+
   cat >/etc/sudoers.d/admixcentral <<EOF
 # SSL / Nginx
-${web_user} ALL=(ALL) NOPASSWD: /usr/bin/certbot, /usr/sbin/nginx, /usr/bin/systemctl reload nginx, /usr/bin/tee /etc/nginx/sites-available/admixcentral, /usr/bin/tee /etc/nginx/conf.d/admixcentral.conf
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/certbot, ${certbot_bin}, /usr/sbin/nginx, /usr/bin/systemctl reload nginx, /usr/bin/tee /etc/nginx/sites-available/admixcentral, /usr/bin/tee /etc/nginx/conf.d/admixcentral.conf
 # Performance Tuning — supervisor config writes
 ${web_user} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor/conf.d/admix-worker.conf
 ${web_user} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor/conf.d/admix-worker.ini
@@ -291,8 +309,19 @@ ${web_user} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8.1-fpm
 ${web_user} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php-fpm
 ${web_user} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8-fpm
 EOF
+
+  # Always ensure the PHP-FPM pool user (commonly www-data) can run certbot/nginx,
+  # even when it differs from the artisan file owner. This is the user that PHP web
+  # requests actually run as and the one that invokes sudo certbot from the app.
+  if [[ "${fpm_user}" != "${web_user}" ]] && id "${fpm_user}" >/dev/null 2>&1; then
+    cat >>/etc/sudoers.d/admixcentral <<EOF
+# SSL / Nginx (${fpm_user} — PHP-FPM pool runtime user)
+${fpm_user} ALL=(ALL) NOPASSWD: /usr/bin/certbot, ${certbot_bin}, /usr/sbin/nginx, /usr/bin/systemctl reload nginx, /usr/bin/tee /etc/nginx/sites-available/admixcentral, /usr/bin/tee /etc/nginx/conf.d/admixcentral.conf
+EOF
+  fi
+
   chmod 0440 /etc/sudoers.d/admixcentral || true
-  info "Sudoers written for user: ${web_user}"
+  info "Sudoers written for artisan owner: ${web_user}, PHP-FPM pool user: ${fpm_user}"
 
   # ── Phase 1: Frontend asset rebuild ─────────────────────────────────────────
   log "Phase 1 — Rebuilding frontend assets (echo.js timeout fix)"
@@ -312,6 +341,15 @@ EOF
       npm run build
     " && info "Frontend assets rebuilt" \
       || info "Warning: npm build failed — rebuild manually: npm run build"
+
+    # Re-apply group ownership and write permissions so administrator and www-data
+    # can both access these dirs without sudo after every build.
+    chown -R "${web_user}:www-data" "${INSTALL_DIR}/public/build"    2>/dev/null || true
+    chown -R "${web_user}:www-data" "${INSTALL_DIR}/node_modules"    2>/dev/null || true
+    find "${INSTALL_DIR}/public/build" -type d -exec chmod g+ws {} \; 2>/dev/null || true
+    find "${INSTALL_DIR}/public/build" -type f -exec chmod g+w  {} \; 2>/dev/null || true
+    find "${INSTALL_DIR}/node_modules" -type d -exec chmod g+ws {} \; 2>/dev/null || true
+    info "Permissions fixed: public/build + node_modules (group: www-data, group-writable)"
   else
     info "No package.json found — skipping frontend asset rebuild"
   fi
