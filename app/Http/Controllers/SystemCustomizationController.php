@@ -107,6 +107,7 @@ class SystemCustomizationController extends Controller
             'mailgun_secret' => 'nullable|string',
             'mail_from_address' => 'nullable|email',
             'mail_from_name' => 'nullable|string|max:255',
+            'dashboard_default_layout' => 'nullable|in:cards,compact,list',
         ]);
 
         if ($request->filled('site_url') && $request->filled('site_protocol')) {
@@ -179,6 +180,11 @@ class SystemCustomizationController extends Controller
 
         if ($request->filled('sidebar_text')) {
             SystemSetting::updateOrCreate(['key' => 'sidebar_text'], ['value' => $request->sidebar_text]);
+        }
+
+        // Dashboard defaults
+        if ($request->filled('dashboard_default_layout')) {
+            SystemSetting::updateOrCreate(['key' => 'dashboard_default_layout'], ['value' => $request->dashboard_default_layout]);
         }
 
         if ($request->has('enable_status_cache')) {

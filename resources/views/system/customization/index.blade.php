@@ -667,6 +667,91 @@
                     x-transition:enter-start="opacity-0 translate-y-2"
                     x-transition:enter-end="opacity-100 translate-y-0">
 
+                    <!-- Section: Dashboard Defaults -->
+                    <div class="card-modern mb-6">
+                        <div class="card-header-modern">
+                            <div class="card-icon-wrapper">
+                                <svg class="card-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="card-title-modern">Dashboard Defaults</h3>
+                                <p class="card-subtitle-modern">Set the default firewall grid layout for new users or devices that haven't chosen a preference yet. Individual users can always override this locally.</p>
+                            </div>
+                        </div>
+                        <div class="card-body-modern">
+                            <div class="space-y-3">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Default Dashboard Layout</label>
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" x-data="{ layout: '{{ $settings['dashboard_default_layout'] ?? 'cards' }}' }">
+                                    {{-- Cards option --}}
+                                    <label class="relative flex cursor-pointer rounded-xl border-2 p-4 transition-all duration-150"
+                                        :class="layout === 'cards' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 bg-white dark:bg-gray-800'">
+                                        <input type="radio" name="dashboard_default_layout" value="cards"
+                                            class="sr-only" @change="layout = 'cards'"
+                                            {{ ($settings['dashboard_default_layout'] ?? 'cards') === 'cards' ? 'checked' : '' }}>
+                                        <div class="flex items-start gap-3 w-full">
+                                            <div class="shrink-0 mt-0.5">
+                                                <svg class="w-5 h-5 transition-colors" :class="layout === 'cards' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400'"
+                                                     fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+                                                </svg>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold transition-colors" :class="layout === 'cards' ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-900 dark:text-gray-100'">Cards</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Full detail view with metrics, graphs, and system info. Best for ≤ 20 firewalls.</p>
+                                            </div>
+                                        </div>
+                                    </label>
+
+                                    {{-- Compact option --}}
+                                    <label class="relative flex cursor-pointer rounded-xl border-2 p-4 transition-all duration-150"
+                                        :class="layout === 'compact' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 bg-white dark:bg-gray-800'">
+                                        <input type="radio" name="dashboard_default_layout" value="compact"
+                                            class="sr-only" @change="layout = 'compact'"
+                                            {{ ($settings['dashboard_default_layout'] ?? 'cards') === 'compact' ? 'checked' : '' }}>
+                                        <div class="flex items-start gap-3 w-full">
+                                            <div class="shrink-0 mt-0.5">
+                                                <svg class="w-5 h-5 transition-colors" :class="layout === 'compact' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400'"
+                                                     fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <rect x="3" y="3" width="4" height="4" rx="0.5"/><rect x="10" y="3" width="4" height="4" rx="0.5"/><rect x="17" y="3" width="4" height="4" rx="0.5"/><rect x="3" y="10" width="4" height="4" rx="0.5"/><rect x="10" y="10" width="4" height="4" rx="0.5"/><rect x="17" y="10" width="4" height="4" rx="0.5"/><rect x="3" y="17" width="4" height="4" rx="0.5"/><rect x="10" y="17" width="4" height="4" rx="0.5"/><rect x="17" y="17" width="4" height="4" rx="0.5"/>
+                                                </svg>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold transition-colors" :class="layout === 'compact' ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-900 dark:text-gray-100'">Compact</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Dense 3–4 column grid with key metrics only. Ideal for 20–200 firewalls.</p>
+                                            </div>
+                                        </div>
+                                    </label>
+
+                                    {{-- List option --}}
+                                    <label class="relative flex cursor-pointer rounded-xl border-2 p-4 transition-all duration-150"
+                                        :class="layout === 'list' ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 bg-white dark:bg-gray-800'">
+                                        <input type="radio" name="dashboard_default_layout" value="list"
+                                            class="sr-only" @change="layout = 'list'"
+                                            {{ ($settings['dashboard_default_layout'] ?? 'cards') === 'list' ? 'checked' : '' }}>
+                                        <div class="flex items-start gap-3 w-full">
+                                            <div class="shrink-0 mt-0.5">
+                                                <svg class="w-5 h-5 transition-colors" :class="layout === 'list' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400'"
+                                                     fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+                                                </svg>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold transition-colors" :class="layout === 'list' ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-900 dark:text-gray-100'">List</p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Single row per firewall — maximum density. Best for 200+ firewalls.</p>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                                <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                                    Users who have already selected their own layout preference will not be affected by this setting.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Section 1: Branding & Identity -->
                     <div class="card-modern">
                         <div class="card-header-modern">
