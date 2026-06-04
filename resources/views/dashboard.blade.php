@@ -85,7 +85,7 @@
                     <div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
                         <!-- Firewalls Widget -->
                         <div
-                            class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex items-center">
+                            class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex items-center justify-center">
                             <div
                                 class="p-3 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-500 dark:text-blue-300 mr-4">
                                 <svg class="h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
@@ -157,7 +157,7 @@
                         </div>
 
                         <!-- System Health Widget -->
-                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex items-center"
+                        <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex items-center justify-center"
                             id="system-health-widget">
                             <div id="health-icon"
                                 class="p-3 rounded-full bg-gray-100 dark:bg-gray-700 mr-4 transition-all duration-300">
@@ -168,8 +168,6 @@
                                 </svg>
                             </div>
                             <div>
-
-
                                 <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Health</p>
                                 <!-- Skeleton Placeholder -->
                                 <div id="health-skeleton" class="animate-pulse">
@@ -186,7 +184,7 @@
                         @if($adminLabel === 'Global Admin')
                             <!-- Total Companies Widget -->
                             <div
-                                class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex items-center">
+                                class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex items-center justify-center">
                                 <div
                                     class="p-3 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-500 dark:text-indigo-300 mr-4">
                                     <svg class="h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
@@ -203,7 +201,7 @@
                         @else
                             <!-- Gateways Widget -->
                             <div
-                                class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex items-center">
+                                class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex items-center justify-center">
                                 <div
                                     class="relative p-3 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-500 dark:text-blue-300 mr-4">
                                     <svg class="h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
@@ -238,7 +236,7 @@
 
                         <!-- Total Users Widget -->
                         <div
-                            class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex items-center">
+                            class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6 flex items-center justify-center">
                             <div
                                 class="p-3 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-500 dark:text-purple-300 mr-4">
                                 <svg class="h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
@@ -267,15 +265,59 @@
                         <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-4">
                             <div class="flex flex-wrap w-full xl:w-auto justify-between items-center gap-2">
                                 <h3 class="text-lg font-semibold whitespace-nowrap">Managed Firewalls</h3>
-                                <span class="text-xs text-gray-500 font-normal block xl:hidden"
-                                    x-text="'Showing ' + filteredCount() + ' of ' + items.length + ' firewalls'"></span>
+                                <div class="flex items-center gap-2 xl:hidden">
+                                    <span class="text-xs text-gray-500 font-normal"
+                                        x-text="'Showing ' + filteredCount() + ' of ' + items.length + ' firewalls'"></span>
+                                    {{-- Layout Switcher (mobile) --}}
+                                    <div class="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+                                        <button type="button" title="Card view"
+                                            @click="$store.dashLayout.set('cards')"
+                                            :class="$store.dashLayout.layout === 'cards' ? 'bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-indigo-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'"
+                                            class="p-1.5 rounded-md transition-all duration-150">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                                        </button>
+                                        <button type="button" title="Compact view"
+                                            @click="$store.dashLayout.set('compact')"
+                                            :class="$store.dashLayout.layout === 'compact' ? 'bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-indigo-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'"
+                                            class="p-1.5 rounded-md transition-all duration-150">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="4" rx="0.5"/><rect x="10" y="3" width="4" height="4" rx="0.5"/><rect x="17" y="3" width="4" height="4" rx="0.5"/><rect x="3" y="10" width="4" height="4" rx="0.5"/><rect x="10" y="10" width="4" height="4" rx="0.5"/><rect x="17" y="10" width="4" height="4" rx="0.5"/><rect x="3" y="17" width="4" height="4" rx="0.5"/><rect x="10" y="17" width="4" height="4" rx="0.5"/><rect x="17" y="17" width="4" height="4" rx="0.5"/></svg>
+                                        </button>
+                                        <button type="button" title="List view"
+                                            @click="$store.dashLayout.set('list')"
+                                            :class="$store.dashLayout.layout === 'list' ? 'bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-indigo-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'"
+                                            class="p-1.5 rounded-md transition-all duration-150">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
 
                             <div
                                 class="flex flex-col sm:grid sm:grid-cols-2 xl:flex xl:flex-row items-stretch sm:items-center gap-2 w-full xl:w-auto">
                                 <span
-                                    class="text-xs text-gray-500 font-normal self-start xl:self-center whitespace-nowrap xl:mr-2 hidden xl:inline"
+                                    class="text-xs text-gray-500 font-normal self-start xl:self-center whitespace-nowrap hidden xl:inline"
                                     x-text="'Showing ' + filteredCount() + ' of ' + items.length + ' firewalls'"></span>
+                                {{-- Layout Switcher (desktop) --}}
+                                <div class="hidden xl:flex items-center gap-0.5 bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 mr-2">
+                                    <button type="button" title="Card view"
+                                        @click="$store.dashLayout.set('cards')"
+                                        :class="$store.dashLayout.layout === 'cards' ? 'bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-indigo-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'"
+                                        class="p-1.5 rounded-md transition-all duration-150">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                                    </button>
+                                    <button type="button" title="Compact view"
+                                        @click="$store.dashLayout.set('compact')"
+                                        :class="$store.dashLayout.layout === 'compact' ? 'bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-indigo-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'"
+                                        class="p-1.5 rounded-md transition-all duration-150">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="4" rx="0.5"/><rect x="10" y="3" width="4" height="4" rx="0.5"/><rect x="17" y="3" width="4" height="4" rx="0.5"/><rect x="3" y="10" width="4" height="4" rx="0.5"/><rect x="10" y="10" width="4" height="4" rx="0.5"/><rect x="17" y="10" width="4" height="4" rx="0.5"/><rect x="3" y="17" width="4" height="4" rx="0.5"/><rect x="10" y="17" width="4" height="4" rx="0.5"/><rect x="17" y="17" width="4" height="4" rx="0.5"/></svg>
+                                    </button>
+                                    <button type="button" title="List view"
+                                        @click="$store.dashLayout.set('list')"
+                                        :class="$store.dashLayout.layout === 'list' ? 'bg-white dark:bg-gray-600 shadow text-indigo-600 dark:text-indigo-400' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'"
+                                        class="p-1.5 rounded-md transition-all duration-150">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                                    </button>
+                                </div>
                                 <!-- Customer Filter -->
                                 @if(auth()->user()->isGlobalAdmin())
                                     @php
@@ -402,7 +444,12 @@
                             </div>
                         </div>
                     @else
-                        <div class="space-y-6">
+                        <div
+                            :class="{
+                                'grid grid-cols-1 xl:grid-cols-2 gap-4':          $store.dashLayout.layout === 'cards',
+                                'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3': $store.dashLayout.layout === 'compact',
+                                'flex flex-col gap-1.5':                          $store.dashLayout.layout === 'list'
+                            }">
                             @foreach($firewallsWithStatus as $firewall)
                                 <div x-show="matches(search) && matchesFilters(statusFilter, customerFilter)"
                                     x-data="firewallCard(
@@ -412,14 +459,160 @@
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         {{ $firewall->id }},
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         '{{ $firewall->company->name }}'
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     )"
-                                    class="relative border border-gray-100 dark:border-gray-700 rounded-2xl p-3 sm:p-4 bg-white dark:bg-gray-800 shadow-md hover:shadow-xl transition-shadow duration-200">
+                                    :class="{
+                                        'rounded-2xl p-3 sm:p-4 shadow-md hover:shadow-xl': $store.dashLayout.layout === 'cards',
+                                        'rounded-xl p-2.5 shadow-sm hover:shadow-md':       $store.dashLayout.layout === 'compact',
+                                        'rounded-lg px-3 py-2 shadow-sm hover:bg-gray-50/60 dark:hover:bg-gray-700/20': $store.dashLayout.layout === 'list'
+                                    }"
+                                    class="relative border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 transition-all duration-200">
 
-                                    {{-- Overlay Moved to Body --}}
+                                    {{-- ═══ LIST ROW VIEW ═══ --}}
+                                    {{-- Layout: [identity flex-1] [metrics shrink-0 always-rendered] --}}
+                                    <div x-show="$store.dashLayout.layout === 'list'" class="flex items-center gap-x-3 w-full min-w-0 py-0.5">
+
+                                        {{-- ── Identity group (flex-1) ── --}}
+                                        <div class="flex items-center gap-x-2 flex-1 min-w-0">
+                                            {{-- Status dot — fixed 8px square so it never causes reflow --}}
+                                            <div class="shrink-0 w-2 h-2 relative">
+                                                <div class="absolute inset-0 rounded-full transition-colors duration-300"
+                                                     :class="loading ? 'bg-gray-300 dark:bg-gray-600 animate-pulse' : (online ? 'bg-green-500' : 'bg-red-500 animate-pulse')"></div>
+                                            </div>
+                                            <a href="{{ route('firewall.dashboard', $firewall) }}"
+                                               class="font-semibold text-sm text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline underline-offset-2 truncate shrink-0 max-w-[130px] sm:max-w-[180px]">{{ $firewall->name }}</a>
+                                            @if(auth()->user()->role === 'admin')
+                                                <a href="{{ route('companies.show', $firewall->company) }}"
+                                                   class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 truncate shrink hidden md:block max-w-[110px]">{{ $firewall->company->name }}</a>
+                                            @endif
+                                            {{-- Uptime / Offline badge — fixed min-width to prevent reflow --}}
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-mono text-[10px] font-medium shrink-0 hidden sm:inline-flex min-w-[56px]"
+                                                  :class="(!loading && online) ? 'opacity-100' : 'opacity-0'"
+                                                  x-text="(!loading && online) ? formatUptime(status?.data?.uptime || status?.data?.uptime_text || status?.data?.uptime_string) : ''"></span>
+                                            <span class="text-[10px] text-red-400 font-medium shrink-0 min-w-[40px]"
+                                                  :class="(!loading && !online) ? 'opacity-100' : 'opacity-0'">Offline</span>
+                                        </div>
+
+                                        {{-- ── Gateways + Storage + Temp (lg+) — always in DOM, never collapses ── --}}
+                                        <div class="hidden lg:flex items-center gap-x-3 shrink-0">
+                                            <div class="h-3 w-px bg-gray-200 dark:bg-gray-700"></div>
+
+                                            {{-- Gateways: label always visible; dots fade in. x-for on empty array = no DOM reflow --}}
+                                            <div class="flex items-center gap-x-1">
+                                                <span class="text-[10px] font-medium text-gray-400 dark:text-gray-500 shrink-0">Gateways</span>
+                                                <div class="flex items-center gap-0.5 min-w-[8px]"
+                                                     :class="(!loading && online) ? 'opacity-100' : 'opacity-0'">
+                                                    <template x-for="gw in (status?.data?.gateways || [])" :key="gw.name">
+                                                        <div class="relative group">
+                                                            <div class="w-2 h-2 rounded-full cursor-default shrink-0"
+                                                                 :class="{
+                                                                     'bg-teal-500': gw.status === 'online' || gw.status === 'none',
+                                                                     'bg-red-500':   gw.status === 'offline' || gw.status === 'down',
+                                                                     'bg-yellow-500': gw.status && gw.status !== 'online' && gw.status !== 'none' && gw.status !== 'offline' && gw.status !== 'down'
+                                                                 }"></div>
+                                                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-20 hidden group-hover:block pointer-events-none">
+                                                                <div class="bg-gray-900 dark:bg-gray-700 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap shadow-lg">
+                                                                    <div class="font-semibold" x-text="gw.descr || gw.name"></div>
+                                                                    <div class="text-gray-400 font-mono text-[9px]" x-text="gw.monitorip || gw.srcip || ''"></div>
+                                                                    <div class="capitalize"
+                                                                         :class="(gw.status === 'online' || gw.status === 'none') ? 'text-teal-400' : (gw.status === 'offline' || gw.status === 'down') ? 'text-red-400' : 'text-yellow-400'"
+                                                                         x-text="gw.status"></div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+
+                                            <div class="h-3 w-px bg-gray-200 dark:bg-gray-700"></div>
+
+                                            {{-- Storage metrics — Label → Value → Bar format for clarity --}}
+                                            <div class="flex items-center gap-x-3"
+                                                 :class="(!loading && online) ? 'opacity-100' : 'opacity-0 pointer-events-none'">
+                                                {{-- Disk --}}
+                                                <div class="flex items-center gap-1">
+                                                    <span class="text-[10px] text-gray-400 dark:text-gray-500 shrink-0">Disk</span>
+                                                    <span class="text-[10px] tabular-nums font-medium text-gray-700 dark:text-gray-300 w-7 inline-block text-right shrink-0"
+                                                          x-text="parseFloat(status?.data?.disk_usage || 0).toFixed(0) + '%'"></span>
+                                                    <div class="w-8 bg-gray-200 dark:bg-gray-700 rounded-full h-1 shrink-0">
+                                                        <div class="bg-yellow-500 h-1 rounded-full" :style="'width:' + (status?.data?.disk_usage || 0) + '%'"></div>
+                                                    </div>
+                                                </div>
+                                                {{-- Swap --}}
+                                                <div class="flex items-center gap-1">
+                                                    <span class="text-[10px] text-gray-400 dark:text-gray-500 shrink-0">Swap</span>
+                                                    <span class="text-[10px] tabular-nums font-medium text-gray-700 dark:text-gray-300 w-7 inline-block text-right shrink-0"
+                                                          x-text="(status?.data?.swap_usage != null ? parseFloat(status.data.swap_usage).toFixed(0) : '0') + '%'"></span>
+                                                    <div class="w-8 bg-gray-200 dark:bg-gray-700 rounded-full h-1 shrink-0">
+                                                        <div class="bg-yellow-400 h-1 rounded-full" :style="'width:' + (status?.data?.swap_usage || 0) + '%'"></div>
+                                                    </div>
+                                                </div>
+                                                {{-- Temp — fixed w-12 so "—", "36°C", "100°C" never shift --}}
+                                                <div class="flex items-center gap-1">
+                                                    <span class="text-[10px] text-gray-400 dark:text-gray-500 shrink-0">Temp</span>
+                                                    <span class="text-[10px] tabular-nums font-semibold w-12 inline-block text-right shrink-0"
+                                                          :class="(status?.data?.temp_c || 0) > 75 ? 'text-red-500' : (status?.data?.temp_c || 0) > 60 ? 'text-yellow-500' : 'text-gray-600 dark:text-gray-300'"
+                                                          x-text="(status?.data?.temp_c && status.data.temp_c > 1) ? status.data.temp_c + '°C' : (status?.data?.temperature || '—')"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {{-- ── CPU + Mem + Traffic + Manage (sm+) — always in DOM ── --}}
+                                        <div class="flex items-center gap-x-3 shrink-0">
+                                            <div class="h-3 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block"
+                                                 :class="(!loading && online) ? 'opacity-100' : 'opacity-0'"></div>
+
+                                            {{-- CPU — Label → Value → Bar --}}
+                                            <div class="hidden sm:flex items-center gap-1"
+                                                 :class="(!loading && online) ? 'opacity-100' : 'opacity-0 pointer-events-none'">
+                                                <span class="text-[10px] text-gray-400 dark:text-gray-500 shrink-0">CPU</span>
+                                                <span class="text-[10px] tabular-nums font-medium text-gray-700 dark:text-gray-300 w-7 inline-block text-right shrink-0"
+                                                      x-text="parseFloat(status?.data?.cpu_usage || 0).toFixed(0) + '%'"></span>
+                                                <div class="w-8 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 shrink-0">
+                                                    <div class="bg-blue-500 h-1.5 rounded-full transition-all duration-500" :style="'width:' + (status?.data?.cpu_usage || 0) + '%'"></div>
+                                                </div>
+                                            </div>
+
+                                            {{-- Mem — Label → Value → Bar --}}
+                                            <div class="hidden sm:flex items-center gap-1"
+                                                 :class="(!loading && online) ? 'opacity-100' : 'opacity-0 pointer-events-none'">
+                                                <span class="text-[10px] text-gray-400 dark:text-gray-500 shrink-0">Mem</span>
+                                                <span class="text-[10px] tabular-nums font-medium text-gray-700 dark:text-gray-300 w-7 inline-block text-right shrink-0"
+                                                      x-text="parseFloat(status?.data?.mem_usage || 0).toFixed(0) + '%'"></span>
+                                                <div class="w-8 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 shrink-0">
+                                                    <div class="bg-purple-500 h-1.5 rounded-full transition-all duration-500" :style="'width:' + (status?.data?.mem_usage || 0) + '%'"></div>
+                                                </div>
+                                            </div>
+
+                                            {{-- Traffic (xl+) — w-20 each accommodates "816.17 kbps" --}}
+                                            <div class="hidden xl:flex items-center gap-1"
+                                                 :class="(!loading && online) ? 'opacity-100' : 'opacity-0 pointer-events-none'">
+                                                <div class="h-3 w-px bg-gray-200 dark:bg-gray-700 mx-0.5"></div>
+                                                <span class="text-[10px] text-green-600 dark:text-green-400 tabular-nums inline-block w-20 text-right shrink-0">↑<span x-text="currentTraffic.in"></span></span>
+                                                <span class="text-[10px] text-blue-600 dark:text-blue-400 tabular-nums inline-block w-20 text-right shrink-0">↓<span x-text="currentTraffic.out"></span></span>
+                                                <div class="w-14 h-3.5 bg-gray-50 dark:bg-gray-900 rounded overflow-hidden border border-gray-100 dark:border-gray-700 shrink-0">
+                                                    <svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 30">
+                                                        <polyline :points="getGraphPoints('in')" fill="none" stroke="#22c55e" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+                                                        <polyline :points="getGraphPoints('out')" fill="none" stroke="#3b82f6" stroke-width="1.5" vector-effect="non-scaling-stroke" style="opacity:0.7" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+
+                                            {{-- Manage button — always visible, no toggle --}}
+                                            <a href="{{ route('firewall.dashboard', $firewall) }}"
+                                               class="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md border border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                                               title="Manage {{ $firewall->name }}">
+                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                                            </a>
+                                        </div>
+
+                                    </div>
+
+                                    {{-- ═══ CARDS + COMPACT VIEW ═══ --}}
+                                    <div x-show="$store.dashLayout.layout !== 'list'">
 
                                     {{-- Header Row: Name & Actions --}}
-                                    <div class="flex flex-row justify-between items-center mb-4 gap-2">
-                                        <div class="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
-                                            <h4 class="font-semibold text-2xl whitespace-nowrap truncate">
+                                    <div :class="$store.dashLayout.layout === 'compact' ? 'flex flex-row justify-between items-center mb-1.5 gap-1' : 'flex flex-row justify-between items-center mb-4 gap-2'">
+                                        <div class="flex flex-wrap items-center gap-2 min-w-0">
+                                            <h4 :class="$store.dashLayout.layout === 'compact' ? 'font-semibold text-base whitespace-nowrap truncate' : 'font-semibold text-2xl whitespace-nowrap truncate'">
                                                 <a href="{{ route('firewall.dashboard', $firewall) }}" class="hover:underline decoration-indigo-500 underline-offset-2 transition-colors hover:text-indigo-600 dark:hover:text-indigo-400">{{ $firewall->name }}</a>
                                             </h4>
 
@@ -438,20 +631,29 @@
 
                                             @if(auth()->user()->role === 'admin')
                                                 <a href="{{ route('companies.show', $firewall->company) }}"
+                                                    x-show="$store.dashLayout.layout === 'cards'"
                                                     class="text-xs text-gray-500 border-l pl-3 dark:border-gray-600 whitespace-nowrap hidden sm:inline hover:underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors">{{ $firewall->company->name }}</a>
                                             @endif
                                         </div>
 
                                         <div class="shrink-0">
                                             <a href="{{ route('firewall.dashboard', $firewall) }}"
-                                                class="inline-flex items-center px-3 py-1.5 bg-transparent border border-indigo-600 dark:border-indigo-400 rounded-md font-medium text-xs sm:text-sm text-indigo-600 dark:text-indigo-400 shadow-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/50 focus:outline-none transition ease-in-out duration-150">
-                                                Manage
+                                               x-show="$store.dashLayout.layout === 'cards'"
+                                               class="inline-flex items-center px-3 py-1.5 bg-transparent border border-indigo-600 dark:border-indigo-400 rounded-md font-medium text-xs sm:text-sm text-indigo-600 dark:text-indigo-400 shadow-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/50 focus:outline-none transition ease-in-out duration-150">
+                                               Manage
+                                            </a>
+                                            <a href="{{ route('firewall.dashboard', $firewall) }}"
+                                               x-show="$store.dashLayout.layout === 'compact'"
+                                               class="inline-flex items-center justify-center w-7 h-7 border border-indigo-300 dark:border-indigo-700 rounded-md text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                                               title="Manage">
+                                               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                                             </a>
                                         </div>
                                     </div>
 
-                                    {{-- Meta Row: URL & Uptime --}}
-                                    <div class="flex flex-wrap items-center gap-2 mb-4 text-xs font-medium">
+                                    {{-- Meta Row: URL & Uptime (cards only) --}}
+                                    <div x-show="$store.dashLayout.layout === 'cards'"
+                                         class="flex flex-wrap items-center gap-2 mb-4 text-xs font-medium">
                                         {{-- URL Chip --}}
                                         <a href="{{ $firewall->url }}" target="_blank" rel="noopener noreferrer"
                                             class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 dark:bg-gray-700/50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors group">
@@ -483,11 +685,27 @@
                                                 <span>
                                                     <span class="font-mono" x-show="!online">Offline</span>
                                                     <span class="font-mono" x-show="online"
-                                                        x-text="status?.data?.uptime || status?.data?.uptime_text || status?.data?.uptime_string || 'Updating...'"></span>
+                                                        x-text="formatUptime(status?.data?.uptime || status?.data?.uptime_text || status?.data?.uptime_string)"></span>
                                                 </span>
                                             </template>
                                         </div>
                                     </div>
+
+                                    {{-- Compact: company + uptime inline under name --}}
+                                    <div x-show="$store.dashLayout.layout === 'compact'"
+                                         class="flex items-center gap-2 text-xs mb-2">
+                                        @if(auth()->user()->role === 'admin')
+                                            <a href="{{ route('companies.show', $firewall->company) }}"
+                                               class="font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:underline truncate max-w-[120px] transition-colors">{{ $firewall->company->name }}</a>
+                                            <span class="text-gray-300 dark:text-gray-600">&middot;</span>
+                                        @endif
+                                        {{-- Uptime formatted short --}}
+                                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-mono font-medium"
+                                              x-show="!loading && online"
+                                              x-text="formatUptime(status?.data?.uptime || status?.data?.uptime_text || status?.data?.uptime_string)"></span>
+                                        <span class="text-red-500 dark:text-red-400 font-medium" x-show="!loading && !online">Offline</span>
+                                        <div class="h-3 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" x-show="loading"></div>
+                                    </div>{{-- end compact row --}}
 
                                     <div class="relative flex-1">
                                         {{-- Offline Overlay (Body Only) --}}
@@ -530,9 +748,9 @@
                                             <!-- I will do separate calls. -->
 
                                             <template x-if="!loading">
-                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                                                    {{-- Left Column: System Details Table --}}
-                                                    <div class="mt-5 hidden sm:block">
+                                                <div :class="$store.dashLayout.layout === 'cards' ? 'grid grid-cols-1 md:grid-cols-2 gap-8 items-start' : 'block'">
+                                                    {{-- Left Column: System Details Table (cards only) --}}
+                                                    <div class="mt-5 hidden sm:block" x-show="$store.dashLayout.layout === 'cards'">
                                                         <table
                                                             class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                                                             <tbody>
@@ -617,77 +835,100 @@
                                                         <div
                                                             class="space-y-4 sm:space-y-4 grid grid-cols-2 gap-4 sm:flex sm:flex-col sm:gap-0 sm:grid-cols-1">
                                                             {{-- Gateways --}}
-                                                            <template
-                                                                x-if="status?.data?.gateways && status.data.gateways.length > 0">
-                                                                <div class="mb-3 col-span-2 sm:col-span-1">
-                                                                    <div
-                                                                        class="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">
-                                                                        Gateways</div>
-                                                                    <div class="grid gap-1">
-                                                                        <template x-for="gateway in status.data.gateways"
-                                                                            :key="gateway.name">
-                                                                            <div class="flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded-r bg-gray-50 dark:bg-slate-800/50 mb-1"
-                                                                                :class="{
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                'border-l-2 border-green-500': gateway.status === 'online' || gateway.status === 'none',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                'border-l-2 border-red-500': gateway.status === 'offline' || gateway.status === 'down',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                'border-l-2 border-yellow-500': gateway.status && gateway.status !== 'online' && gateway.status !== 'none' && gateway.status !== 'offline' && gateway.status !== 'down'
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            }"
-                                                                                :title="gateway.monitorip || gateway.srcip">
-                                                                                <div class="flex flex-col min-w-0"><span
-                                                                                        class="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate"
-                                                                                        x-text="gateway.descr || 'Unknown'"></span>
-                                                                                    <div
-                                                                                        class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate">
+                                                            <template x-if="status?.data?.gateways && status.data.gateways.length > 0">
+                                                                <div class="col-span-2 sm:col-span-1">
+                                                                    {{-- Cards: full verbose list --}}
+                                                                    <div x-show="$store.dashLayout.layout === 'cards'">
+                                                                        <div class="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">Gateways</div>
+                                                                        <div class="grid gap-1">
+                                                                            <template x-for="gateway in status.data.gateways" :key="gateway.name">
+                                                                                <div class="flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded-r bg-gray-50 dark:bg-slate-800/50 mb-1"
+                                                                                    :class="{
+                                                                                        'border-l-2 border-teal-500': gateway.status === 'online' || gateway.status === 'none',
+                                                                                        'border-l-2 border-red-500': gateway.status === 'offline' || gateway.status === 'down',
+                                                                                        'border-l-2 border-yellow-500': gateway.status && gateway.status !== 'online' && gateway.status !== 'none' && gateway.status !== 'offline' && gateway.status !== 'down'
+                                                                                    }"
+                                                                                    :title="gateway.monitorip || gateway.srcip">
+                                                                                    <div class="flex flex-col min-w-0"><span
+                                                                                            class="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate"
+                                                                                            x-text="gateway.descr || 'Unknown'"></span>
+                                                                                        <div
+                                                                                            class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate">
+                                                                                            <span
+                                                                                                x-show="gateway.name && gateway.name !== gateway.descr"
+                                                                                                x-text="gateway.name"></span><span
+                                                                                                x-show="gateway.name && gateway.name !== gateway.descr"
+                                                                                                class="text-gray-300 dark:text-gray-600">|</span><span
+                                                                                                x-text="gateway.monitorip || gateway.srcip || 'N/A'"></span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div class="flex items-center gap-1.5">
+                                                                                        <div class="w-2 h-2 rounded-full"
+                                                                                            :class="{
+                                                                                                'bg-teal-500': gateway.status === 'online' || gateway.status === 'none',
+                                                                                                'bg-red-500': gateway.status === 'offline' || gateway.status === 'down',
+                                                                                                'bg-yellow-500': gateway.status && gateway.status !== 'online' && gateway.status !== 'none' && gateway.status !== 'offline' && gateway.status !== 'down'
+                                                                                            }">
+                                                                                        </div>
                                                                                         <span
-                                                                                            x-show="gateway.name && gateway.name !== gateway.descr"
-                                                                                            x-text="gateway.name"></span><span
-                                                                                            x-show="gateway.name && gateway.name !== gateway.descr"
-                                                                                            class="text-gray-300 dark:text-gray-600">|</span><span
-                                                                                            x-text="gateway.monitorip || gateway.srcip || 'N/A'"></span>
+                                                                                            class="capitalize text-[10px] font-medium text-gray-500 dark:text-gray-400"
+                                                                                            x-text="gateway.status"></span>
                                                                                     </div>
                                                                                 </div>
-                                                                                <div class="flex items-center gap-1.5">
-                                                                                    <div class="w-2 h-2 rounded-full"
-                                                                                        :class="{
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    'bg-green-500': gateway.status === 'online' || gateway.status === 'none',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    'bg-red-500': gateway.status === 'offline' || gateway.status === 'down',
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    'bg-yellow-500': gateway.status && gateway.status !== 'online' && gateway.status !== 'none' && gateway.status !== 'offline' && gateway.status !== 'down'
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }">
-                                                                                    </div>
-                                                                                    <span
-                                                                                        class="capitalize text-[10px] font-medium text-gray-500 dark:text-gray-400"
-                                                                                        x-text="gateway.status"></span>
-                                                                                </div>
-                                                                            </div>
-                                                                        </template>
+                                                                            </template>
+                                                                        </div>
                                                                     </div>
-                                                                </div>
-                                                            </template>
 
-                                                            <template
-                                                                x-if="!status?.data?.gateways || status.data.gateways.length === 0">
-                                                                <div class="mb-3 col-span-2 sm:col-span-1">
-                                                                    <div
-                                                                        class="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">
-                                                                        Gateways</div>
-                                                                    <div class="grid gap-1">
-                                                                        <div
-                                                                            class="flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded-r bg-gray-50 dark:bg-slate-800/50 mb-1 border-l-2 border-gray-300 dark:border-gray-600">
-                                                                            <span
-                                                                                class="text-sm font-mono font-medium text-gray-500 dark:text-gray-400">WAN</span>
-                                                                            <div class="flex items-center gap-1.5">
-                                                                                <div class="w-2 h-2 rounded-full bg-gray-400">
+                                                                    {{-- Compact: label + pill row below --}}
+                                                                    <div class="mb-1" x-show="$store.dashLayout.layout === 'compact'">
+                                                                        <div class="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">Gateways</div>
+                                                                        <div class="flex items-center gap-1 flex-wrap">
+                                                                            <template x-for="gateway in status.data.gateways" :key="gateway.name">
+                                                                                <div class="relative group flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium cursor-default"
+                                                                                     :class="{
+                                                                                         'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400': gateway.status === 'online' || gateway.status === 'none',
+                                                                                         'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400':     gateway.status === 'offline' || gateway.status === 'down',
+                                                                                         'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400': gateway.status && gateway.status !== 'online' && gateway.status !== 'none' && gateway.status !== 'offline' && gateway.status !== 'down'
+                                                                                     }">
+                                                                                    <div class="w-1.5 h-1.5 rounded-full"
+                                                                                         :class="{
+                                                                                             'bg-teal-500': gateway.status === 'online' || gateway.status === 'none',
+                                                                                             'bg-red-500':   gateway.status === 'offline' || gateway.status === 'down',
+                                                                                             'bg-yellow-500': gateway.status && gateway.status !== 'online' && gateway.status !== 'none' && gateway.status !== 'offline' && gateway.status !== 'down'
+                                                                                         }"></div>
+                                                                                    <span class="truncate max-w-[60px]" x-text="gateway.descr || gateway.name"></span>
+                                                                                    {{-- Hover tooltip --}}
+                                                                                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-20 hidden group-hover:block pointer-events-none">
+                                                                                        <div class="bg-gray-900 dark:bg-gray-700 text-white text-[10px] rounded px-2 py-1.5 whitespace-nowrap shadow-lg min-w-[120px]">
+                                                                                            <div class="font-semibold mb-0.5" x-text="gateway.descr || gateway.name"></div>
+                                                                                            <div class="text-gray-300 font-mono" x-show="gateway.name && gateway.name !== gateway.descr" x-text="gateway.name"></div>
+                                                                                            <div class="text-gray-400 font-mono text-[9px]" x-text="gateway.monitorip || gateway.srcip || ''"></div>
+                                                                                            <div class="mt-0.5 capitalize font-medium"
+                                                                                                 :class="(gateway.status === 'online' || gateway.status === 'none') ? 'text-teal-400' : (gateway.status === 'offline' || gateway.status === 'down') ? 'text-red-400' : 'text-yellow-400'"
+                                                                                                 x-text="gateway.status"></div>
+                                                                                        </div>
+                                                                                    </div>
                                                                                 </div>
-                                                                                <span
-                                                                                    class="capitalize text-[10px] font-medium text-gray-500 dark:text-gray-400">Unknown</span>
-                                                                            </div>
+                                                                            </template>
                                                                         </div>
                                                                     </div>
                                                                 </div>
                                                             </template>
 
-
-
+                                                            <template x-if="!status?.data?.gateways || status.data.gateways.length === 0">
+                                                                <div class="mb-3 col-span-2 sm:col-span-1" x-show="$store.dashLayout.layout === 'cards'">
+                                                                    <div class="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">Gateways</div>
+                                                                    <div class="grid gap-1">
+                                                                        <div class="flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded-r bg-gray-50 dark:bg-slate-800/50 mb-1 border-l-2 border-gray-300 dark:border-gray-600">
+                                                                            <span class="text-sm font-mono font-medium text-gray-500 dark:text-gray-400">WAN</span>
+                                                                            <div class="flex items-center gap-1.5">
+                                                                                <div class="w-2 h-2 rounded-full bg-gray-400"></div>
+                                                                                <span class="capitalize text-[10px] font-medium text-gray-500 dark:text-gray-400">Unknown</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </template>
 
                                                             {{-- CPU Usage --}}
                                                             <div>
@@ -726,7 +967,7 @@
                                                             </div>
 
                                                             {{-- Swap Usage --}}
-                                                            <div>
+                                                             <div>
                                                                 <div class="flex justify-between mb-1">
                                                                     <span
                                                                         class="text-xs font-medium text-gray-700 dark:text-gray-300">Swap
@@ -744,7 +985,7 @@
                                                             </div>
 
                                                             {{-- Disk Usage --}}
-                                                            <div>
+                                                             <div>
                                                                 <div class="flex justify-between mb-1">
                                                                     <span
                                                                         class="text-xs font-medium text-gray-700 dark:text-gray-300">Disk
@@ -762,7 +1003,7 @@
                                                             </div>
 
                                                             <!-- Temperature -->
-                                                            <div class="col-span-2 sm:col-span-1">
+                                                             <div class="col-span-2 sm:col-span-1">
                                                                 <div class="flex justify-between mb-1 text-xs">
                                                                     <span
                                                                         class="font-medium text-gray-700 dark:text-gray-300">Temperature</span>
@@ -777,14 +1018,8 @@
                                                                 </div>
                                                             </div>
 
-                                                            <!-- Interface Status Indicators -->
-
-
-
-
-
-                                                            <!-- Compact Traffic Monitor -->
-                                                            <div class="col-span-2 sm:col-span-1">
+                                                            <!-- Traffic Monitor -->
+                                                             <div class="col-span-2 sm:col-span-1">
                                                                 <div class="flex justify-between items-center mb-1">
                                                                     <span
                                                                         class="text-xs font-medium text-gray-700 dark:text-gray-300">Traffic
@@ -799,7 +1034,8 @@
                                                                     </div>
                                                                 </div>
                                                                 <div
-                                                                    class="h-8 w-full bg-gray-50 dark:bg-gray-900 rounded overflow-hidden relative border border-gray-100 dark:border-gray-700 flex">
+                                                                    :class="$store.dashLayout.layout === 'compact' ? 'h-6' : 'h-8'"
+                                                                    class="w-full bg-gray-50 dark:bg-gray-900 rounded overflow-hidden relative border border-gray-100 dark:border-gray-700 flex">
                                                                     <svg class="w-full h-full" preserveAspectRatio="none"
                                                                         viewBox="0 0 100 30">
                                                                         <!-- Inbound -->
@@ -821,6 +1057,7 @@
                                             </template>
                                         </div>
                                     </div>
+                                    </div>{{-- end cards+compact wrapper --}}
                                 </div>
                             @endforeach
                         </div>
@@ -830,6 +1067,19 @@
         </div>
     </div>
     <script>
+        // Register layout store before Alpine initialises so all components can access it.
+        // Fallback chain: localStorage → system default → 'cards'
+        document.addEventListener('alpine:init', () => {
+            Alpine.store('dashLayout', {
+                layout: localStorage.getItem('admix_dashboard_layout')
+                      || '{{ $settings["dashboard_default_layout"] ?? "cards" }}',
+                set(v) {
+                    this.layout = v;
+                    localStorage.setItem('admix_dashboard_layout', v);
+                }
+            });
+        });
+
         document.addEventListener('alpine:init', () => {
             // Centralized coordinator for batch firewall updates (eliminates waterfall)
             Alpine.data('dashboardCoordinator', (firewallIds) => ({
@@ -1015,6 +1265,36 @@
 
                 // Load Monitor
                 loadHistory: new Array(20).fill(0),
+
+                // Formats verbose pfSense uptime strings to a compact "Xd Xh Xm" representation.
+                // Handles: seconds (number), "X Days Y Hours Z Minutes W Seconds" (string), or passthrough.
+                formatUptime(raw) {
+                    if (!raw) return '—';
+
+                    // If numeric — raw seconds
+                    const asNum = Number(raw);
+                    if (!isNaN(asNum) && asNum >= 0) {
+                        const d = Math.floor(asNum / 86400);
+                        const h = Math.floor((asNum % 86400) / 3600);
+                        const m = Math.floor((asNum % 3600) / 60);
+                        if (d > 0) return `${d}d ${h}h`;
+                        if (h > 0) return `${h}h ${m}m`;
+                        return `${m}m`;
+                    }
+
+                    // If verbose string: "7 Days 07 Hours 33 Minutes 08 Seconds"
+                    const re = /(\d+)\s*day[s]?\s*[,:]?\s*(\d+)\s*hour[s]?\s*[,:]?\s*(\d+)\s*minute[s]?/i;
+                    const m2 = String(raw).match(re);
+                    if (m2) {
+                        const [, d, h, m] = m2.map(Number);
+                        if (d > 0) return `${d}d ${h}h`;
+                        if (h > 0) return `${h}h ${m}m`;
+                        return `${m}m`;
+                    }
+
+                    // Fallback: return raw but truncated
+                    return String(raw).split(' ').slice(0, 4).join(' ');
+                },
 
                 matches(query) {
                     if (!query) return true;
