@@ -36,17 +36,59 @@ AdmixCentral is a centralized firewall management dashboard tailored for managin
 - **Backup & Restore**: Automated config backups and one-click restore points.
 
 ## Screenshots
-![Dashboard - Card View](https://admixcentralmedia.admix.cloud/AdmixC-Card.png)
-![Dashboard - Compact View](https://admixcentralmedia.admix.cloud/AdmixC-Compact.png)
-![Add Company](https://admixcentralmedia.admix.cloud/AdmixC-Add-Company.png)
-![Add User](https://admixcentralmedia.admix.cloud/AdmixC-Add-User.png)
-![Firewall Dashboard 1](https://admixcentralmedia.admix.cloud/AdmixC-Firewall-Dashboard-1.png)
-![Firewall Dashboard 2](https://admixcentralmedia.admix.cloud/AdmixC-Firewall-Dashboard-2.png)
-![Firewall Dashboard 2](https://admixcentralmedia.admix.cloud/AdmixC-Firewall-NAT-1.png)
-![Firewall Dashboard 2](https://admixcentralmedia.admix.cloud/AdmixC-Firewall-Rules-1.png)
-![Firewall Dashboard 2](https://admixcentralmedia.admix.cloud/AdmixC-Firewall-System-1.png)
-![Firewall Settings 1](https://admixcentralmedia.admix.cloud/AdmixC-Settings-1.png)
-![Firewall Settings 2](https://admixcentralmedia.admix.cloud/AdmixC-Settings-2.png)
+## Screenshots
+
+<p align="center">
+  <a href="https://admixcentralmedia.admix.cloud/AdmixC-Card.png">
+    <img src="https://admixcentralmedia.admix.cloud/AdmixC-Card.png" width="30%" alt="Dashboard Card View">
+  </a>
+
+  <a href="https://admixcentralmedia.admix.cloud/AdmixC-Compact.png">
+    <img src="https://admixcentralmedia.admix.cloud/AdmixC-Compact.png" width="30%" alt="Dashboard Compact View">
+  </a>
+
+  <a href="https://admixcentralmedia.admix.cloud/AdmixC-Add-Company.png">
+    <img src="https://admixcentralmedia.admix.cloud/AdmixC-Add-Company.png" width="30%" alt="Add Company">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://admixcentralmedia.admix.cloud/AdmixC-Add-User.png">
+    <img src="https://admixcentralmedia.admix.cloud/AdmixC-Add-User.png" width="30%" alt="Add User">
+  </a>
+
+  <a href="https://admixcentralmedia.admix.cloud/AdmixC-Firewall-Dashboard-1.png">
+    <img src="https://admixcentralmedia.admix.cloud/AdmixC-Firewall-Dashboard-1.png" width="30%" alt="Firewall Dashboard">
+  </a>
+
+  <a href="https://admixcentralmedia.admix.cloud/AdmixC-Firewall-Dashboard-2.png">
+    <img src="https://admixcentralmedia.admix.cloud/AdmixC-Firewall-Dashboard-2.png" width="30%" alt="Firewall Dashboard">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://admixcentralmedia.admix.cloud/AdmixC-Firewall-NAT-1.png">
+    <img src="https://admixcentralmedia.admix.cloud/AdmixC-Firewall-NAT-1.png" width="30%" alt="Firewall NAT">
+  </a>
+
+  <a href="https://admixcentralmedia.admix.cloud/AdmixC-Firewall-Rules-1.png">
+    <img src="https://admixcentralmedia.admix.cloud/AdmixC-Firewall-Rules-1.png" width="30%" alt="Firewall Rules">
+  </a>
+
+  <a href="https://admixcentralmedia.admix.cloud/AdmixC-Firewall-System-1.png">
+    <img src="https://admixcentralmedia.admix.cloud/AdmixC-Firewall-System-1.png" width="30%" alt="Firewall System">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://admixcentralmedia.admix.cloud/AdmixC-Settings-1.png">
+    <img src="https://admixcentralmedia.admix.cloud/AdmixC-Settings-1.png" width="30%" alt="Settings">
+  </a>
+
+  <a href="https://admixcentralmedia.admix.cloud/AdmixC-Settings-2.png">
+    <img src="https://admixcentralmedia.admix.cloud/AdmixC-Settings-2.png" width="30%" alt="Settings">
+  </a>
+</p>
 
 ## Tech Stack
 
