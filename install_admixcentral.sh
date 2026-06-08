@@ -10,6 +10,10 @@ die(){ echo -e "\n[X] $*\n"; exit 1; }
 
 [[ "${EUID}" -eq 0 ]] || die "Run as root: sudo bash $0"
 
+# This installer contains interactive prompts. Do not run through curl | bash,
+# CI, or any wrapper that does not provide a real terminal.
+[[ -r /dev/tty && -w /dev/tty ]] || die "This installer requires a real interactive terminal. Download it first, then run: sudo bash install_admixcentral.sh"
+
 # ---------------- CONFIG (override via env) ----------------
 PHP_VER="${PHP_VER:-8.3}"
 NODE_MAJOR="${NODE_MAJOR:-20}"
@@ -846,10 +850,22 @@ main() {
   "
 
   log "Running AdmixCentral install wizard (interactive): php artisan install"
-  sudo -u "${WEB_USER}" -H env HOME="${WEB_HOME}" bash -lc "
-    cd '${INSTALL_DIR}'
+  echo
+  echo "============================================================" > /dev/tty
+  echo "The Laravel installer is now being launched directly on /dev/tty." > /dev/tty
+  echo "This avoids Laravel prompt lockups caused by tee/log redirection." > /dev/tty
+  echo "Answer the prompts normally. Press Enter to accept defaults." > /dev/tty
+  echo "============================================================" > /dev/tty
+  echo > /dev/tty
+
+  # Important: run this the same way the manual working test ran it:
+  # as root, directly attached to /dev/tty, not through sudo -u and not through tee.
+  (
+    cd "${INSTALL_DIR}"
     php artisan install
-  "
+  ) < /dev/tty > /dev/tty 2> /dev/tty
+
+  final_fix_permissions
 
   install_frontend_clean
 
