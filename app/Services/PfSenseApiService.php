@@ -1726,7 +1726,51 @@ class PfSenseApiService
 
         try {
             $interfaces = $this->getInterfacesStatus();
-            $dynamicStatus['interfaces'] = $interfaces['data'] ?? [];
+            $interfaceData = $interfaces['data'] ?? [];
+
+            // ── Server-side bandwidth rate calculation ────────────────────────────
+            // Cache a snapshot of {inbytes, outbytes} per interface between calls.
+            // On each call we compute the delta to produce in_rate_bps / out_rate_bps,
+            // so the frontend gets a valid rate from the very first status event instead
+            // of waiting for two client-side polls (~20 s delay).
+            $bytesCacheKey = 'firewall_iface_bytes_' . $this->firewall->id;
+            $nowFloat      = microtime(true);
+            $prevSnapshot  = Cache::get($bytesCacheKey);
+
+            if ($prevSnapshot && isset($prevSnapshot['time'], $prevSnapshot['interfaces'])) {
+                $timeDiff = $nowFloat - $prevSnapshot['time'];
+
+                if ($timeDiff >= 1.0) { // Need at least 1 s between samples for accuracy
+                    foreach ($interfaceData as $key => &$iface) {
+                        if (!isset($prevSnapshot['interfaces'][$key])) {
+                            continue;
+                        }
+                        $prev    = $prevSnapshot['interfaces'][$key];
+                        $inNow   = (float)($iface['inbytes']  ?? 0);
+                        $outNow  = (float)($iface['outbytes'] ?? 0);
+                        $inPrev  = (float)($prev['in']  ?? 0);
+                        $outPrev = (float)($prev['out'] ?? 0);
+
+                        // Guard against counter resets (e.g. after firewall reboot)
+                        $iface['in_rate_bps']  = $inNow  >= $inPrev  ? (($inNow  - $inPrev)  * 8 / $timeDiff) : 0;
+                        $iface['out_rate_bps'] = $outNow >= $outPrev ? (($outNow - $outPrev) * 8 / $timeDiff) : 0;
+                    }
+                    unset($iface);
+                }
+            }
+
+            // Persist new snapshot for next call
+            $newSnapshot = ['time' => $nowFloat, 'interfaces' => []];
+            foreach ($interfaceData as $key => $iface) {
+                $newSnapshot['interfaces'][$key] = [
+                    'in'  => (float)($iface['inbytes']  ?? 0),
+                    'out' => (float)($iface['outbytes'] ?? 0),
+                ];
+            }
+            Cache::put($bytesCacheKey, $newSnapshot, now()->addMinutes(15));
+            // ─────────────────────────────────────────────────────────────────────
+
+            $dynamicStatus['interfaces'] = $interfaceData;
         } catch (\Exception $e) {
             $dynamicStatus['interfaces'] = [];
         }

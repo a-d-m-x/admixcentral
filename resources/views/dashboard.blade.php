@@ -629,11 +629,6 @@
                                                     class="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded-full dark:bg-red-900 dark:text-red-300">Offline</span>
                                             </template>
 
-                                            @if(auth()->user()->role === 'admin')
-                                                <a href="{{ route('companies.show', $firewall->company) }}"
-                                                    x-show="$store.dashLayout.layout === 'cards'"
-                                                    class="text-xs text-gray-500 border-l pl-3 dark:border-gray-600 whitespace-nowrap hidden sm:inline hover:underline hover:text-gray-700 dark:hover:text-gray-300 transition-colors">{{ $firewall->company->name }}</a>
-                                            @endif
                                         </div>
 
                                         <div class="shrink-0">
@@ -651,9 +646,18 @@
                                         </div>
                                     </div>
 
-                                    {{-- Meta Row: URL & Uptime (cards only) --}}
+                                    {{-- Meta Row: Company + URL & Uptime (cards only) --}}
                                     <div x-show="$store.dashLayout.layout === 'cards'"
                                          class="flex flex-wrap items-center gap-2 mb-4 text-xs font-medium">
+                                        {{-- Company Name Chip --}}
+                                        @if(auth()->user()->role === 'admin')
+                                            <a href="{{ route('companies.show', $firewall->company) }}"
+                                               class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 dark:bg-gray-700/50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors"
+                                               title="{{ $firewall->company->name }}">
+                                                <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                                <span style="display: block; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ $firewall->company->name }}</span>
+                                            </a>
+                                        @endif
                                         {{-- URL Chip --}}
                                         <a href="{{ $firewall->url }}" target="_blank" rel="noopener noreferrer"
                                             class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 dark:bg-gray-700/50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors group">
@@ -691,14 +695,27 @@
                                         </div>
                                     </div>
 
-                                    {{-- Compact: company + uptime inline under name --}}
+                                    {{-- Compact: company + uptime + manage inline under name --}}
                                     <div x-show="$store.dashLayout.layout === 'compact'"
                                          class="flex items-center gap-2 text-xs mb-2">
                                         @if(auth()->user()->role === 'admin')
+                                            {{-- Company Name Chip (matches card view style) --}}
                                             <a href="{{ route('companies.show', $firewall->company) }}"
-                                               class="font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:underline truncate max-w-[120px] transition-colors">{{ $firewall->company->name }}</a>
+                                               class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 dark:bg-gray-700/50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors"
+                                               title="{{ $firewall->company->name }}">
+                                                <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                                <span style="display: block; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ $firewall->company->name }}</span>
+                                            </a>
                                             <span class="text-gray-300 dark:text-gray-600">&middot;</span>
                                         @endif
+                                        {{-- External link icon (matches card view URL chip icon) --}}
+                                        <a href="{{ $firewall->url }}" target="_blank" rel="noopener noreferrer"
+                                           class="inline-flex items-center justify-center w-5 h-5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                           title="{{ $firewall->url }}">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                            </svg>
+                                        </a>
                                         {{-- Uptime formatted short --}}
                                         <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-mono font-medium"
                                               x-show="!loading && online"
@@ -740,15 +757,8 @@
                                                 </div>
                                             </template>
 
-                                            <!-- ... (rest of template) .. -->
-                                            <!-- Note: I am truncating context to keep edit safe -->
-
-                                            <!-- I need to jump to the JS section separately or include enough context? -->
-                                            <!-- The JS is way down. I should use MultiReplace? Or separate Replace calls? -->
-                                            <!-- I will do separate calls. -->
-
                                             <template x-if="!loading">
-                                                <div :class="$store.dashLayout.layout === 'cards' ? 'grid grid-cols-1 md:grid-cols-2 gap-8 items-start' : 'block'">
+                                                <div :class="$store.dashLayout.layout === 'cards' ? 'grid grid-cols-1 md:grid-cols-2 items-start' : 'block'" :style="$store.dashLayout.layout === 'cards' ? 'column-gap: 2rem; align-content: start;' : ''">
                                                     {{-- Left Column: System Details Table (cards only) --}}
                                                     <div class="mt-5 hidden sm:block" x-show="$store.dashLayout.layout === 'cards'">
                                                         <table
@@ -1016,40 +1026,23 @@
                                                                         :style="'width: ' + ((status?.data?.temp_c && status.data.temp_c > 1) ? Math.min(status.data.temp_c, 100) : 0) + '%'">
                                                                     </div>
                                                                 </div>
+                                                             </div>
+                                                        </div>
+                                                    </div>
+                                                    {{-- Traffic Monitor: spans both columns --}}
+                                                    <div class="w-full mt-4" style="grid-column: 1 / -1;">
+                                                        <div class="flex justify-between items-center mb-1">
+                                                            <span class="text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Traffic Monitor</span>
+                                                            <div class="flex gap-4 text-xs">
+                                                                <span class="text-green-600 dark:text-green-400 font-mono">In: <span x-text="currentTraffic.in"></span></span>
+                                                                <span class="text-blue-600 dark:text-blue-400 font-mono">Out: <span x-text="currentTraffic.out"></span></span>
                                                             </div>
-
-                                                            <!-- Traffic Monitor -->
-                                                             <div class="col-span-2 sm:col-span-1">
-                                                                <div class="flex justify-between items-center mb-1">
-                                                                    <span
-                                                                        class="text-xs font-medium text-gray-700 dark:text-gray-300">Traffic
-                                                                        Monitor</span>
-                                                                    <div class="flex gap-4 text-xs">
-                                                                        <span
-                                                                            class="text-green-600 dark:text-green-400 font-mono">In:
-                                                                            <span x-text="currentTraffic.in"></span></span>
-                                                                        <span
-                                                                            class="text-blue-600 dark:text-blue-400 font-mono">Out:
-                                                                            <span x-text="currentTraffic.out"></span></span>
-                                                                    </div>
-                                                                </div>
-                                                                <div
-                                                                    :class="$store.dashLayout.layout === 'compact' ? 'h-6' : 'h-8'"
-                                                                    class="w-full bg-gray-50 dark:bg-gray-900 rounded overflow-hidden relative border border-gray-100 dark:border-gray-700 flex">
-                                                                    <svg class="w-full h-full" preserveAspectRatio="none"
-                                                                        viewBox="0 0 100 30">
-                                                                        <!-- Inbound -->
-                                                                        <polyline :points="getGraphPoints('in')" fill="none"
-                                                                            stroke="#22c55e" stroke-width="1.5"
-                                                                            vector-effect="non-scaling-stroke" />
-                                                                        <!-- Outbound -->
-                                                                        <polyline :points="getGraphPoints('out')" fill="none"
-                                                                            stroke="#3b82f6" stroke-width="1.5"
-                                                                            vector-effect="non-scaling-stroke"
-                                                                            style="opacity: 0.7" />
-                                                                    </svg>
-                                                                </div>
-                                                            </div>
+                                                        </div>
+                                                        <div class="h-12 w-full bg-gray-50 dark:bg-gray-900 rounded overflow-hidden border border-gray-100 dark:border-gray-700">
+                                                            <svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 30">
+                                                                <polyline :points="getGraphPoints('in')" fill="none" stroke="#22c55e" stroke-width="1.5" vector-effect="non-scaling-stroke" />
+                                                                <polyline :points="getGraphPoints('out')" fill="none" stroke="#3b82f6" stroke-width="1.5" vector-effect="non-scaling-stroke" style="opacity: 0.7" />
+                                                            </svg>
                                                         </div>
                                                     </div>
 
@@ -1354,7 +1347,13 @@
                     let inRate = 0;
                     let outRate = 0;
 
-                    if (this.lastBytes.time > 0) {
+                    // Prefer server-computed rates (available once the backend cache is warm).
+                    // These are injected as in_rate_bps / out_rate_bps on each interface object.
+                    if (wan.in_rate_bps !== undefined && wan.out_rate_bps !== undefined) {
+                        inRate  = parseFloat(wan.in_rate_bps  || 0);
+                        outRate = parseFloat(wan.out_rate_bps || 0);
+                    } else if (this.lastBytes.time > 0) {
+                        // Fall back to client-side delta (requires two readings)
                         const timeDiff = (now - this.lastBytes.time) / 1000;
                         if (timeDiff > 0) {
                             if (bytesIn >= this.lastBytes.in) {
@@ -1365,6 +1364,7 @@
                             }
                         }
                     }
+
                     this.lastBytes = { in: bytesIn, out: bytesOut, time: now };
                     this.bandwidthHistory.shift();
                     this.bandwidthHistory.push({ in: inRate, out: outRate });
@@ -1412,6 +1412,13 @@
                     if (this.status) {
                         this.status._source = 'cache';
                         this.updateFromStatus(this.status);
+
+                        // PHP already seeds offlineCount from this same cached data.
+                        // Pre-mark as reported so the card doesn't fire device-offline
+                        // again during init, which would double the count.
+                        if (!this.online) {
+                            this.reportedOffline = true;
+                        }
                     }
 
                     // If starting in skeleton state (no cache, or cached-offline),
