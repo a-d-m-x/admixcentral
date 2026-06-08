@@ -117,214 +117,310 @@ This release marks a major architectural shift from the initial prototype. The f
 
 ---
 
-## Development & Testing Setup
+## Installation
 
-Use these instructions for setting up a local development environment.
+AdmixCentral can be installed automatically using the included installation script or manually for administrators who prefer to configure each component themselves.
 
-### Steps
+### Supported Operating Systems
 
-1. **Install System Dependencies**
-   Ensure your system has the following installed:
-   - PHP >= 8.2
-   - Composer
-   - Node.js & NPM
-   - MySQL 8.0+
+The automated installer is currently tested on:
 
-2. **Clone the Repository**
-   ```bash
-   git clone https://github.com/admxlz/admixcentral.git
-   cd admixcentral
-   ```
+- Ubuntu 24.04 LTS
+- Fedora 42+
+- Arch Linux (experimental)
 
-3. **Install Dependencies**
-   ```bash
-   composer install
-   ```
-
-4. **Run Installation Wizard**
-   AdmixCentral includes a guided installer to configure your environment, database, and encryption keys automatically.
-   ```bash
-   php artisan install
-   ```
-   *Follow the on-screen prompts to enter your database credentials.*
-
-5. **Build Frontend Assets**
-   ```bash
-   npm ci && npm run build
-   ```
-
-6. **Web Server Configuration**
-   You can serve the application locally:
-   ```bash
-   php artisan serve
-   ```
-   For production, see the [Production Deployment](#production-deployment-nginx--php-fpm--ssl) section below.
-
-### Troubleshooting
-
-- **"Duplicate column name" error**: This is fixed in the latest version. The installer handles existing columns gracefully.
-- **"Connection refused"**: Ensure your MySQL server is running and accessible. The installer will let you retry credentials.
-- **Setup Wizard skipped**: If `.env` already exists, the installer might skip some steps. You can run `php artisan install` again or edit `.env` manually if needed.
+Other Linux distributions may work but are not officially tested.
 
 ---
 
-## Production Deployment (Nginx + PHP-FPM + SSL)
+## Automatic Installation (Recommended)
 
-For a production environment, it is recommended to use Nginx with PHP-FPM and SSL enabled.
+The included installer automates the entire deployment process, including:
 
-### 1. Requirements
-Ensure your server has the following installed:
-- Nginx
-- PHP 8.2 or higher + FPM (`php8.2-fpm`)
-- MySQL 8.0+ or MariaDB 10.5+
-- Certbot (for SSL)
+- Nginx installation and configuration
+- PHP 8.3+ installation and configuration
+- MySQL/MariaDB installation and configuration
+- Redis installation and configuration
+- Supervisor installation and configuration
+- Composer dependency installation
+- Frontend asset compilation
+- Laravel queue worker setup
+- Laravel Reverb setup
+- Scheduled task configuration
+- Permission and ownership configuration
 
-### 2. File Ownership & Permissions (Critical)
-**NEVER** run Composer or NPM as root. This causes permission issues with the web server.
-
-Run commands as the web server user (usually `www-data`) or your deployment user:
+### Install AdmixCentral
 
 ```bash
-cd /var/www/admixcentral
-
-# 1. Set ownership to your web user (e.g., www-data)
-sudo chown -R www-data:www-data .
-
-# 2. Run commands as that user
-sudo -u www-data composer install --no-dev
-sudo -u www-data npm ci && sudo -u www-data npm run build
-
-# 3. Create storage link
-sudo -u www-data php artisan storage:link
-
-# 4. Set permissions for writeable directories
-sudo chmod -R 775 storage bootstrap/cache
+wget https://raw.githubusercontent.com/a-d-m-x/admixcentral/main/install_admixcentral.sh
+chmod +x install_admixcentral.sh
+sudo ./install_admixcentral.sh
 ```
 
-### 3. Nginx Configuration
-Create a new configuration file at `/etc/nginx/sites-available/admixcentral`:
+During installation, you will be prompted for:
+
+- Database username
+- Database password
+- Application URL
+- Additional application settings
+
+After installation completes, browse to:
+
+```text
+http://your-server-ip
+```
+
+to access AdmixCentral.
+
+---
+
+## Manual Installation
+
+For administrators who prefer to install and configure all components manually.
+
+### 1. Install Required Software
+
+Install the following packages using your distribution's package manager:
+
+- PHP 8.3 or newer
+- Composer
+- Node.js 20 or newer
+- Nginx
+- MySQL or MariaDB
+- Redis
+- Supervisor
+
+Required PHP extensions:
+
+- bcmath
+- curl
+- gd
+- intl
+- mbstring
+- mysqli/mysql
+- redis
+- xml
+- zip
+
+---
+
+### 2. Clone the Repository
+
+```bash
+git clone https://github.com/admxlz/admixcentral.git
+cd admixcentral
+```
+
+---
+
+### 3. Install PHP Dependencies
+
+```bash
+composer install --no-dev --optimize-autoloader
+```
+
+---
+
+### 4. Create Environment File
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and configure the application:
+
+```env
+APP_NAME="AdmixCentral"
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=http://your-server-ip
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=admixcentral
+DB_USERNAME=admixcentral
+DB_PASSWORD=your_password
+
+CACHE_STORE=redis
+SESSION_DRIVER=redis
+QUEUE_CONNECTION=redis
+
+REDIS_CLIENT=phpredis
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+```
+
+---
+
+### 5. Generate Application Key
+
+```bash
+php artisan key:generate
+```
+
+---
+
+### 6. Run the Installation Wizard
+
+```bash
+php artisan install
+```
+
+The installation wizard will:
+
+- Configure application settings
+- Verify database connectivity
+- Create required database tables
+- Seed default data
+- Generate required application secrets
+
+---
+
+### 7. Install Frontend Dependencies
+
+```bash
+npm install
+npm run build
+```
+
+---
+
+### 8. Configure Storage
+
+```bash
+php artisan storage:link
+```
+
+---
+
+### 9. Configure Queue Workers
+
+Create a Supervisor configuration similar to:
+
+```ini
+[program:admix-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/admixcentral/artisan queue:work redis --sleep=3 --tries=3
+autostart=true
+autorestart=true
+user=www-data
+numprocs=8
+redirect_stderr=true
+stdout_logfile=/var/www/admixcentral/storage/logs/worker.log
+```
+
+Reload Supervisor:
+
+```bash
+supervisorctl reread
+supervisorctl update
+```
+
+---
+
+### 10. Configure Laravel Reverb
+
+Create a Supervisor configuration similar to:
+
+```ini
+[program:admix-reverb]
+command=php /var/www/admixcentral/artisan reverb:start --host=0.0.0.0 --port=8080
+directory=/var/www/admixcentral
+autostart=true
+autorestart=true
+user=www-data
+redirect_stderr=true
+stdout_logfile=/var/www/admixcentral/storage/logs/reverb.log
+```
+
+Reload Supervisor:
+
+```bash
+supervisorctl reread
+supervisorctl update
+```
+
+---
+
+### 11. Configure the Scheduler
+
+Add the following cron entry:
+
+```cron
+* * * * * php /var/www/admixcentral/artisan schedule:run >/dev/null 2>&1
+```
+
+---
+
+### 12. Configure Permissions
+
+```bash
+chown -R www-data:www-data storage bootstrap/cache
+chmod -R 775 storage bootstrap/cache
+```
+
+Adjust the web server user as required for your distribution.
+
+---
+
+### 13. Configure Nginx
+
+Set the web root to:
+
+```text
+/var/www/admixcentral/public
+```
+
+Example configuration:
 
 ```nginx
 server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
+    listen 80;
     server_name _;
-    return 301 https://$host$request_uri;
-}
 
-server {
-    listen 443 ssl http2 default_server;
-    listen [::]:443 ssl http2 default_server;
-    server_name _;
     root /var/www/admixcentral/public;
-
-    # SSL Configuration (Let's Encrypt placeholders)
-    # ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
-    # ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
-    # include /etc/letsencrypt/options-ssl-nginx.conf;
-    # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
-
-    # ... (rest of config)
-
-    index index.html index.htm index.php;
-
-    charset utf-8;
+    index index.php;
 
     location / {
         try_files $uri $uri/ /index.php?$query_string;
     }
 
-    location = /favicon.ico { access_log off; log_not_found off; }
-    location = /robots.txt  { access_log off; log_not_found off; }
-
-    error_page 404 /index.php;
-
     location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php8.2-fpm.sock;
-        fastcgi_index index.php;
-        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         include fastcgi_params;
-    }
-
-    location ~ /\.(?!well-known).* {
-        deny all;
+        fastcgi_pass unix:/run/php-fpm/www.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
     }
 }
-
-# IMPORTANT: Remove the default Nginx site to avoid conflicts
-# sudo rm /etc/nginx/sites-enabled/default
 ```
 
-Enable the site:
-```bash
-ln -s /etc/nginx/sites-available/admixcentral /etc/nginx/sites-enabled/
-nginx -t
-systemctl reload nginx
-```
-
-### 4. Enable SSL with Certbot
-The easiest way to secure your application is using Certbot (Let's Encrypt):
-
-```bash
-# Install Certbot
-sudo apt install certbot python3-certbot-nginx
-
-# Obtain and install certificate
-sudo certbot --nginx -d dashboard.yourdomain.com
-```
-Certbot will automatically update your Nginx configuration with the correct SSL paths.
-
-### 5. Configure Queue Workers (Supervisor)
-For optimal performance, AdmixCentral uses background workers to process firewall checks in parallel.
-
-1. **Install Supervisor**
-   ```bash
-   sudo apt-get install supervisor
-   ```
-
-2. **Create Configuration**
-   Create `/etc/supervisor/conf.d/admix-worker.conf`:
-   ```ini
-   [program:admix-worker]
-   process_name=%(program_name)s_%(process_num)02d
-   command=php /var/www/admixcentral/artisan queue:work --sleep=3 --tries=3 --max-time=3600
-   autostart=true
-   autorestart=true
-   user=www-data
-   numprocs=20
-   redirect_stderr=true
-   stdout_logfile=/var/www/admixcentral/storage/logs/worker.log
-   stopwaitsecs=3600
-   ```
-   *Note: Ensure the path `/var/www/admixcentral` matches your installation directory.*
-
-3. **Fix Permissions**
-   Ensure the worker process can write to logs:
-   ```bash
-   sudo chown -R www-data:www-data /var/www/admixcentral/storage
-   sudo chown -R www-data:www-data /var/www/admixcentral/bootstrap/cache
-   sudo chmod -R 775 /var/www/admixcentral/storage
-   ```
-
-4. **Start Workers**
-   ```bash
-   sudo supervisorctl reread
-   sudo supervisorctl update
-   sudo supervisorctl start all
-   ```
+Restart Nginx and PHP-FPM after configuration.
 
 ---
 
-## Initial Setup
+## Updating AdmixCentral
 
-Upon first installation, AdmixCentral requires you to create a **Global Admin** account via the secure Setup Wizard.
+To update an existing installation:
 
-1. Access the application in your browser (e.g., `http://dashboard.yourdomain.com`).
-2. You will be automatically redirected to the **Setup Wizard**.
-3. Create your admin account details.
-4. You will then be logged in and redirected to the Dashboard.
+```bash
+cd /var/www/admixcentral
 
-## Firewall Setup
+git pull
+
+composer install --no-dev --optimize-autoloader
+
+php artisan migrate --force
+
+npm install
+npm run build
+
+php artisan optimize:clear
+
+supervisorctl restart all
+systemctl reload nginx
+```
+
+## Adding Your First Firewall
 
 To manage a pfSense firewall, ensure the [pfSense REST API (pfRest)](https://github.com/pfrest/pfSense-pkg-RESTAPI) package is installed on the target pfSense machine.
 
