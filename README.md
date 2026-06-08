@@ -36,8 +36,6 @@ AdmixCentral is a centralized firewall management dashboard tailored for managin
 - **Backup & Restore**: Automated config backups and one-click restore points.
 
 ## Screenshots
-## Screenshots
-
 <p align="center">
   <a href="https://admixcentralmedia.admix.cloud/AdmixC-Card.png">
     <img src="https://admixcentralmedia.admix.cloud/AdmixC-Card.png" width="30%" alt="Dashboard Card View">
