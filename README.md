@@ -35,6 +35,19 @@ AdmixCentral is a centralized firewall management dashboard tailored for managin
 - **Services**: DHCP, DNS Resolver/Forwarder, HAProxy, and ACME integration.
 - **Backup & Restore**: Automated config backups and one-click restore points.
 
+## Screenshots
+![Dashboard - Card View](https://admixcentralmedia.admix.cloud/AdmixC-Card.png)
+![Dashboard - Compact View](https://admixcentralmedia.admix.cloud/AdmixC-Compact.png)
+![Add Company](https://admixcentralmedia.admix.cloud/AdmixC-Add-Company.png)
+![Add User](https://admixcentralmedia.admix.cloud/AdmixC-Add-User.png)
+![Firewall Dashboard 1](https://admixcentralmedia.admix.cloud/AdmixC-Firewall-Dashboard-1.png)
+![Firewall Dashboard 2](https://admixcentralmedia.admix.cloud/AdmixC-Firewall-Dashboard-2.png)
+![Firewall Dashboard 2](https://admixcentralmedia.admix.cloud/AdmixC-Firewall-NAT-1.png)
+![Firewall Dashboard 2](https://admixcentralmedia.admix.cloud/AdmixC-Firewall-Rules-1.png)
+![Firewall Dashboard 2](https://admixcentralmedia.admix.cloud/AdmixC-Firewall-System-1.png)
+![Firewall Settings 1](https://admixcentralmedia.admix.cloud/AdmixC-Settings-1.png)
+![Firewall Settings 2](https://admixcentralmedia.admix.cloud/AdmixC-Settings-2.png)
+
 ## Tech Stack
 
 - **Framework**: [Laravel 11.x](https://laravel.com) (PHP 8.2+)
