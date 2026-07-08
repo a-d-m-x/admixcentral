@@ -940,6 +940,41 @@
                                                                 </div>
                                                             </template>
 
+                                                            {{-- IPsec Tunnels — up/down + uptime --}}
+                                                            <template x-if="status?.data?.ipsec && status.data.ipsec.length > 0">
+                                                                <div class="col-span-2 sm:col-span-1" x-show="$store.dashLayout.layout === 'cards'">
+                                                                    <div class="mb-1 flex items-center justify-between">
+                                                                        <span class="text-xs font-medium text-gray-700 dark:text-gray-300">IPsec Tunnels</span>
+                                                                        <span class="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                                                                            :class="status.data.ipsec.every(t => t.state === 'up')
+                                                                                ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400'
+                                                                                : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'"
+                                                                            x-text="status.data.ipsec.filter(t => t.state === 'up').length + '/' + status.data.ipsec.length + ' up'"></span>
+                                                                    </div>
+                                                                    <div class="grid gap-1">
+                                                                        <template x-for="tun in status.data.ipsec" :key="tun.descr">
+                                                                            <div class="flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded-r bg-gray-50 dark:bg-slate-800/50 mb-1"
+                                                                                :class="tun.state === 'up' ? 'border-l-2 border-teal-500' : 'border-l-2 border-red-500'">
+                                                                                <div class="flex flex-col min-w-0">
+                                                                                    <span class="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate" x-text="tun.descr"></span>
+                                                                                    <span class="text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate" x-text="tun.remote"></span>
+                                                                                </div>
+                                                                                <div class="flex items-center gap-1.5 shrink-0">
+                                                                                    <div class="w-2 h-2 rounded-full" :class="tun.state === 'up' ? 'bg-teal-500' : 'bg-red-500'"></div>
+                                                                                    <div class="flex flex-col items-end leading-tight">
+                                                                                        <span class="capitalize text-[10px] font-medium"
+                                                                                            :class="tun.state === 'up' ? 'text-teal-600 dark:text-teal-400' : 'text-red-600 dark:text-red-400'"
+                                                                                            x-text="tun.state"></span>
+                                                                                        <span class="text-[9px] text-gray-400 dark:text-gray-500 whitespace-nowrap"
+                                                                                            x-text="tun.state === 'up' ? ('up ' + tun.uptime) : ('was up ' + tun.was_up + ' · down ' + tun.downtime)"></span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </template>
+                                                                    </div>
+                                                                </div>
+                                                            </template>
+
                                                             {{-- CPU Usage --}}
                                                             <div>
                                                                 <div class="flex justify-between mb-1">
