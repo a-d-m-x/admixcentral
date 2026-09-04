@@ -115,6 +115,10 @@ class StatusController extends Controller
 
     public function gateways(Firewall $firewall)
     {
+        if (request()->wantsJson()) {
+            session_write_close();
+        }
+
         $api = new \App\Services\PfSenseApiService($firewall);
         $gateways = [];
         try {
@@ -146,6 +150,10 @@ class StatusController extends Controller
 
     public function interfaces(Firewall $firewall)
     {
+        if (request()->wantsJson()) {
+            session_write_close();
+        }
+
         $api = new \App\Services\PfSenseApiService($firewall);
         $interfaces = [];
         try {
@@ -171,6 +179,21 @@ class StatusController extends Controller
             // Log error
         }
         return view('status.services', compact('firewall', 'services'));
+    }
+
+    public function serviceAction(Request $request, Firewall $firewall, string $service, string $action)
+    {
+        if (!in_array($action, ['start', 'stop', 'restart'])) {
+            return back()->with('error', 'Invalid service action.');
+        }
+
+        try {
+            $api = new \App\Services\PfSenseApiService($firewall);
+            $api->post("/services/{$action}/{$service}");
+            return back()->with('success', "Service {$service} " . ($action === 'stop' ? 'stopped' : $action . 'ed') . " successfully.");
+        } catch (\Exception $e) {
+            return back()->with('error', "Failed to {$action} service {$service}: " . $e->getMessage());
+        }
     }
 
     public function system(Firewall $firewall)
@@ -245,6 +268,10 @@ class StatusController extends Controller
 
     public function packages(Firewall $firewall)
     {
+        if (request()->wantsJson()) {
+            session_write_close();
+        }
+
         $api = new \App\Services\PfSenseApiService($firewall);
         $packages = [];
         try {
@@ -263,6 +290,6 @@ class StatusController extends Controller
             return response()->json($packages);
         }
 
-        return view('status.packages', compact('firewall', 'packages'));
+        return redirect()->route('system.package_manager.index', $firewall);
     }
 }

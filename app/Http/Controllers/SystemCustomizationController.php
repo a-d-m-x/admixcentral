@@ -100,7 +100,7 @@ class SystemCustomizationController extends Controller
             'sidebar_bg' => 'nullable|regex:/^#[0-9a-fA-F]{6}$/',
             'sidebar_text' => 'nullable|regex:/^#[0-9a-fA-F]{6}$/',
             'enable_status_cache' => 'nullable|boolean',
-            'site_url' => 'nullable|string|min:3',
+            'site_url' => ['nullable', 'string', 'min:3', 'max:255', 'regex:/^[a-zA-Z0-9]([a-zA-Z0-9.\-]*[a-zA-Z0-9])$/'],
             'site_protocol' => 'nullable|in:http,https',
             'mail_driver' => 'nullable|in:mailgun,log',
             'mailgun_domain' => 'nullable|string',

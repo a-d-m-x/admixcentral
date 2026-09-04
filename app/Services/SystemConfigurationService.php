@@ -26,15 +26,27 @@ class SystemConfigurationService
         $updated = false;
 
         foreach ($data as $key => $value) {
+            // Sanitize key: only allow env-safe characters (letters, digits, underscores)
+            if (!preg_match('/^[A-Z_][A-Z0-9_]*$/i', $key)) {
+                Log::warning("SystemConfigurationService: Rejected unsafe env key: {$key}");
+                continue;
+            }
+
+            // Sanitize value: reject newlines that could inject new env variables
+            $value = str_replace(["\r", "\n"], '', (string) $value);
+
             // value escaping for safety
             if (preg_match('/\s/', $value) && strpos($value, '"') === false && strpos($value, "'") === false) {
                 $value = '"' . $value . '"';
             }
 
+            // Use preg_quote to prevent regex injection from key names
+            $escapedKey = preg_quote($key, '/');
+
             // Check if key exists
-            if (preg_match("/^{$key}=.*/m", $envContent)) {
+            if (preg_match("/^{$escapedKey}=.*/m", $envContent)) {
                 // Update existing key
-                $envContent = preg_replace("/^{$key}=.*/m", "{$key}={$value}", $envContent);
+                $envContent = preg_replace("/^{$escapedKey}=.*/m", "{$key}={$value}", $envContent);
                 $updated = true;
             } else {
                 // Add new key
@@ -73,8 +85,19 @@ class SystemConfigurationService
         $updated = false;
 
         foreach ($data as $key => $valueToAdd) {
+            // Sanitize key: only allow env-safe characters
+            if (!preg_match('/^[A-Z_][A-Z0-9_]*$/i', $key)) {
+                Log::warning("SystemConfigurationService: Rejected unsafe env key in appendEnv: {$key}");
+                continue;
+            }
+
+            // Sanitize value: reject newlines
+            $valueToAdd = str_replace(["\r", "\n"], '', (string) $valueToAdd);
+
+            $escapedKey = preg_quote($key, '/');
+
             // Find existing line
-            if (preg_match("/^{$key}=(.*)$/m", $envContent, $matches)) {
+            if (preg_match("/^{$escapedKey}=(.*)$/m", $envContent, $matches)) {
                 $currentValue = $matches[1];
                 // Remove quotes if present
                 $currentValue = trim($currentValue, '"\'');
@@ -91,7 +114,7 @@ class SystemConfigurationService
                         $newValue = '"' . $newValue . '"';
                     }
 
-                    $envContent = preg_replace("/^{$key}=.*/m", "{$key}={$newValue}", $envContent);
+                    $envContent = preg_replace("/^{$escapedKey}=.*/m", "{$key}={$newValue}", $envContent);
                     $updated = true;
                 }
             } else {

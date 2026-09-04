@@ -103,6 +103,11 @@ class PfSenseApiService
         return $this->request('DELETE', $endpoint, $data);
     }
 
+    public function getOpnSense(): ?OpnSenseApiService
+    {
+        return $this->opnSense;
+    }
+
     public function __call($method, $arguments)
     {
         if ($this->opnSense && method_exists($this->opnSense, $method)) {
@@ -133,6 +138,71 @@ class PfSenseApiService
         }
         if (str_starts_with($ep, 'status/interfaces') || $ep === 'interfaces' || $ep === 'interface') {
             return $this->opnSense->getInterfacesStatus();
+        }
+        if ($ep === 'services' || $ep === 'status/services' || $ep === 'services/status') {
+            return $this->opnSense->getCoreServices();
+        }
+        if (str_starts_with($ep, 'routing/static_routes') || str_starts_with($ep, 'routing/static-routes') || str_starts_with($ep, 'routing/routes')) {
+            return $this->opnSense->getRoutes();
+        }
+        if (str_starts_with($ep, 'diagnostics/activity') || str_starts_with($ep, 'diagnostics/system-activity') || str_starts_with($ep, 'diagnostics/system_activity')) {
+            return $this->opnSense->getActivity();
+        }
+        if (str_starts_with($ep, 'diagnostics/ndp')) {
+            return $this->opnSense->getNdp();
+        }
+        if ($ep === 'system/update' || $ep === 'system/firmware') {
+            return $this->opnSense->getFirmwareStatus();
+        }
+        if (str_starts_with($ep, 'system/cron') || str_starts_with($ep, 'cron')) {
+            return $this->opnSense->getCronJobs();
+        }
+        if (str_starts_with($ep, 'firewall/categories') || str_starts_with($ep, 'firewall/category')) {
+            return $this->opnSense->getCategories();
+        }
+        if (str_starts_with($ep, 'services/dns_resolver/settings')) {
+            try {
+                $unbound = $this->opnSense->get('api/unbound/settings/get');
+                $general = $unbound['unbound']['general'] ?? [];
+                $fwd = $unbound['unbound']['forwarding'] ?? [];
+                return [
+                    'status' => 200,
+                    'data' => [
+                        'enable' => ($general['enabled'] ?? '0') === '1',
+                        'port' => (int)($general['port'] ?? 53),
+                        'dnssec' => ($general['dnssec'] ?? '0') === '1',
+                        'forwarding' => ($fwd['enabled'] ?? '0') === '1',
+                        'regdhcp' => ($general['regdhcp'] ?? '0') === '1',
+                        'regdhcpstatic' => ($general['regdhcpstatic'] ?? '0') === '1',
+                    ]
+                ];
+            } catch (\Throwable $e) {
+                return ['status' => 200, 'data' => []];
+            }
+        }
+        if (str_starts_with($ep, 'services/dns_resolver/host_overrides')) {
+            try {
+                $unbound = $this->opnSense->get('api/unbound/settings/get');
+                $hosts = $unbound['unbound']['hosts']['host'] ?? [];
+                return ['status' => 200, 'data' => array_values($hosts)];
+            } catch (\Throwable $e) {
+                return ['status' => 200, 'data' => []];
+            }
+        }
+        if (str_starts_with($ep, 'system/packages') || str_starts_with($ep, 'system/package')) {
+            $info = $this->opnSense->getFirmwareInfo();
+            $installed = [];
+            foreach (array_merge($info['plugin'] ?? [], $info['package'] ?? []) as $pkg) {
+                if (!empty($pkg['installed']) && (string)$pkg['installed'] === '1') {
+                    $installed[] = [
+                        'name' => $pkg['name'] ?? '',
+                        'version' => $pkg['version'] ?? '',
+                        'descr' => $pkg['comment'] ?? ($pkg['descr'] ?? ''),
+                        'installed' => true,
+                    ];
+                }
+            }
+            return ['status' => 200, 'data' => $installed];
         }
         if ($ep === 'firewall/aliases') {
             return $this->opnSense->getFirewallAliases();
@@ -185,11 +255,30 @@ class PfSenseApiService
         if ($ep === 'firewall/apply') {
             return $this->opnSense->applyChanges();
         }
+        if ($ep === 'firewall/category') {
+            return $this->opnSense->createCategory($data);
+        }
+        if ($ep === 'cron/job' || $ep === 'system/cron/job') {
+            return $this->opnSense->createCronJob($data);
+        }
         if (str_starts_with($ep, 'diagnostics/ping')) {
             return $this->opnSense->ping($data);
         }
         if (str_starts_with($ep, 'diagnostics/traceroute')) {
             return $this->opnSense->traceroute($data);
+        }
+        if (str_starts_with($ep, 'diagnostics/reboot') || $ep === 'system/reboot') {
+            return $this->opnSense->rebootSystem();
+        }
+        if (str_starts_with($ep, 'diagnostics/halt') || $ep === 'system/halt') {
+            return $this->opnSense->haltSystem();
+        }
+        if (preg_match('#^services/(start|stop|restart)/([^/]+)#', $ep, $m)) {
+            $action = $m[1];
+            $svc = $m[2];
+            if ($action === 'start') return $this->opnSense->startService($svc);
+            if ($action === 'stop') return $this->opnSense->stopService($svc);
+            if ($action === 'restart') return $this->opnSense->restartService($svc);
         }
 
         if (str_starts_with($endpoint, '/api/')) {
@@ -211,6 +300,37 @@ class PfSenseApiService
             $id = $data['id'] ?? $data['tracker'] ?? 0;
             return $this->opnSense->updateFirewallRule($id, $data);
         }
+        if ($ep === 'firewall/category') {
+            $uuid = $data['uuid'] ?? $data['id'] ?? '';
+            return $this->opnSense->updateCategory($uuid, $data);
+        }
+        if (str_starts_with($ep, 'services/dns_resolver/settings')) {
+            try {
+                $payload = [
+                    'unbound' => [
+                        'general' => [
+                            'enabled' => !empty($data['enable']) ? '1' : '0',
+                            'port' => (string)($data['port'] ?? '53'),
+                            'dnssec' => !empty($data['dnssec']) ? '1' : '0',
+                            'regdhcp' => !empty($data['regdhcp']) ? '1' : '0',
+                            'regdhcpstatic' => !empty($data['regdhcpstatic']) ? '1' : '0',
+                        ],
+                        'forwarding' => [
+                            'enabled' => !empty($data['forwarding']) ? '1' : '0',
+                        ]
+                    ]
+                ];
+                $res = $this->opnSense->post('api/unbound/settings/set', $payload);
+                $this->opnSense->post('api/unbound/service/reconfigure');
+                return ['status' => 200, 'data' => $res];
+            } catch (\Throwable $e) {
+                return ['status' => 500, 'message' => $e->getMessage()];
+            }
+        }
+        if ($ep === 'cron/job' || $ep === 'system/cron/job') {
+            $uuid = $data['uuid'] ?? $data['id'] ?? '';
+            return $this->opnSense->updateCronJob($uuid, $data);
+        }
 
         if (str_starts_with($endpoint, '/api/')) {
             return $this->opnSense->post($endpoint, $data);
@@ -229,6 +349,12 @@ class PfSenseApiService
         }
         if ($ep === 'firewall/rule') {
             return $this->opnSense->deleteFirewallRule($data['id'] ?? 0);
+        }
+        if ($ep === 'firewall/category') {
+            return $this->opnSense->deleteCategory($data['id'] ?? $data['uuid'] ?? '');
+        }
+        if ($ep === 'cron/job' || $ep === 'system/cron/job') {
+            return $this->opnSense->deleteCronJob($data['id'] ?? $data['uuid'] ?? '');
         }
 
         if (str_starts_with($endpoint, '/api/')) {
@@ -252,7 +378,7 @@ class PfSenseApiService
 
         $client = Http::withOptions(['verify' => false])
             ->acceptJson()
-            ->timeout(10);
+            ->timeout(20);
 
         if ($this->authMethod === 'token') {
             $client->withToken($this->apiToken);

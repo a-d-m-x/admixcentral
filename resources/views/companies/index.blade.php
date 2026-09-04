@@ -103,7 +103,7 @@
     'address' => $c->address ?? '',
     'latitude' => $c->latitude,
     'longitude' => $c->longitude
-])) !!};
+]), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) !!};
 
                             console.log('Initializing map with locale:', this.locale);
 

@@ -73,6 +73,19 @@ class SystemBackupService
             throw new \Exception("Failed to decode JSON data: " . json_last_error_msg());
         }
 
+        // Validate backup data structure before restoring
+        if (!is_array($data) || empty($data['version'])) {
+            throw new \Exception("Invalid backup format: missing version field.");
+        }
+
+        // Whitelist expected top-level keys to prevent injection of unexpected data
+        $allowedKeys = ['version', 'timestamp', 'companies', 'users', 'firewalls', 'system_settings', 'device_connections'];
+        $unexpectedKeys = array_diff(array_keys($data), $allowedKeys);
+        if (!empty($unexpectedKeys)) {
+            Log::warning("Backup contains unexpected keys, stripping: " . implode(', ', $unexpectedKeys));
+            $data = array_intersect_key($data, array_flip($allowedKeys));
+        }
+
         $this->restoreSystemData($data, $options);
     }
 

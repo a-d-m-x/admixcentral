@@ -101,7 +101,7 @@ class OpnSenseApiService
 
         $client = Http::withOptions(['verify' => false])
             ->acceptJson()
-            ->timeout(12);
+            ->timeout(20);
 
         if ($this->apiKey && $this->apiSecret) {
             $client->withBasicAuth($this->apiKey, $this->apiSecret);
@@ -149,59 +149,149 @@ class OpnSenseApiService
 
     public function getSystemStatus()
     {
-        $info = $this->getSystemInformation();
-        $time = $this->getSystemTime();
-        $resources = $this->getSystemResources();
-        $disk = $this->getSystemDisk();
-        $activity = $this->getSystemActivity();
-        $gateways = $this->getGateways();
+        // 1. Static Information Caching (24h TTL)
+        $staticCacheKey = 'firewall_static_info_' . $this->firewall->id;
+        $staticInfo = Cache::get($staticCacheKey);
+        if (!$staticInfo) {
+            try {
+                $info = $this->getSystemInformation();
+                $version = $info['versions'][0] ?? 'OPNsense';
+                $vParts = explode(' ', $version);
+                $productVersion = $vParts[1] ?? $version;
 
-        // Calculate CPU usage from activity (100 - idle%)
-        $cpuUsage = 0.0;
-        foreach ($activity['headers'] ?? [] as $header) {
-            if (preg_match('/(\d+(?:\.\d+)?)%\s+idle/i', $header, $m)) {
-                $idle = (float) $m[1];
-                $cpuUsage = max(0.0, min(100.0, round(100.0 - $idle, 2)));
-                break;
+                $staticInfo = [
+                    'hostname' => $info['name'] ?? $this->firewall->name,
+                    'product_version' => $productVersion,
+                    'os_version' => $info['versions'][1] ?? 'FreeBSD',
+                    'api_version' => 'OPNsense Core',
+                    'update_available' => !empty($info['updates']) && !str_contains(strtolower($info['updates']), 'click to check'),
+                    'cores' => 4,
+                ];
+                Cache::put($staticCacheKey, $staticInfo, now()->addDay());
+            } catch (\Exception $e) {
+                $staticInfo = [
+                    'hostname' => $this->firewall->name,
+                    'product_version' => 'OPNsense',
+                    'os_version' => 'FreeBSD',
+                    'api_version' => 'OPNsense Core',
+                    'update_available' => false,
+                    'cores' => 4,
+                ];
             }
         }
 
+        // 2. Parallel fetch for lightweight real-time telemetry (Time, Resources, Disk, Gateways, Interfaces)
+        $key = $this->apiKey;
+        $secret = $this->apiSecret;
+        $base = $this->baseUrl;
+        $now = time();
+
+        $responses = Http::pool(fn ($pool) => [
+            $pool->as('time')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/diagnostics/system/systemTime?_t=$now"),
+            $pool->as('resources')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/diagnostics/system/systemResources?_t=$now"),
+            $pool->as('disk')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/diagnostics/system/systemDisk?_t=$now"),
+            $pool->as('gateways')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/routes/gateway/status?_t=$now"),
+            $pool->as('ifOverview')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/interfaces/overview/interfacesInfo?_t=$now"),
+            $pool->as('ifStats')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/diagnostics/interface/getInterfaceStatistics?_t=$now"),
+        ]);
+
+        $timeData = $responses['time']->json() ?? [];
+        $resData = $responses['resources']->json() ?? [];
+        $diskData = $responses['disk']->json() ?? [];
+        $gwData = $responses['gateways']->json() ?? [];
+        $ifOverview = $responses['ifOverview']->json() ?? [];
+        $ifStats = $responses['ifStats']->json() ?? [];
+
+        // CPU calculation from real-time 1m load average without spawning heavy 'top'
+        $loadParts = explode(',', $timeData['loadavg'] ?? '0, 0, 0');
+        $l1 = (float) trim($loadParts[0] ?? '0');
+        $cores = (int) ($staticInfo['cores'] ?? 4);
+        $cpuUsage = min(100.0, max(0.0, round(($l1 / (float) max(1, $cores)) * 100, 2)));
+
         // Memory Usage
-        $memUsage = 0.0;
-        $memTotal = (float) ($resources['memory']['total'] ?? 0);
-        $memUsed = (float) ($resources['memory']['used'] ?? 0);
-        if ($memTotal > 0) {
-            $memUsage = round(($memUsed / $memTotal) * 100, 2);
-        }
+        $memTotal = (float) ($resData['memory']['total'] ?? 0);
+        $memUsed = (float) ($resData['memory']['used'] ?? 0);
+        $memUsage = $memTotal > 0 ? round(($memUsed / $memTotal) * 100, 2) : 0.0;
 
         // Disk Usage
-        $diskUsage = 0.0;
-        if (!empty($disk['devices'][0]['used_pct'])) {
-            $diskUsage = (float) $disk['devices'][0]['used_pct'];
+        $diskUsage = !empty($diskData['devices'][0]['used_pct']) ? (float) $diskData['devices'][0]['used_pct'] : 0.0;
+
+        // Gateways
+        $gateways = [];
+        foreach ($gwData['items'] ?? [] as $item) {
+            $addr = $item['address'] ?? '';
+            $lossRaw = $item['loss'] ?? '0';
+            $lossNum = trim(str_replace(['%', '~'], '', (string)$lossRaw));
+            if ($lossNum === '') $lossNum = '0';
+
+            $gateways[] = [
+                'id' => $item['name'] ?? '',
+                'name' => $item['name'] ?? 'GW',
+                'interface' => $item['interface'] ?? 'WAN',
+                'address' => $addr,
+                'gateway' => $addr,
+                'monitorip' => $addr,
+                'srcip' => $addr,
+                'status' => $item['status_translated'] ?? ($item['status'] === 'none' ? 'Online' : 'Offline'),
+                'loss' => $lossNum,
+                'delay' => $item['delay'] === '~' ? '0.0ms' : ($item['delay'] ?? '0.0ms'),
+                'stddev' => $item['stddev'] === '~' ? '0.0ms' : ($item['stddev'] ?? '0.0ms'),
+                'descr' => $item['descr'] ?? ($item['name'] ?? 'Gateway'),
+            ];
         }
 
-        // Product version
-        $version = $info['versions'][0] ?? 'OPNsense';
-        $vParts = explode(' ', $version);
-        $productVersion = $vParts[1] ?? $version;
+        // Interfaces
+        $statsMap = [];
+        foreach ($ifStats['statistics'] ?? [] as $s) {
+            if (!empty($s['name'])) {
+                $statsMap[$s['name']] = $s;
+            }
+        }
 
-        $gwList = $gateways['data']['gateway'] ?? [];
+        $formattedIfaces = [];
+        foreach ($ifOverview['rows'] ?? [] as $row) {
+            $dev = $row['device'] ?? '';
+            $desc = $row['description'] ?? $dev;
+            if ($desc === 'Unassigned Interface') continue;
+            $s = $statsMap[$dev] ?? [];
+            $ip = $row['ipv4'][0]['ipaddr'] ?? ($row['ipv6'][0]['ipaddr'] ?? 'N/A');
+
+            $formattedIfaces[$dev] = [
+                'id' => strtolower($row['identifier'] ?? $desc),
+                'if' => $dev,
+                'name' => $desc,
+                'descr' => $desc,
+                'device' => $dev,
+                'status' => $row['status'] ?? 'up',
+                'ipaddr' => $ip,
+                'inbytes' => (int) ($s['received-bytes'] ?? 0),
+                'outbytes' => (int) ($s['sent-bytes'] ?? 0),
+                'in_rate_bps' => 0,
+                'out_rate_bps' => 0,
+                'media' => $row['media'] ?? 'VirtIO',
+                'speed' => $row['speed'] ?? '10 Gbps',
+            ];
+        }
+
+        $productVersion = $staticInfo['product_version'] ?? 'OPNsense';
 
         return [
             'status' => 200,
             'data' => [
-                'hostname' => $info['name'] ?? $this->firewall->name,
+                'hostname' => $staticInfo['hostname'] ?? $this->firewall->name,
                 'product_version' => $productVersion,
-                'os_version' => $info['versions'][1] ?? 'FreeBSD',
-                'api_version' => 'OPNsense Core',
-                'uptime' => $time['uptime'] ?? 'N/A',
-                'load_average' => explode(',', $time['loadavg'] ?? '0, 0, 0'),
+                'os_version' => $staticInfo['os_version'] ?? 'FreeBSD',
+                'api_version' => $staticInfo['api_version'] ?? 'OPNsense Core',
+                'uptime' => $timeData['uptime'] ?? 'N/A',
+                'load_average' => explode(',', $timeData['loadavg'] ?? '0, 0, 0'),
+                'cpu_load_avg' => array_map('trim', explode(',', $timeData['loadavg'] ?? '0, 0, 0')),
                 'cpu_usage' => $cpuUsage,
                 'mem_usage' => $memUsage,
                 'disk_usage' => $diskUsage,
                 'swap_usage' => 0.0,
-                'update_available' => !empty($info['updates']) && !str_contains(strtolower($info['updates']), 'click to check'),
-                'gateways' => $gwList,
+                'update_available' => (bool) ($staticInfo['update_available'] ?? false),
+                'gateways' => $gateways,
+                'interfaces' => $formattedIfaces,
             ],
             'product_version' => $productVersion,
             'api_version' => 'OPNsense Core',
@@ -213,10 +303,9 @@ class OpnSenseApiService
         $status = $this->getSystemStatus();
         $data = $status['data'];
 
-        // Add interfaces and compute bandwidth deltas
+        // Compute bandwidth deltas from interfaces
         try {
-            $ifaces = $this->getInterfacesStatus();
-            $interfaceData = $ifaces['data'] ?? [];
+            $interfaceData = $data['interfaces'] ?? [];
 
             $bytesCacheKey = 'firewall_iface_bytes_' . $this->firewall->id;
             $nowFloat = microtime(true);
@@ -253,7 +342,7 @@ class OpnSenseApiService
 
             $data['interfaces'] = $interfaceData;
         } catch (\Exception $e) {
-            $data['interfaces'] = [];
+            // Keep interfaces as is
         }
 
         return $data;
@@ -345,15 +434,24 @@ class OpnSenseApiService
 
         $gateways = [];
         foreach ($items as $item) {
+            $addr = $item['address'] ?? '';
+            $lossRaw = $item['loss'] ?? '0';
+            $lossNum = trim(str_replace(['%', '~'], '', (string)$lossRaw));
+            if ($lossNum === '') $lossNum = '0';
+
             $gateways[] = [
                 'id' => $item['name'] ?? '',
                 'name' => $item['name'] ?? 'GW',
                 'interface' => $item['interface'] ?? 'WAN',
-                'address' => $item['address'] ?? '',
+                'address' => $addr,
+                'gateway' => $addr,
+                'monitorip' => $addr,
+                'srcip' => $addr,
                 'status' => $item['status_translated'] ?? ($item['status'] === 'none' ? 'Online' : 'Offline'),
-                'loss' => $item['loss'] === '~' ? '0.0%' : $item['loss'],
-                'delay' => $item['delay'] === '~' ? '0.0ms' : $item['delay'],
-                'stddev' => $item['stddev'] === '~' ? '0.0ms' : $item['stddev'],
+                'loss' => $lossNum,
+                'delay' => $item['delay'] === '~' ? '0.0ms' : ($item['delay'] ?? '0.0ms'),
+                'stddev' => $item['stddev'] === '~' ? '0.0ms' : ($item['stddev'] ?? '0.0ms'),
+                'descr' => $item['descr'] ?? ($item['name'] ?? 'Gateway'),
             ];
         }
 
@@ -374,8 +472,18 @@ class OpnSenseApiService
 
     public function getInterfacesStatus(): array
     {
-        $overview = $this->get('/api/interfaces/overview/interfacesInfo');
-        $statsResp = $this->get('/api/diagnostics/interface/getInterfaceStatistics');
+        $key = $this->apiKey;
+        $secret = $this->apiSecret;
+        $base = $this->baseUrl;
+        $now = time();
+
+        $res = Http::pool(fn ($pool) => [
+            $pool->as('overview')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/interfaces/overview/interfacesInfo?_t=$now"),
+            $pool->as('stats')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/diagnostics/interface/getInterfaceStatistics?_t=$now"),
+        ]);
+
+        $overview = $res['overview']->json() ?? [];
+        $statsResp = $res['stats']->json() ?? [];
         $stats = $statsResp['statistics'] ?? [];
 
         $formatted = [];
@@ -402,6 +510,7 @@ class OpnSenseApiService
             $formatted[$device] = [
                 'id' => strtolower($row['identifier'] ?? $desc),
                 'if' => $device,
+                'name' => $desc,
                 'descr' => $desc,
                 'device' => $device,
                 'status' => $row['status'] ?? 'up',
@@ -410,12 +519,15 @@ class OpnSenseApiService
                 'outbytes' => $outBytes,
                 'in_rate_bps' => 0,
                 'out_rate_bps' => 0,
+                'media' => $row['media'] ?? 'VirtIO 10GBase-T',
+                'speed' => $row['speed'] ?? '10 Gbps',
             ];
         }
 
         return [
             'status' => 200,
-            'data' => $formatted,
+            'data' => array_values($formatted),
+            'interfaces' => $formatted,
         ];
     }
 
@@ -837,5 +949,307 @@ class OpnSenseApiService
     public function backupConfiguration(): string
     {
         return $this->downloadBackup();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Firmware & Updates
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function getFirmwareStatus(): array
+    {
+        return $this->get('/api/core/firmware/status');
+    }
+
+    public function getFirmwareInfo(): array
+    {
+        return $this->get('/api/core/firmware/info');
+    }
+
+    public function checkFirmwareUpdates(): array
+    {
+        return $this->post('/api/core/firmware/check');
+    }
+
+    public function upgradeFirmware(): array
+    {
+        return $this->post('/api/core/firmware/update');
+    }
+
+    public function getFirmwareChangelog(string $version): array
+    {
+        return $this->get("/api/core/firmware/changelog/{$version}");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Core Services Management
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function getCoreServices(): array
+    {
+        $res = $this->get('/api/core/service/search');
+        return [
+            'status' => 200,
+            'data' => $res['rows'] ?? [],
+        ];
+    }
+
+    public function startService(string $service): array
+    {
+        return $this->post("/api/core/service/start/{$service}");
+    }
+
+    public function stopService(string $service): array
+    {
+        return $this->post("/api/core/service/stop/{$service}");
+    }
+
+    public function restartService(string $service): array
+    {
+        return $this->post("/api/core/service/restart/{$service}");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Cron / Scheduled Tasks
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function getCronJobs(): array
+    {
+        $res = $this->get('/api/cron/settings/searchJobs');
+        return [
+            'status' => 200,
+            'data' => $res['rows'] ?? [],
+        ];
+    }
+
+    public function getCronJob(string $uuid = ''): array
+    {
+        $ep = empty($uuid) ? '/api/cron/settings/getJob' : "/api/cron/settings/getJob/{$uuid}";
+        return $this->get($ep);
+    }
+
+    public function createCronJob(array $data): array
+    {
+        $payload = [
+            'job' => [
+                'enabled' => !empty($data['enabled']) ? '1' : '0',
+                'minutes' => $data['minutes'] ?? '*',
+                'hours' => $data['hours'] ?? '*',
+                'days' => $data['days'] ?? '*',
+                'months' => $data['months'] ?? '*',
+                'weekdays' => $data['weekdays'] ?? '*',
+                'who' => $data['who'] ?? 'root',
+                'command' => $data['command'] ?? '',
+                'parameters' => $data['parameters'] ?? '',
+                'description' => $data['description'] ?? '',
+            ],
+        ];
+
+        $res = $this->post('/api/cron/settings/addJob', $payload);
+        $this->reconfigureCron();
+        return [
+            'status' => 200,
+            'data' => $res,
+            'result' => $res['result'] ?? 'saved',
+            'uuid' => $res['uuid'] ?? null,
+        ];
+    }
+
+    public function updateCronJob(string $uuid, array $data): array
+    {
+        $current = [];
+        if (empty($data['command']) || !isset($data['minutes'])) {
+            $existing = $this->getCronJob($uuid);
+            $current = $existing['job'] ?? [];
+        }
+
+        $extractVal = function($val, $default = '') {
+            if (is_array($val)) {
+                foreach ($val as $k => $opt) {
+                    if (!empty($opt['selected'])) return (string)$k;
+                }
+                return $default;
+            }
+            return is_null($val) ? $default : (string)$val;
+        };
+
+        $command = $data['command'] ?? $extractVal($current['command'] ?? null, '');
+        $who = $data['who'] ?? $extractVal($current['who'] ?? null, 'root');
+
+        $payload = [
+            'job' => [
+                'enabled' => isset($data['enabled']) ? (!empty($data['enabled']) ? '1' : '0') : $extractVal($current['enabled'] ?? null, '1'),
+                'minutes' => $data['minutes'] ?? ($current['minutes'] ?? '*'),
+                'hours' => $data['hours'] ?? ($current['hours'] ?? '*'),
+                'days' => $data['days'] ?? ($current['days'] ?? '*'),
+                'months' => $data['months'] ?? ($current['months'] ?? '*'),
+                'weekdays' => $data['weekdays'] ?? ($current['weekdays'] ?? '*'),
+                'who' => $who,
+                'command' => $command,
+                'parameters' => $data['parameters'] ?? ($current['parameters'] ?? ''),
+                'description' => $data['description'] ?? ($current['description'] ?? ''),
+            ],
+        ];
+
+        $res = $this->post("/api/cron/settings/setJob/{$uuid}", $payload);
+        $this->reconfigureCron();
+        return [
+            'status' => 200,
+            'data' => $res,
+            'result' => $res['result'] ?? 'saved',
+        ];
+    }
+
+    public function deleteCronJob(string $uuid): array
+    {
+        $res = $this->post("/api/cron/settings/delJob/{$uuid}");
+        $this->reconfigureCron();
+        return [
+            'status' => 200,
+            'data' => $res,
+            'result' => $res['result'] ?? 'deleted',
+        ];
+    }
+
+    public function reconfigureCron(): array
+    {
+        return $this->post('/api/cron/service/reconfigure');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Firewall Categories
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function getCategories(): array
+    {
+        $res = $this->get('/api/firewall/category/searchItem');
+        return [
+            'status' => 200,
+            'data' => $res['rows'] ?? [],
+        ];
+    }
+
+    public function createCategory(array $data): array
+    {
+        $payload = [
+            'category' => [
+                'name' => $data['name'] ?? '',
+                'color' => $data['color'] ?? '336699',
+                'auto' => !empty($data['auto']) ? '1' : '0',
+            ],
+        ];
+        $res = $this->post('/api/firewall/category/addItem', $payload);
+        return [
+            'status' => 200,
+            'data' => $res,
+            'result' => $res['result'] ?? 'saved',
+            'uuid' => $res['uuid'] ?? null,
+        ];
+    }
+
+    public function updateCategory(string $uuid, array $data): array
+    {
+        $payload = [
+            'category' => [
+                'name' => $data['name'] ?? '',
+                'color' => $data['color'] ?? '336699',
+                'auto' => !empty($data['auto']) ? '1' : '0',
+            ],
+        ];
+        $res = $this->post("/api/firewall/category/setItem/{$uuid}", $payload);
+        return [
+            'status' => 200,
+            'data' => $res,
+            'result' => $res['result'] ?? 'saved',
+        ];
+    }
+
+    public function deleteCategory(string $uuid): array
+    {
+        $res = $this->post("/api/firewall/category/delItem/{$uuid}");
+        return [
+            'status' => 200,
+            'data' => $res,
+            'result' => $res['result'] ?? 'deleted',
+        ];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Diagnostics & System Control
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function getActivity(): array
+    {
+        return $this->get('/api/diagnostics/activity/getActivity');
+    }
+
+    public function getNdp(): array
+    {
+        $res = $this->get('/api/diagnostics/interface/getNdp');
+        return [
+            'status' => 200,
+            'data' => $res ?? [],
+        ];
+    }
+
+    public function getRoutes(): array
+    {
+        $res = $this->get('/api/routes/routes/searchRoute');
+        return [
+            'status' => 200,
+            'data' => $res['rows'] ?? [],
+        ];
+    }
+
+    public function rebootSystem(): array
+    {
+        return $this->post('/api/core/system/reboot');
+    }
+
+    public function haltSystem(): array
+    {
+        return $this->post('/api/core/system/halt');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // IDS & Monit
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function getIdsStatus(): array
+    {
+        return $this->get('/api/ids/service/status');
+    }
+
+    public function getIdsSettings(): array
+    {
+        return $this->get('/api/ids/settings/get');
+    }
+
+    public function getMonitStatus(): array
+    {
+        return $this->get('/api/monit/service/status');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Trust & Auth
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function getCertificates(): array
+    {
+        return $this->get('/api/trust/cert/search');
+    }
+
+    public function getCAs(): array
+    {
+        return $this->get('/api/trust/ca/search');
+    }
+
+    public function getUsers(): array
+    {
+        return $this->get('/api/auth/user/searchUser');
+    }
+
+    public function getGroups(): array
+    {
+        return $this->get('/api/auth/group/searchGroup');
     }
 }

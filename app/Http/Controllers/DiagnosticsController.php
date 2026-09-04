@@ -49,11 +49,11 @@ class DiagnosticsController extends Controller
     {
         $output = null;
         if ($request->isMethod('post')) {
-            $request->validate(['host' => 'required|string']);
+            $request->validate(['host' => ['required', 'string', 'regex:/^[a-zA-Z0-9.:\-_]+$/']]);
             $api = new \App\Services\PfSenseApiService($firewall);
             try {
                 $host = escapeshellarg($request->input('host'));
-                $response = $api->commandPrompt("host " . $host);
+                $response = $api->commandPrompt("host -- " . $host);
                 $output = $response['data']['output'] ?? [];
             } catch (\Exception $e) {
                 $output = ['error' => $e->getMessage()];
@@ -93,7 +93,16 @@ class DiagnosticsController extends Controller
 
     public function ndpTable(Firewall $firewall)
     {
-        return view('diagnostics.ndp-table', compact('firewall'));
+        $ndpTable = [];
+        if ($firewall->isOpnSense()) {
+            $api = new \App\Services\PfSenseApiService($firewall);
+            try {
+                $ndpTable = $api->getNdp()['data'] ?? [];
+            } catch (\Exception $e) {
+                // Log error
+            }
+        }
+        return view('diagnostics.ndp-table', compact('firewall', 'ndpTable'));
     }
 
     public function packetCapture(Firewall $firewall)
@@ -124,7 +133,7 @@ class DiagnosticsController extends Controller
         $output = null;
         if ($request->isMethod('post')) {
             $request->validate([
-                'host' => 'required|string',
+                'host' => ['required', 'string', 'regex:/^[a-zA-Z0-9.:\-_]+$/'],
                 'count' => 'nullable|integer|min:1|max:10',
                 'interface' => 'nullable|string',
             ]);
@@ -135,7 +144,7 @@ class DiagnosticsController extends Controller
                 $interface = $request->input('interface', 'wan');
 
                 // If interface is a specific IP or name, we might pass -S. For now simple ping.
-                $command = "ping -c {$count} " . $host;
+                $command = "ping -c {$count} -- " . $host;
 
                 $response = $api->commandPrompt($command);
                 $output = $response['data']['output'] ?? [];
@@ -196,17 +205,46 @@ class DiagnosticsController extends Controller
     {
         $api = new \App\Services\PfSenseApiService($firewall);
         $output = '';
+        $activity = null;
+
         try {
-            // Run top in batch mode equivalent (for FreeBSD top: -d 1 for 1 frame)
-            // Force terminal dimensions to ensure we get process list
-            $command = "env LINES=1000 COLUMNS=200 top -aSH -d 1";
-            $response = $api->commandPrompt($command);
-            $output = $response['data']['output'] ?? 'No output returned.';
+            if ($firewall->isOpnSense()) {
+                $activity = $api->getActivity();
+                $lines = [];
+                foreach ($activity['headers'] ?? [] as $hdr) {
+                    $lines[] = $hdr;
+                }
+                $lines[] = '';
+                $lines[] = sprintf("%-8s %-12s %-6s %-6s %-8s %-8s %-8s %-4s %-10s %-8s %s", "PID", "USERNAME", "PRI", "NICE", "SIZE", "RES", "STATE", "C", "TIME", "WCPU", "COMMAND");
+                foreach ($activity['details'] ?? [] as $proc) {
+                    $lines[] = sprintf(
+                        "%-8s %-12s %-6s %-6s %-8s %-8s %-8s %-4s %-10s %-8s %s",
+                        $proc['PID'] ?? '',
+                        $proc['USERNAME'] ?? '',
+                        $proc['PRI'] ?? '',
+                        $proc['NICE'] ?? '',
+                        $proc['SIZE'] ?? '',
+                        $proc['RES'] ?? '',
+                        $proc['STATE'] ?? '',
+                        $proc['C'] ?? '',
+                        $proc['TIME'] ?? '',
+                        $proc['WCPU'] ?? '',
+                        $proc['COMMAND'] ?? ''
+                    );
+                }
+                $output = implode("\n", $lines);
+            } else {
+                // Run top in batch mode equivalent (for FreeBSD top: -d 1 for 1 frame)
+                // Force terminal dimensions to ensure we get process list
+                $command = "env LINES=1000 COLUMNS=200 top -aSH -d 1";
+                $response = $api->commandPrompt($command);
+                $output = $response['data']['output'] ?? 'No output returned.';
+            }
         } catch (\Exception $e) {
             $output = 'Error fetching system activity: ' . $e->getMessage();
         }
 
-        return view('diagnostics.system-activity', compact('firewall', 'output'));
+        return view('diagnostics.system-activity', compact('firewall', 'output', 'activity'));
     }
 
     public function tables(Request $request, Firewall $firewall)
@@ -236,11 +274,11 @@ class DiagnosticsController extends Controller
     {
         $output = null;
         if ($request->isMethod('post')) {
-            $request->validate(['host' => 'required|string']);
+            $request->validate(['host' => ['required', 'string', 'regex:/^[a-zA-Z0-9.:\-_]+$/']]);
             $api = new \App\Services\PfSenseApiService($firewall);
             try {
                 $host = escapeshellarg($request->input('host'));
-                $command = "traceroute -w 2 -m 15 " . $host;
+                $command = "traceroute -w 2 -m 15 -- " . $host;
 
                 $response = $api->commandPrompt($command);
                 $output = $response['data']['output'] ?? [];

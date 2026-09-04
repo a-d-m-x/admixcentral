@@ -43,10 +43,10 @@ class DeviceWebSocketController extends Controller
         // Find and authenticate firewall
         $firewall = Firewall::find($validated['firewall_id']);
 
-        // Verify credentials
+        // Verify credentials with timing-safe comparison
         if (
-            $firewall->api_key !== $validated['api_key'] ||
-            $firewall->api_secret !== $validated['api_secret']
+            !hash_equals((string) $firewall->api_key, (string) $validated['api_key']) ||
+            !hash_equals((string) $firewall->api_secret, (string) $validated['api_secret'])
         ) {
             return response()->json([
                 'error' => 'Invalid credentials',
@@ -131,6 +131,26 @@ class DeviceWebSocketController extends Controller
 
         $firewall = Firewall::find($validated['firewall_id']);
 
+        // Verify the connection belongs to this firewall and IP matches
+        $connection = \App\Models\DeviceConnection::where('connection_id', $validated['connection_id'])
+            ->where('firewall_id', $firewall->id)
+            ->whereNull('disconnected_at')
+            ->first();
+
+        if (!$connection) {
+            return response()->json(['error' => 'Invalid or expired connection'], 401);
+        }
+
+        // Verify request IP matches the connection's registered IP
+        if ($connection->ip_address && $connection->ip_address !== $request->ip()) {
+            Log::warning("WebSocket message IP mismatch", [
+                'expected' => $connection->ip_address,
+                'actual' => $request->ip(),
+                'connection_id' => $validated['connection_id'],
+            ]);
+            return response()->json(['error' => 'IP address mismatch'], 403);
+        }
+
         // Update heartbeat
         $this->connectionManager->updateHeartbeat($validated['connection_id']);
 
@@ -163,8 +183,24 @@ class DeviceWebSocketController extends Controller
     public function disconnect(Request $request): JsonResponse
     {
         $validated = $request->validate([
+            'firewall_id' => 'required|exists:firewalls,id',
             'connection_id' => 'required|string',
         ]);
+
+        // Verify the connection belongs to this firewall
+        $connection = \App\Models\DeviceConnection::where('connection_id', $validated['connection_id'])
+            ->where('firewall_id', $validated['firewall_id'])
+            ->whereNull('disconnected_at')
+            ->first();
+
+        if (!$connection) {
+            return response()->json(['error' => 'Invalid or expired connection'], 401);
+        }
+
+        // Verify request IP matches the connection's registered IP
+        if ($connection->ip_address && $connection->ip_address !== $request->ip()) {
+            return response()->json(['error' => 'IP address mismatch'], 403);
+        }
 
         $success = $this->connectionManager->disconnectDevice($validated['connection_id']);
 

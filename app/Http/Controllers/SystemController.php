@@ -374,14 +374,29 @@ class SystemController extends Controller
     {
         $api = new \App\Services\PfSenseApiService($firewall);
         $version = [];
+        $firmwareStatus = [];
 
         try {
             $version = $api->getSystemVersion()['data'] ?? [];
+            if ($firewall->isOpnSense()) {
+                $firmwareStatus = $api->getFirmwareStatus();
+            }
         } catch (\Exception $e) {
             // Log error
         }
 
-        return view('system.update', compact('firewall', 'version'));
+        return view('system.update', compact('firewall', 'version', 'firmwareStatus'));
+    }
+
+    public function checkFirmware(Firewall $firewall)
+    {
+        try {
+            $api = new \App\Services\PfSenseApiService($firewall);
+            $res = $api->checkFirmwareUpdates();
+            return back()->with('success', 'Firmware update check initiated: ' . ($res['status'] ?? 'ok'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to check firmware updates: ' . $e->getMessage());
+        }
     }
 
     public function userManager(Firewall $firewall)

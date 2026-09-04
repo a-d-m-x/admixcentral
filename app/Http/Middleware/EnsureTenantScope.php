@@ -13,41 +13,47 @@ class EnsureTenantScope
     {
         $user = $request->user();
 
+        if (!$user) {
+            return redirect('login');
+        }
+
         // Global admins can see everything
-        if ($user && $user->isGlobalAdmin()) {
+        if ($user->isGlobalAdmin()) {
             return $next($request);
         }
 
-        // For non-admin users, restrict access to their company's resources
-        if ($user && $user->company_id) {
-            // If accessing a firewall, ensure it belongs to their company
-            $firewallParam = $request->route('firewall');
-            if ($firewallParam) {
-                // Handle both model-bound instances and IDs
-                $firewall = $firewallParam instanceof Firewall
-                    ? $firewallParam
-                    : Firewall::find($firewallParam);
+        // Non-global admins MUST have an assigned company
+        if (!$user->company_id) {
+            abort(403, 'Unauthorized access: user has no assigned company.');
+        }
 
-                if (!$firewall || $firewall->company_id !== $user->company_id) {
-
-                    abort(403, 'Unauthorized access to this firewall.');
-                }
+        // If accessing a firewall, ensure it belongs to their company
+        $firewallParam = $request->route('firewall');
+        if ($firewallParam) {
+            if ($firewallParam instanceof Firewall) {
+                $firewall = $firewallParam;
+            } else {
+                $firewall = Firewall::where('netgate_id', $firewallParam)
+                    ->orWhere('id', $firewallParam)
+                    ->first();
             }
 
-            // If accessing a company, ensure it's their company
-            $companyParam = $request->route('company');
-            if ($companyParam) {
-                $companyId = $companyParam instanceof Company
-                    ? $companyParam->id
-                    : $companyParam;
-
-                if ($companyId !== $user->company_id) {
-
-                    abort(403, 'Unauthorized access to this company.');
-                }
+            if (!$firewall || (int) $firewall->company_id !== (int) $user->company_id) {
+                abort(403, 'Unauthorized access to this firewall.');
             }
         }
 
+        // If accessing a company, ensure it's their company
+        $companyParam = $request->route('company');
+        if ($companyParam) {
+            $companyId = $companyParam instanceof Company
+                ? $companyParam->id
+                : (int) $companyParam;
+
+            if ((int) $companyId !== (int) $user->company_id) {
+                abort(403, 'Unauthorized access to this company.');
+            }
+        }
 
         return $next($request);
     }

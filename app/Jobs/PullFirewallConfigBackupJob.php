@@ -37,34 +37,45 @@ class PullFirewallConfigBackupJob implements ShouldQueue
 
             $backupRecord->update(['status' => 'running', 'last_attempted_at' => now(), 'error_message' => null]);
 
-            if (empty($firewall->ssh_username) || empty($firewall->ssh_password)) {
-                $backupRecord->update(['status' => 'failed', 'error_message' => 'SSH credentials are not configured. Add SSH username and password in firewall settings.']);
-                return;
-            }
-
             $host = parse_url($firewall->url, PHP_URL_HOST);
             if (!$host) {
                 $backupRecord->update(['status' => 'failed', 'error_message' => 'Could not determine host from firewall URL.']);
                 return;
             }
 
-            $sftp = new SFTP($host, (int) ($firewall->ssh_port ?? 22), 15);
+            if ($firewall->isOpnSense()) {
+                $api = new \App\Services\OpnSenseApiService($firewall);
+                $res = $api->downloadBackup();
+                $content = $res['data'] ?? '';
 
-            if (!$sftp->login($firewall->ssh_username, $firewall->ssh_password)) {
-                $backupRecord->update(['status' => 'failed', 'error_message' => 'SSH authentication failed. Check username and password.']);
-                return;
-            }
+                if (empty($content) || !str_contains($content, '<opnsense>')) {
+                    $backupRecord->update(['status' => 'failed', 'error_message' => 'OPNsense API backup download failed or returned invalid XML.']);
+                    return;
+                }
+            } else {
+                if (empty($firewall->ssh_username) || empty($firewall->ssh_password)) {
+                    $backupRecord->update(['status' => 'failed', 'error_message' => 'SSH credentials are not configured. Add SSH username and password in firewall settings.']);
+                    return;
+                }
 
-            $content = $sftp->get('/cf/conf/config.xml');
+                $sftp = new SFTP($host, (int) ($firewall->ssh_port ?? 22), 15);
 
-            if ($content === false || empty($content)) {
-                $backupRecord->update(['status' => 'failed', 'error_message' => 'SFTP download failed or returned empty file.']);
-                return;
-            }
+                if (!$sftp->login($firewall->ssh_username, $firewall->ssh_password)) {
+                    $backupRecord->update(['status' => 'failed', 'error_message' => 'SSH authentication failed. Check username and password.']);
+                    return;
+                }
 
-            if (!str_contains($content, '<pfsense>')) {
-                $backupRecord->update(['status' => 'failed', 'error_message' => 'Downloaded file is not a valid pfSense configuration.']);
-                return;
+                $content = $sftp->get('/cf/conf/config.xml');
+
+                if ($content === false || empty($content)) {
+                    $backupRecord->update(['status' => 'failed', 'error_message' => 'SFTP download failed or returned empty file.']);
+                    return;
+                }
+
+                if (!str_contains($content, '<pfsense>')) {
+                    $backupRecord->update(['status' => 'failed', 'error_message' => 'Downloaded file is not a valid pfSense configuration.']);
+                    return;
+                }
             }
 
             $folderSlug = Str::slug($firewall->name);

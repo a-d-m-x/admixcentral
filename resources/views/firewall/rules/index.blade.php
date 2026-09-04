@@ -211,6 +211,10 @@
                     {{-- Interface Tabs --}}
                     <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
                         <nav class="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
+                            <a href="{{ route('firewall.rules.index', ['firewall' => $firewall, 'interface' => 'floating']) }}"
+                                class="{{ $selectedInterface === 'floating' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300' }} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                                FLOATING
+                            </a>
                             @foreach($interfaces as $iface)
                                 <a href="{{ route('firewall.rules.index', ['firewall' => $firewall, 'interface' => $iface['id'] ?? $iface['if']]) }}"
                                     class="{{ $selectedInterface === ($iface['id'] ?? $iface['if']) ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300' }} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">

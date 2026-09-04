@@ -185,17 +185,17 @@
                                         <div class="mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">Gateways
                                         </div>
                                         <div class="grid gap-1">
-                                            <template x-for="gateway in gateways" :key="gateway.name">
+                                             <template x-for="gateway in gateways" :key="gateway.name || gateway.id">
                                                 <div class="flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded-r bg-gray-50 dark:bg-slate-800/50 mb-1 border-l-2"
                                                     :class="{
-                                                        'border-green-500': gateway.status === 'online' || gateway.status === 'none',
-                                                        'border-red-500': gateway.status === 'offline' || gateway.status === 'down',
-                                                        'border-yellow-500': gateway.status && gateway.status !== 'online' && gateway.status !== 'none' && gateway.status !== 'offline' && gateway.status !== 'down'
-                                                    }" :title="gateway.monitorip || gateway.srcip">
+                                                        'border-green-500': (gateway.status || '').toLowerCase() === 'online' || (gateway.status || '').toLowerCase() === 'none',
+                                                        'border-red-500': (gateway.status || '').toLowerCase() === 'offline' || (gateway.status || '').toLowerCase() === 'down',
+                                                        'border-yellow-500': (gateway.status || '').toLowerCase() !== 'online' && (gateway.status || '').toLowerCase() !== 'none' && (gateway.status || '').toLowerCase() !== 'offline' && (gateway.status || '').toLowerCase() !== 'down'
+                                                    }" :title="gateway.address || gateway.monitorip || gateway.srcip || gateway.gateway">
                                                     <div class="flex flex-col min-w-0">
                                                         <span
                                                             class="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate"
-                                                            x-text="gateway.descr || 'Unknown'"></span>
+                                                            x-text="gateway.descr || gateway.name || 'Unknown'"></span>
                                                         <div
                                                             class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 font-mono truncate">
                                                             <span
@@ -205,14 +205,14 @@
                                                                 x-show="gateway.name && gateway.name !== gateway.descr"
                                                                 class="text-gray-300 dark:text-gray-600">|</span>
                                                             <span
-                                                                x-text="gateway.monitorip || gateway.srcip || 'N/A'"></span>
+                                                                x-text="gateway.address || gateway.monitorip || gateway.srcip || gateway.gateway || 'N/A'"></span>
                                                         </div>
                                                     </div>
                                                     <div class="flex items-center gap-1.5">
                                                         <div class="w-2 h-2 rounded-full" :class="{
-                                                            'bg-green-500': gateway.status === 'online' || gateway.status === 'none',
-                                                            'bg-red-500': gateway.status === 'offline' || gateway.status === 'down',
-                                                            'bg-yellow-500': gateway.status && gateway.status !== 'online' && gateway.status !== 'none' && gateway.status !== 'offline' && gateway.status !== 'down'
+                                                            'bg-green-500': (gateway.status || '').toLowerCase() === 'online' || (gateway.status || '').toLowerCase() === 'none',
+                                                            'bg-red-500': (gateway.status || '').toLowerCase() === 'offline' || (gateway.status || '').toLowerCase() === 'down',
+                                                            'bg-yellow-500': (gateway.status || '').toLowerCase() !== 'online' && (gateway.status || '').toLowerCase() !== 'none' && (gateway.status || '').toLowerCase() !== 'offline' && (gateway.status || '').toLowerCase() !== 'down'
                                                         }"></div>
                                                         <span
                                                             class="capitalize text-[10px] font-medium text-gray-500 dark:text-gray-400"
@@ -631,16 +631,16 @@
                                         <template x-for="gateway in gateways" :key="gateway.id || gateway.name">
                                             <tr
                                                 class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                                                <td class="px-3 py-2 font-medium text-gray-900 dark:text-white"
+                                                <td class="px-3 py-2 font-medium text-gray-900 dark:text-gray-white"
                                                     x-text="gateway.descr || gateway.name || 'N/A'"></td>
                                                 <td class="px-3 py-2 font-mono text-xs"
-                                                    x-text="gateway.monitorip || gateway.srcip || 'N/A'"></td>
-                                                <td class="px-3 py-2 text-xs" x-text="(gateway.loss || '0') + '%'"></td>
+                                                    x-text="gateway.address || gateway.monitorip || gateway.srcip || gateway.gateway || 'N/A'"></td>
+                                                <td class="px-3 py-2 text-xs" x-text="((gateway.loss || '0') + '').replace('%', '') + '%'"></td>
                                                 <td class="px-3 py-2 text-center">
                                                     <div class="h-2.5 w-2.5 rounded-full mx-auto" :class="{
-                                                        'bg-green-500': gateway.status === 'online' || gateway.status === 'none',
-                                                        'bg-red-500': gateway.status === 'offline' || gateway.status === 'down',
-                                                        'bg-yellow-500': gateway.status && gateway.status !== 'online' && gateway.status !== 'none' && gateway.status !== 'offline' && gateway.status !== 'down'
+                                                        'bg-green-500': (gateway.status || '').toLowerCase() === 'online' || (gateway.status || '').toLowerCase() === 'none',
+                                                        'bg-red-500': (gateway.status || '').toLowerCase() === 'offline' || (gateway.status || '').toLowerCase() === 'down',
+                                                        'bg-yellow-500': (gateway.status || '').toLowerCase() !== 'online' && (gateway.status || '').toLowerCase() !== 'none' && (gateway.status || '').toLowerCase() !== 'offline' && (gateway.status || '').toLowerCase() !== 'down'
                                                     }" :title="gateway.status"></div>
                                                 </td>
                                             </tr>
@@ -692,7 +692,7 @@
                                                         'bg-yellow-500': !['up', 'down', 'associated', 'no carrier'].includes(iface.status)
                                                     }" :title="iface.status"></div>
                                                 </td>
-                                                <td class="px-3 py-2 font-mono text-xs" x-text="iface.ipaddr || 'N/A'">
+                                                <td class="px-3 py-2 font-mono text-xs" x-text="iface.ipaddr || iface.ip || 'N/A'">
                                                 </td>
                                                 <td class="px-3 py-2 text-xs truncate max-w-[150px]"
                                                     :title="iface.media" x-text="iface.media || 'Unknown'"></td>
@@ -706,7 +706,7 @@
 
                     {{-- Config Backup (GlobalAdmin only) --}}
                     @if(auth()->user()->isGlobalAdmin())
-                    @php $backup = $firewall->configBackup; $sshMissing = empty($firewall->ssh_username) || empty($firewall->ssh_password); @endphp
+                    @php $backup = $firewall->configBackup; $sshMissing = !$firewall->isOpnSense() && (empty($firewall->ssh_username) || empty($firewall->ssh_password)); @endphp
                     <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg"
                          x-data="backupCard({
                              triggerUrl:  '{{ route('firewall.backup.trigger', $firewall) }}',
@@ -730,7 +730,7 @@
                                 <h3 class="text-xl font-semibold">Configuration Backup</h3>
 
                                 <div class="flex items-center gap-2 shrink-0">
-                                    @if(empty($firewall->ssh_username) || empty($firewall->ssh_password))
+                                    @if(!$firewall->isOpnSense() && (empty($firewall->ssh_username) || empty($firewall->ssh_password)))
                                         <a href="{{ route('firewalls.edit', $firewall) }}"
                                             class="inline-flex items-center px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors shadow-sm">
                                             <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
@@ -876,18 +876,19 @@
 @php
     // $initialStatus is pre-resolved by DashboardController::firewall().
     // No cache lookup here — keep data resolution in the controller.
+    $initialStatus    = $initialStatus ?? null;
     $systemLoading    = $initialStatus ? 'false' : 'true';
     $systemConnected  = ($initialStatus['online'] ?? false) ? 'true' : 'false';
 @endphp
                     systemLoading: {{ $systemLoading }},
                     systemConnected: {{ $systemConnected }},
-                    systemStatus: {!! json_encode($initialStatus) !!},
+                    systemStatus: {!! json_encode($initialStatus, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) !!},
                     systemError: null,
 
                     interfaces: [],
                     interfacesLoading: true,
 
-                    gateways: {!! json_encode($initialStatus['gateways'] ?? []) !!},
+                    gateways: {!! json_encode($initialStatus['gateways'] ?? [], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) !!},
                     gatewaysLoading: {{ empty($initialStatus['gateways'] ?? []) ? 'true' : 'false' }},
 
                     rules: [],
@@ -1197,7 +1198,8 @@
                             .then(res => res.json())
                             .then(data => {
                                 // Handle data wrapper if present
-                                const ifaces = data.data || data;
+                                const rawIfaces = data.data || data;
+                                const ifaces = Array.isArray(rawIfaces) ? rawIfaces : Object.values(rawIfaces || {});
                                 this.interfaces = ifaces;
                                 this.interfacesLoading = false;
 
@@ -1218,7 +1220,8 @@
                         })
                             .then(res => res.json())
                             .then(data => {
-                                this.gateways = data; // Structure: ['data' => [...]]
+                                const rawGw = data.data || data;
+                                this.gateways = Array.isArray(rawGw) ? rawGw : Object.values(rawGw || {});
                                 this.gatewaysLoading = false;
                             })
                             .catch(err => {

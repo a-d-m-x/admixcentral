@@ -82,15 +82,16 @@ class SystemRestApiController extends Controller
     public function revert(Firewall $firewall, Request $request)
     {
         $request->validate([
-            'version' => 'required|string',
+            'version' => ['required', 'string', 'regex:/^[a-zA-Z0-9._-]+$/'],
         ]);
 
         $version = $request->input('version');
+        $safeVersion = escapeshellarg($version);
         $api = new PfSenseApiService($firewall);
 
         try {
             // Command: pfsense-restapi revert <version>
-            $command = "pfsense-restapi revert {$version}";
+            $command = "pfsense-restapi revert {$safeVersion}";
 
             $response = $api->commandPrompt($command);
             $output = $response['data']['output'] ?? 'Command executed.';

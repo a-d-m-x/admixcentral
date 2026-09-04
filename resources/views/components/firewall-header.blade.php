@@ -2,6 +2,7 @@
 
 <div>
     <div class="flex justify-between items-start">
+        <div>
             <div class="flex items-center space-x-2.5">
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
                     {{ $title }}

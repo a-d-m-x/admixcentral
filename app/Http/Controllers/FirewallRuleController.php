@@ -13,6 +13,10 @@ class FirewallRuleController extends Controller
     use NormalizesInterfaceData;
     public function index(Request $request, Firewall $firewall)
     {
+        if ($request->wantsJson()) {
+            session_write_close();
+        }
+
         try {
             $api = new PfSenseApiService($firewall);
             $rulesResponse = $api->getFirewallRules();

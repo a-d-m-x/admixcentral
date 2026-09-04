@@ -33,19 +33,38 @@
                                         <td class="py-4 px-6">{{ $service['description'] ?? '' }}</td>
                                         <td class="py-4 px-6">
                                             @php
-                                                // Determine status: API may return '1'/ 'running' or other indicators.
-                                                $rawStatus = $service['status'] ?? '';
-                                                $isRunning = ($rawStatus == '1' || $rawStatus === 'running');
+                                                $rawStatus = $service['status'] ?? ($service['running'] ?? '');
+                                                $isRunning = ($rawStatus == '1' || $rawStatus === 'running' || $rawStatus === true);
                                             @endphp
                                             <span
-                                                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $isRunning ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $isRunning ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' }}">
                                                 {{ $isRunning ? 'Running' : 'Stopped' }}
                                             </span>
                                         </td>
                                         <td class="py-4 px-6">
-                                            {{-- Actions like Start/Stop/Restart would go here, but API might not support
-                                            them directly via this endpoint --}}
-                                            <span class="text-gray-400">Managed via pfSense</span>
+                                            @if($firewall->isOpnSense() && !auth()->user()->isReadOnly())
+                                                <div class="flex items-center space-x-3">
+                                                    @if(!$isRunning)
+                                                    <form method="POST" action="{{ route('status.services.action', ['firewall' => $firewall, 'service' => $service['name'] ?? $service['id'], 'action' => 'start']) }}" class="inline">
+                                                        @csrf
+                                                        <button type="submit" class="text-green-600 dark:text-green-400 hover:text-green-900 font-medium text-xs">Start</button>
+                                                    </form>
+                                                    @else
+                                                    <form method="POST" action="{{ route('status.services.action', ['firewall' => $firewall, 'service' => $service['name'] ?? $service['id'], 'action' => 'restart']) }}" class="inline">
+                                                        @csrf
+                                                        <button type="submit" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 font-medium text-xs">Restart</button>
+                                                    </form>
+                                                    @if(empty($service['locked']))
+                                                    <form method="POST" action="{{ route('status.services.action', ['firewall' => $firewall, 'service' => $service['name'] ?? $service['id'], 'action' => 'stop']) }}" class="inline" onsubmit="return confirm('Are you sure you want to stop this service?');">
+                                                        @csrf
+                                                        <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-900 font-medium text-xs">Stop</button>
+                                                    </form>
+                                                    @endif
+                                                    @endif
+                                                </div>
+                                            @else
+                                                <span class="text-gray-400">Managed via pfSense</span>
+                                            @endif
                                         </td>
                                     </tr>
                                 @empty

@@ -77,16 +77,15 @@ class FirewallController extends Controller
             $ids = explode(',', $request->input('ids'));
         }
 
-        if (!empty($ids)) {
-            $firewalls = Firewall::whereIn('id', $ids)->get();
-        } else {
-            $user = $request->user();
-            if ($user->isGlobalAdmin()) {
-                $firewalls = Firewall::all();
-            } else {
-                $firewalls = Firewall::where('company_id', $user->company_id)->get();
-            }
+        $user = $request->user();
+        $query = Firewall::query();
+        if ($user && !$user->isGlobalAdmin()) {
+            $query->where('company_id', $user->company_id);
         }
+        if (!empty($ids)) {
+            $query->whereIn('id', $ids);
+        }
+        $firewalls = $query->get();
 
         if ($request->boolean('sync')) {
             $results = [];
@@ -170,14 +169,15 @@ class FirewallController extends Controller
 
         $ids = $request->input('ids', []);
 
-        if (!empty($ids)) {
-            $firewalls = Firewall::whereIn('id', $ids)->get();
-        } else {
-            $user = $request->user();
-            $firewalls = $user->isGlobalAdmin()
-                ? Firewall::all()
-                : Firewall::where('company_id', $user->company_id)->get();
+        $user = $request->user();
+        $query = Firewall::query();
+        if ($user && !$user->isGlobalAdmin()) {
+            $query->where('company_id', $user->company_id);
         }
+        if (!empty($ids)) {
+            $query->whereIn('id', $ids);
+        }
+        $firewalls = $query->get();
 
         // Dispatch debounce window (seconds).
         // ShouldBeUnique covers most duplicates, but this prevents even the
@@ -471,8 +471,16 @@ class FirewallController extends Controller
      */
     public function getCachedStatus(Request $request)
     {
+        $user = $request->user();
         $ids = $request->input('ids', []);
-        $firewalls = Firewall::whereIn('id', $ids)->get();
+        $query = Firewall::query();
+        if ($user && !$user->isGlobalAdmin()) {
+            $query->where('company_id', $user->company_id);
+        }
+        if (!empty($ids)) {
+            $query->whereIn('id', $ids);
+        }
+        $firewalls = $query->get();
 
         $results = [];
         foreach ($firewalls as $firewall) {

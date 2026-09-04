@@ -11,6 +11,9 @@ class SetupController extends Controller
 {
     public function welcome()
     {
+        if (User::exists()) {
+            return redirect()->route('login');
+        }
         return view('setup.welcome');
     }
 

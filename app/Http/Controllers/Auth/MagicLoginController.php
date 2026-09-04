@@ -42,6 +42,7 @@ class MagicLoginController extends Controller
         $user = User::findOrFail($id);
 
         Auth::login($user);
+        $request->session()->regenerate();
 
         return redirect('/dashboard');
     }

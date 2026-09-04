@@ -64,6 +64,16 @@ trait NormalizesInterfaceData
     {
         $selectedLower = strtolower($selectedInterface);
 
+        if ($selectedLower === 'floating') {
+            return collect($rules)->filter(function ($rule) {
+                if (!empty($rule['floating'])) {
+                    return true;
+                }
+                $iface = is_array($rule['interface'] ?? null) ? ($rule['interface'][0] ?? '') : ($rule['interface'] ?? '');
+                return in_array(strtolower((string)$iface), ['floating', '', 'any']);
+            })->values();
+        }
+
         return collect($rules)->filter(function ($rule) use ($selectedLower, $ifNameToId) {
             if (!isset($rule['interface'])) {
                 return false;

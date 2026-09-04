@@ -154,7 +154,7 @@
     'address' => $f->address ?? '',
     'latitude' => $f->latitude,
     'longitude' => $f->longitude
-])) !!};
+]), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) !!};
 
                             const mapEl = document.getElementById('firewall-map');
                             if (mapEl) mapEl.style.height = '100%';

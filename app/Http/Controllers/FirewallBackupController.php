@@ -19,7 +19,7 @@ class FirewallBackupController extends Controller
 
     public function trigger(Firewall $firewall)
     {
-        if (empty($firewall->ssh_username) || empty($firewall->ssh_password)) {
+        if (!$firewall->isOpnSense() && (empty($firewall->ssh_username) || empty($firewall->ssh_password))) {
             return response()->json([
                 'error' => 'SSH credentials are not configured. Add a username and password in the firewall settings before running a backup.',
             ], 422);

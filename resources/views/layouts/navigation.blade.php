@@ -1,4 +1,4 @@
-<nav x-data="{ open: false, systemOpen: false, firewallOpen: false, servicesOpen: false, vpnOpen: false, statusOpen: false, diagnosticsOpen: false, systemActive: {{ request()->routeIs('system.*') || request()->routeIs('firewall.system.*') ? 'true' : 'false' }}, firewallActive: {{ request()->routeIs('firewall.aliases.*') || request()->routeIs('firewall.nat.*') || request()->routeIs('firewall.rules.*') || request()->routeIs('firewall.schedules.*') || request()->routeIs('firewall.limiters.*') || request()->routeIs('firewall.virtual_ips.*') ? 'true' : 'false' }}, servicesActive: {{ request()->routeIs('services.*') ? 'true' : 'false' }}, vpnActive: {{ request()->routeIs('vpn.*') ? 'true' : 'false' }}, statusActive: {{ request()->routeIs('status.*') ? 'true' : 'false' }}, diagnosticsActive: {{ request()->routeIs('diagnostics.*') ? 'true' : 'false' }} }"
+<nav x-data="{ open: false, systemOpen: false, firewallOpen: false, servicesOpen: false, vpnOpen: false, statusOpen: false, diagnosticsOpen: false, systemActive: {{ request()->routeIs('system.*') || request()->routeIs('firewall.system.*') ? 'true' : 'false' }}, firewallActive: {{ request()->routeIs('firewall.aliases.*') || request()->routeIs('firewall.categories.*') || request()->routeIs('firewall.nat.*') || request()->routeIs('firewall.rules.*') || request()->routeIs('firewall.schedules.*') || request()->routeIs('firewall.limiters.*') || request()->routeIs('firewall.virtual_ips.*') ? 'true' : 'false' }}, servicesActive: {{ request()->routeIs('services.*') ? 'true' : 'false' }}, vpnActive: {{ request()->routeIs('vpn.*') ? 'true' : 'false' }}, statusActive: {{ request()->routeIs('status.*') ? 'true' : 'false' }}, diagnosticsActive: {{ request()->routeIs('diagnostics.*') ? 'true' : 'false' }} }"
     class="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
     <!-- Primary Navigation Menu -->
     <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
@@ -20,6 +20,14 @@
                         <!-- Separator removed as per user request -->
                     @endif
                     @if(request()->route('firewall'))
+                        @php
+                            $navFirewall = isset($firewall) && $firewall instanceof \App\Models\Firewall 
+                                ? $firewall 
+                                : (request()->route('firewall') instanceof \App\Models\Firewall 
+                                    ? request()->route('firewall') 
+                                    : (request()->route('firewall') ? \App\Models\Firewall::find(request()->route('firewall')) : null));
+                            $isOpnSense = $navFirewall ? $navFirewall->isOpnSense() : false;
+                        @endphp
                         <!-- pfSense-Style Dropdowns (only when managing a firewall) -->
 
                         <a href="{{ route('firewall.dashboard', request()->route('firewall')) }}"
@@ -49,8 +57,11 @@
                                     <a href="{{ route('system.advanced', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Advanced</a>
                                     <a href="{{ route('system.certificate_manager.index', request()->route('firewall')) }}"
-                                        class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Cert.
-                                        Manager</a>
+                                        class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">{{ $isOpnSense ? 'Trust / Certs' : 'Cert. Manager' }}</a>
+                                    @if($isOpnSense)
+                                    <a href="{{ route('system.cron', request()->route('firewall')) }}"
+                                        class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Cron</a>
+                                    @endif
                                     <a href="{{ route('system.general-setup', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">General
                                         Setup</a>
@@ -58,13 +69,12 @@
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">High
                                         Avail. Sync</a>
                                     <a href="{{ route('system.package_manager.index', request()->route('firewall')) }}"
-                                        class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Package
-                                        Manager</a>
+                                        class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">{{ $isOpnSense ? 'Plugins & Packages' : 'Package Manager' }}</a>
                                     <a href="{{ route('firewall.system.routing', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Routing</a>
                                     <a href="{{ route('system.update', request()->route('firewall')) }}"
-                                        class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Update</a>
-                                    @if(!auth()->user()->isReadOnly())
+                                        class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">{{ $isOpnSense ? 'Firmware' : 'Update' }}</a>
+                                    @if(!$isOpnSense && !auth()->user()->isReadOnly())
                                     <a href="{{ route('system.rest-api.index', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Update
                                         REST API</a>
@@ -139,6 +149,10 @@
                                 <div class="py-1" role="menu">
                                     <a href="{{ route('firewall.aliases.index', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 pl-6">Aliases</a>
+                                    @if($isOpnSense)
+                                    <a href="{{ route('firewall.categories.index', request()->route('firewall')) }}"
+                                        class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 pl-6">Categories</a>
+                                    @endif
                                     <a href="{{ route('firewall.nat.port-forward', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 pl-6">NAT</a>
                                     <a href="{{ route('firewall.rules.index', request()->route('firewall')) }}"
@@ -369,9 +383,11 @@
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Halt
                                         System</a>
                                     @endif
+                                    @if(!$isOpnSense)
                                     <a href="{{ route('diagnostics.limiter-info', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Limiter
                                         Info</a>
+                                    @endif
                                     <a href="{{ route('diagnostics.ndp-table', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">NDP
                                         Table</a>
@@ -463,18 +479,22 @@
                     <x-responsive-nav-link :href="route('system.advanced', request()->route('firewall'))"
                         :active="request()->routeIs('system.advanced')">{{ __('Advanced') }}</x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('system.certificate_manager.index', request()->route('firewall'))"
-                        :active="request()->routeIs('system.certificate_manager.*')">{{ __('Cert. Manager') }}</x-responsive-nav-link>
+                        :active="request()->routeIs('system.certificate_manager.*')">{{ $isOpnSense ? __('Trust / Certs') : __('Cert. Manager') }}</x-responsive-nav-link>
+                    @if($isOpnSense)
+                    <x-responsive-nav-link :href="route('system.cron', request()->route('firewall'))"
+                        :active="request()->routeIs('system.cron*') || request()->routeIs('firewall.system.cron*')">{{ __('Cron') }}</x-responsive-nav-link>
+                    @endif
                     <x-responsive-nav-link :href="route('system.general-setup', request()->route('firewall'))"
                         :active="request()->routeIs('system.general-setup')">{{ __('General Setup') }}</x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('system.high-avail-sync', request()->route('firewall'))"
                         :active="request()->routeIs('system.high-avail-sync')">{{ __('High Avail. Sync') }}</x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('system.package_manager.index', request()->route('firewall'))"
-                        :active="request()->routeIs('system.package_manager.*')">{{ __('Package Manager') }}</x-responsive-nav-link>
+                        :active="request()->routeIs('system.package_manager.*')">{{ $isOpnSense ? __('Plugins & Packages') : __('Package Manager') }}</x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('firewall.system.routing', request()->route('firewall'))"
                         :active="request()->routeIs('firewall.system.routing')">{{ __('Routing') }}</x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('system.update', request()->route('firewall'))"
-                        :active="request()->routeIs('system.update')">{{ __('Update') }}</x-responsive-nav-link>
-                    @if(!auth()->user()->isReadOnly())
+                        :active="request()->routeIs('system.update')">{{ $isOpnSense ? __('Firmware') : __('Update') }}</x-responsive-nav-link>
+                    @if(!$isOpnSense && !auth()->user()->isReadOnly())
                     <x-responsive-nav-link :href="route('system.rest-api.index', request()->route('firewall'))"
                         :active="request()->routeIs('system.rest-api.*')">{{ __('Update REST API') }}</x-responsive-nav-link>
                     @endif
@@ -518,7 +538,7 @@
 
             <!-- Firewall -->
             <div
-                x-data="{ expanded: {{ request()->routeIs('firewall.aliases.*') || request()->routeIs('firewall.nat.*') || request()->routeIs('firewall.rules.*') || request()->routeIs('firewall.schedules.*') || request()->routeIs('firewall.limiters.*') || request()->routeIs('firewall.virtual_ips.*') ? 'true' : 'false' }} }">
+                x-data="{ expanded: {{ request()->routeIs('firewall.aliases.*') || request()->routeIs('firewall.categories.*') || request()->routeIs('firewall.nat.*') || request()->routeIs('firewall.rules.*') || request()->routeIs('firewall.schedules.*') || request()->routeIs('firewall.limiters.*') || request()->routeIs('firewall.virtual_ips.*') ? 'true' : 'false' }} }">
                 <button @click="expanded = !expanded"
                     class="flex items-center justify-between w-full pl-3 pr-4 py-2 border-l-4 border-transparent text-left text-base font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 focus:outline-none transition duration-150 ease-in-out">
                     <span>Firewall</span>
@@ -532,6 +552,10 @@
                 <div x-show="expanded" x-collapse class="space-y-1 pl-4 bg-gray-50 dark:bg-gray-900/50">
                     <x-responsive-nav-link :href="route('firewall.aliases.index', request()->route('firewall'))"
                         :active="request()->routeIs('firewall.aliases.*')">{{ __('Aliases') }}</x-responsive-nav-link>
+                    @if($isOpnSense)
+                    <x-responsive-nav-link :href="route('firewall.categories.index', request()->route('firewall'))"
+                        :active="request()->routeIs('firewall.categories.*')">{{ __('Categories') }}</x-responsive-nav-link>
+                    @endif
                     <x-responsive-nav-link :href="route('firewall.nat.port-forward', request()->route('firewall'))"
                         :active="request()->routeIs('firewall.nat.*')">{{ __('NAT') }}</x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('firewall.rules.index', request()->route('firewall'))"
@@ -703,8 +727,10 @@
                     <x-responsive-nav-link :href="route('diagnostics.halt-system', request()->route('firewall'))"
                         :active="request()->routeIs('diagnostics.halt-system')">{{ __('Halt System') }}</x-responsive-nav-link>
                     @endif
+                    @if(!$isOpnSense)
                     <x-responsive-nav-link :href="route('diagnostics.limiter-info', request()->route('firewall'))"
                         :active="request()->routeIs('diagnostics.limiter-info')">{{ __('Limiter Info') }}</x-responsive-nav-link>
+                    @endif
                     <x-responsive-nav-link :href="route('diagnostics.ndp-table', request()->route('firewall'))"
                         :active="request()->routeIs('diagnostics.ndp-table')">{{ __('NDP Table') }}</x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('diagnostics.packet_capture.index', request()->route('firewall'))"

@@ -26,6 +26,18 @@ class Firewall extends Model
         'ssh_password',
     ];
 
+    /**
+     * Prevent credential leakage in JSON serialization (toArray, toJson, API responses, logs).
+     * Use makeVisible() explicitly when credentials are needed (e.g., backup export).
+     */
+    protected $hidden = [
+        'api_key',
+        'api_secret',
+        'api_token',
+        'ssh_password',
+        'ssh_username',
+    ];
+
     protected $casts = [
         'api_key' => 'encrypted',
         'api_secret' => 'encrypted',
@@ -59,6 +71,11 @@ class Firewall extends Model
     public function getOsDisplayNameAttribute(): string
     {
         return $this->isOpnSense() ? 'OPNsense' : 'pfSense';
+    }
+
+    public function opnsense(): \App\Services\OpnSenseApiService
+    {
+        return new \App\Services\OpnSenseApiService($this);
     }
 
     public function company()
