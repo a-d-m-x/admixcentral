@@ -18,7 +18,7 @@ die(){ echo -e "\n[X] $*\n"; exit 1; }
 PHP_VER="${PHP_VER:-8.3}"
 NODE_MAJOR="${NODE_MAJOR:-20}"
 
-REPO_URL="${REPO_URL:-https://github.com/a-d-m-x/admixcentral.git}"
+REPO_URL="${REPO_URL:-https://github.com/admxlz/admixcentral.git}"
 INSTALL_DIR="${INSTALL_DIR:-/var/www/admixcentral}"
 WEB_USER="${WEB_USER:-www-data}"
 WEB_GROUP="${WEB_GROUP:-www-data}"
@@ -240,7 +240,7 @@ configure_arch_php() {
     log "Configuring Arch Linux PHP extensions"
     local ini="/etc/php/php.ini"
     if [[ -f "$ini" ]]; then
-      local exts=(pdo_mysql bcmath curl gd intl zip iconv mysqli)
+      local exts=(pdo_mysql bcmath curl gd intl zip iconv mysqli sockets sqlite3)
       for ext in "${exts[@]}"; do
         sed -i "s/^;extension=${ext}/extension=${ext}/" "$ini" || true
         sed -i "s/^; extension=${ext}/extension=${ext}/" "$ini" || true
@@ -261,7 +261,7 @@ install_php_redis_extensions() {
       pkg_install php-pecl-igbinary php-pecl-redis || pkg_install php-igbinary php-pecl-redis || die "Failed to install php Redis packages on Red Hat/Fedora"
       ;;
     arch)
-      pkg_install php-igbinary php-redis
+      pkg_install php-igbinary php-redis php-sodium
       ;;
     suse)
       pkg_install php8-redis php8-igbinary || pkg_install php-redis php-igbinary || log "Warning: could not verify SUSE Redis PHP package names automatically"
@@ -274,10 +274,17 @@ enable_php_redis_extensions() {
   case "$OS_FAMILY" in
     arch)
       mkdir -p /etc/php/conf.d
-      printf 'extension=igbinary.so
-' >/etc/php/conf.d/20-igbinary.ini
-      printf 'extension=redis.so
-' >/etc/php/conf.d/30-redis.ini
+      if [[ -f /etc/php/conf.d/igbinary.ini ]]; then
+        sed -i 's/^;[[:space:]]*extension[[:space:]]*=[[:space:]]*igbinary.*/extension=igbinary.so/' /etc/php/conf.d/igbinary.ini || true
+      else
+        printf 'extension=igbinary.so\n' >/etc/php/conf.d/igbinary.ini
+      fi
+      if [[ -f /etc/php/conf.d/redis.ini ]]; then
+        sed -i 's/^;[[:space:]]*extension[[:space:]]*=[[:space:]]*redis.*/extension=redis/' /etc/php/conf.d/redis.ini || true
+      else
+        printf 'extension=redis.so\n' >/etc/php/conf.d/redis.ini
+      fi
+      rm -f /etc/php/conf.d/20-igbinary.ini /etc/php/conf.d/30-redis.ini 2>/dev/null || true
       ;;
     redhat)
       mkdir -p /etc/php.d
@@ -731,7 +738,7 @@ main() {
   elif [[ "$OS_FAMILY" == "redhat" ]]; then
     pkg_install nginx mariadb-server supervisor certbot python3-certbot-nginx python3-certbot-dns-cloudflare redis
   elif [[ "$OS_FAMILY" == "arch" ]]; then
-    pkg_install nginx mariadb supervisor certbot certbot-nginx certbot-dns-cloudflare redis
+    pkg_install nginx mariadb supervisor certbot certbot-nginx certbot-dns-cloudflare redis cronie
     if [[ ! -d "/var/lib/mysql/mysql" ]]; then
       mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql || true
     fi
@@ -751,7 +758,7 @@ main() {
   elif [[ "$OS_FAMILY" == "redhat" ]]; then
     pkg_install php-cli php-fpm php-mysqlnd php-mbstring php-xml php-curl php-zip php-gd php-bcmath php-intl || true
   elif [[ "$OS_FAMILY" == "arch" ]]; then
-    pkg_install php php-fpm php-gd php-intl php-sqlite
+    pkg_install php php-fpm php-gd php-intl php-sqlite php-sodium
     configure_arch_php
   elif [[ "$OS_FAMILY" == "suse" ]]; then
     pkg_install php8-cli php8-fpm php8-mysql php8-mbstring php8-curl php8-zip php8-gd php8-bcmath php8-intl || true
@@ -841,6 +848,10 @@ main() {
   set_env_kv .env "REDIS_PORT" "6379"
 
   log "Ensuring correct ownership"
+  if [[ -n "${WEB_HOME}" ]]; then
+    mkdir -p "${WEB_HOME}"
+    chown -R "${WEB_USER}:${WEB_GROUP}" "${WEB_HOME}" || true
+  fi
   chown -R "${WEB_USER}:${WEB_GROUP}" "$INSTALL_DIR" || true
 
   log "Composer install"
@@ -849,21 +860,26 @@ main() {
     COMPOSER_NO_INTERACTION=1 composer install --no-dev --prefer-dist --no-progress
   "
 
-  log "Running AdmixCentral install wizard (interactive): php artisan install"
-  echo
-  echo "============================================================" > /dev/tty
-  echo "The Laravel installer is now being launched directly on /dev/tty." > /dev/tty
-  echo "This avoids Laravel prompt lockups caused by tee/log redirection." > /dev/tty
-  echo "Answer the prompts normally. Press Enter to accept defaults." > /dev/tty
-  echo "============================================================" > /dev/tty
-  echo > /dev/tty
+  log "Running AdmixCentral install wizard: php artisan install"
+  if [[ -n "${DB_PASS:-}" ]] || [[ ! -t 0 ]]; then
+    (
+      cd "${INSTALL_DIR}"
+      php artisan install --no-interaction
+    )
+  else
+    echo
+    echo "============================================================" > /dev/tty
+    echo "The Laravel installer is now being launched directly on /dev/tty." > /dev/tty
+    echo "This avoids Laravel prompt lockups caused by tee/log redirection." > /dev/tty
+    echo "Answer the prompts normally. Press Enter to accept defaults." > /dev/tty
+    echo "============================================================" > /dev/tty
+    echo > /dev/tty
 
-  # Important: run this the same way the manual working test ran it:
-  # as root, directly attached to /dev/tty, not through sudo -u and not through tee.
-  (
-    cd "${INSTALL_DIR}"
-    php artisan install
-  ) < /dev/tty > /dev/tty 2> /dev/tty
+    (
+      cd "${INSTALL_DIR}"
+      php artisan install
+    ) < /dev/tty > /dev/tty 2> /dev/tty
+  fi
 
   final_fix_permissions
 
@@ -887,7 +903,7 @@ main() {
 
   cat >/etc/sudoers.d/admixcentral <<EOF
 # SSL / Nginx
-${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot, ${certbot_bin}, /usr/sbin/nginx, /usr/bin/systemctl reload nginx, /usr/bin/tee /etc/nginx/sites-available/admixcentral, /usr/bin/tee /etc/nginx/conf.d/admixcentral.conf
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/certbot, ${certbot_bin}, /usr/sbin/nginx, /usr/bin/nginx, /usr/bin/systemctl reload nginx, /usr/bin/tee /etc/nginx/sites-available/admixcentral, /usr/bin/tee /etc/nginx/conf.d/admixcentral.conf
 # Performance Tuning — supervisor config writes
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor/conf.d/admix-worker.conf
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor/conf.d/admix-worker.ini
@@ -895,10 +911,15 @@ ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/super
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor/conf.d/admix-reverb.ini
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisord.d/admix-worker.conf
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisord.d/admix-reverb.conf
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor.d/admix-worker.ini
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor.d/admix-reverb.ini
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor.d/admix-worker.conf
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/supervisor.d/admix-reverb.conf
 # Performance Tuning — FPM pool config writes
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/php/8.3/fpm/pool.d/www.conf
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/php/8.2/fpm/pool.d/www.conf
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/php-fpm.d/www.conf
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/php/php-fpm.d/www.conf
 # Performance Tuning — service restarts
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8.3-fpm
@@ -1011,10 +1032,11 @@ EOF
   fi
 
   log "Starting Supervisor services..."
+  systemctl enable --now "${supervisor_service}" || true
   systemctl restart "${supervisor_service}" || true
   supervisorctl reread || true
   supervisorctl update || true
-  supervisorctl start admix-worker || true
+  supervisorctl start admix-worker:* || supervisorctl start admix-worker || true
   supervisorctl start admix-reverb || true
 
   unset DB_PASS
