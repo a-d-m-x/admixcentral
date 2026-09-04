@@ -228,6 +228,24 @@ class PfSenseApiService
         if (str_starts_with($ep, 'diagnostics/arp')) {
             return $this->opnSense->getArp();
         }
+        if (str_starts_with($ep, 'vpn/wireguard/tunnels')) {
+            return $this->opnSense->getWireGuardTunnels();
+        }
+        if (str_starts_with($ep, 'vpn/wireguard/peers')) {
+            return $this->opnSense->getWireGuardPeers();
+        }
+        if (str_starts_with($ep, 'interfaces/lagg')) {
+            return $this->opnSense->getLaggs();
+        }
+        if (str_starts_with($ep, 'interface/vlans') || str_starts_with($ep, 'interfaces/vlans')) {
+            return $this->opnSense->getVlans();
+        }
+        if (str_starts_with($ep, 'firewall/virtual_ips')) {
+            return $this->opnSense->getVirtualIps();
+        }
+        if (str_starts_with($ep, 'status/dhcp_server/leases')) {
+            return $this->opnSense->getDhcpLeases();
+        }
         if (str_starts_with($ep, 'diagnostics/backup') || str_starts_with($ep, 'system/backup') || str_starts_with($ep, 'api/v1/diagnostics/backup')) {
             return $this->opnSense->downloadBackup();
         }
@@ -269,6 +287,21 @@ class PfSenseApiService
         }
         if (str_starts_with($ep, 'diagnostics/reboot') || $ep === 'system/reboot') {
             return $this->opnSense->rebootSystem();
+        }
+        if (str_starts_with($ep, 'vpn/wireguard/tunnel')) {
+            return $this->opnSense->createWireGuardTunnel($data);
+        }
+        if (str_starts_with($ep, 'vpn/wireguard/peer')) {
+            return $this->opnSense->createWireGuardPeer($data);
+        }
+        if (str_starts_with($ep, 'interfaces/lagg')) {
+            return $this->opnSense->createLagg($data);
+        }
+        if (str_starts_with($ep, 'interface/vlan') || str_starts_with($ep, 'interfaces/vlan')) {
+            return $this->opnSense->createVlan($data);
+        }
+        if (str_starts_with($ep, 'firewall/virtual_ip')) {
+            return $this->opnSense->createVirtualIp($data);
         }
         if (str_starts_with($ep, 'diagnostics/halt') || $ep === 'system/halt') {
             return $this->opnSense->haltSystem();
@@ -355,6 +388,21 @@ class PfSenseApiService
         }
         if ($ep === 'cron/job' || $ep === 'system/cron/job') {
             return $this->opnSense->deleteCronJob($data['id'] ?? $data['uuid'] ?? '');
+        }
+        if (str_starts_with($ep, 'vpn/wireguard/tunnel')) {
+            return $this->opnSense->deleteWireGuardTunnel($data['id'] ?? ($data['uuid'] ?? ''));
+        }
+        if (str_starts_with($ep, 'vpn/wireguard/peer')) {
+            return $this->opnSense->deleteWireGuardPeer($data['id'] ?? ($data['uuid'] ?? ''));
+        }
+        if (str_starts_with($ep, 'interfaces/lagg')) {
+            return $this->opnSense->deleteLagg($data['id'] ?? ($data['uuid'] ?? ''));
+        }
+        if (str_starts_with($ep, 'interface/vlan') || str_starts_with($ep, 'interfaces/vlan')) {
+            return $this->opnSense->deleteVlan($data['id'] ?? ($data['uuid'] ?? ''));
+        }
+        if (str_starts_with($ep, 'firewall/virtual_ip')) {
+            return $this->opnSense->deleteVirtualIp($data['id'] ?? ($data['uuid'] ?? ''));
         }
 
         if (str_starts_with($endpoint, '/api/')) {

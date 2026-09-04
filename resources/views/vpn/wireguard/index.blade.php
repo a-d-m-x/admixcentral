@@ -8,6 +8,7 @@
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 dark:text-gray-100">
                     
+                    @if(!$firewall->isOpnSense())
                     <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-100 dark:border-blue-800">
                         <div class="flex">
                             <div class="flex-shrink-0">
@@ -23,6 +24,7 @@
                             </div>
                         </div>
                     </div>
+                    @endif
 
                     <div x-data="{ activeTab: 'tunnels' }">
                         <div class="border-b border-gray-200 dark:border-gray-700 mb-6">

@@ -1211,7 +1211,277 @@ class OpnSenseApiService
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // IDS & Monit
+    // WireGuard
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function getWireGuardTunnels(): array
+    {
+        $res = $this->get('/api/wireguard/server/searchServer');
+        $rows = $res['rows'] ?? [];
+        $tunnels = [];
+        foreach ($rows as $row) {
+            $tunnels[] = [
+                'id' => $row['uuid'] ?? ($row['name'] ?? ''),
+                'name' => $row['name'] ?? '',
+                'descr' => $row['name'] ?? '',
+                'address' => $row['tunneladdress'] ?? '',
+                'addresses' => array_filter(array_map('trim', explode(',', $row['tunneladdress'] ?? ''))),
+                'listenport' => $row['port'] ?? '51820',
+                'port' => $row['port'] ?? '51820',
+                'public_key' => $row['pubkey'] ?? '',
+                'enabled' => !empty($row['enabled']) && (string) $row['enabled'] !== '0',
+            ];
+        }
+        return ['status' => 200, 'data' => $tunnels];
+    }
+
+    public function getWireGuardPeers(): array
+    {
+        $res = $this->get('/api/wireguard/client/searchClient');
+        $rows = $res['rows'] ?? [];
+        $peers = [];
+        foreach ($rows as $row) {
+            $peers[] = [
+                'id' => $row['uuid'] ?? ($row['name'] ?? ''),
+                'name' => $row['name'] ?? '',
+                'descr' => $row['name'] ?? '',
+                'endpoint' => $row['serveraddress'] ?? ($row['endpoint'] ?? ''),
+                'port' => $row['serverport'] ?? '',
+                'allowedips' => $row['tunneladdress'] ?? '',
+                'public_key' => $row['pubkey'] ?? '',
+                'enabled' => !empty($row['enabled']) && (string) $row['enabled'] !== '0',
+            ];
+        }
+        return ['status' => 200, 'data' => $peers];
+    }
+
+    public function createWireGuardTunnel(array $data): array
+    {
+        $payload = [
+            'server' => [
+                'enabled' => empty($data['disabled']) ? '1' : '0',
+                'name' => $data['name'] ?? '',
+                'port' => (string) ($data['port'] ?? ($data['listenport'] ?? '51820')),
+                'tunneladdress' => $data['address'] ?? ($data['tunneladdress'] ?? ''),
+                'pubkey' => $data['pubkey'] ?? ($data['public_key'] ?? ''),
+                'privkey' => $data['privkey'] ?? ($data['private_key'] ?? ''),
+            ]
+        ];
+        $res = $this->post('/api/wireguard/server/addServer', $payload);
+        $this->post('/api/wireguard/service/reconfigure');
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function deleteWireGuardTunnel(string $id): array
+    {
+        $res = $this->post("/api/wireguard/server/delServer/{$id}");
+        $this->post('/api/wireguard/service/reconfigure');
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function createWireGuardPeer(array $data): array
+    {
+        $payload = [
+            'client' => [
+                'enabled' => empty($data['disabled']) ? '1' : '0',
+                'name' => $data['name'] ?? ($data['descr'] ?? ''),
+                'serveraddress' => $data['endpoint'] ?? ($data['serveraddress'] ?? ''),
+                'serverport' => (string) ($data['port'] ?? ($data['serverport'] ?? '')),
+                'tunneladdress' => $data['allowedips'] ?? ($data['tunneladdress'] ?? ''),
+                'pubkey' => $data['pubkey'] ?? ($data['public_key'] ?? ''),
+            ]
+        ];
+        $res = $this->post('/api/wireguard/client/addClient', $payload);
+        $this->post('/api/wireguard/service/reconfigure');
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function deleteWireGuardPeer(string $id): array
+    {
+        $res = $this->post("/api/wireguard/client/delClient/{$id}");
+        $this->post('/api/wireguard/service/reconfigure');
+        return ['status' => 200, 'data' => $res];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // LAGG Interfaces
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function getLaggs(): array
+    {
+        $res = $this->get('/api/interfaces/lagg_settings/searchItem');
+        $rows = $res['rows'] ?? [];
+        $laggs = [];
+        foreach ($rows as $row) {
+            $members = $row['members'] ?? [];
+            if (is_string($members)) {
+                $members = array_filter(array_map('trim', explode(',', $members)));
+            }
+            $laggs[] = [
+                'id' => $row['uuid'] ?? ($row['laggif'] ?? ''),
+                'laggif' => $row['laggif'] ?? '',
+                'proto' => $row['proto'] ?? 'lacp',
+                'members' => $members,
+                'descr' => $row['descr'] ?? '',
+            ];
+        }
+        return ['status' => 200, 'data' => $laggs];
+    }
+
+    public function createLagg(array $data): array
+    {
+        $payload = [
+            'lagg' => [
+                'laggif' => $data['laggif'] ?? '',
+                'proto' => $data['proto'] ?? 'lacp',
+                'members' => is_array($data['members'] ?? null) ? implode(',', $data['members']) : ($data['members'] ?? ''),
+                'descr' => $data['descr'] ?? '',
+            ]
+        ];
+        $res = $this->post('/api/interfaces/lagg_settings/addItem', $payload);
+        $this->post('/api/interfaces/lagg_settings/reconfigure');
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function deleteLagg(string $id): array
+    {
+        $res = $this->post("/api/interfaces/lagg_settings/delItem/{$id}");
+        $this->post('/api/interfaces/lagg_settings/reconfigure');
+        return ['status' => 200, 'data' => $res];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // VLANs
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function getVlans(): array
+    {
+        $res = $this->get('/api/interfaces/vlan_settings/searchItem');
+        $rows = $res['rows'] ?? [];
+        $vlans = [];
+        foreach ($rows as $row) {
+            $vlans[] = [
+                'id' => $row['uuid'] ?? ($row['vlanif'] ?? ''),
+                'if' => $row['if'] ?? '',
+                'tag' => $row['tag'] ?? '',
+                'pcp' => $row['pcp'] ?? '0',
+                'descr' => $row['descr'] ?? '',
+                'vlanif' => $row['vlanif'] ?? '',
+            ];
+        }
+        return ['status' => 200, 'data' => $vlans];
+    }
+
+    public function createVlan(array $data): array
+    {
+        $payload = [
+            'vlan' => [
+                'if' => $data['if'] ?? '',
+                'tag' => (string) ($data['tag'] ?? '1'),
+                'pcp' => (string) ($data['pcp'] ?? '0'),
+                'descr' => $data['descr'] ?? '',
+            ]
+        ];
+        $res = $this->post('/api/interfaces/vlan_settings/addItem', $payload);
+        $this->post('/api/interfaces/vlan_settings/reconfigure');
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function deleteVlan(string $id): array
+    {
+        $res = $this->post("/api/interfaces/vlan_settings/delItem/{$id}");
+        $this->post('/api/interfaces/vlan_settings/reconfigure');
+        return ['status' => 200, 'data' => $res];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Virtual IPs (VIPs)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function getVirtualIps(): array
+    {
+        $res = $this->get('/api/interfaces/vip_settings/searchItem');
+        $rows = $res['rows'] ?? [];
+        $vips = [];
+        foreach ($rows as $row) {
+            $network = $row['network'] ?? ($row['address'] ?? '');
+            $parts = explode('/', $network);
+            $ip = $parts[0] ?? $network;
+            $bits = (int) ($parts[1] ?? 32);
+
+            $vips[] = [
+                'id' => $row['uuid'] ?? '',
+                'mode' => $row['mode'] ?? 'ipalias',
+                'interface' => $row['interface'] ?? 'wan',
+                'subnet' => $ip,
+                'subnet_bits' => $bits,
+                'descr' => $row['descr'] ?? '',
+                'vhid' => $row['vhid'] ?? null,
+            ];
+        }
+        return ['status' => 200, 'data' => $vips];
+    }
+
+    public function createVirtualIp(array $data): array
+    {
+        $ip = $data['subnet'] ?? ($data['address'] ?? '');
+        $bits = (string) ($data['subnet_bits'] ?? '32');
+        $network = str_contains($ip, '/') ? $ip : "{$ip}/{$bits}";
+
+        $payload = [
+            'vip' => [
+                'mode' => $data['mode'] ?? 'ipalias',
+                'interface' => $data['interface'] ?? 'wan',
+                'address' => $ip,
+                'network' => $network,
+                'descr' => $data['descr'] ?? '',
+                'password' => $data['password'] ?? '',
+                'vhid' => (string) ($data['vhid'] ?? ''),
+            ]
+        ];
+        $res = $this->post('/api/interfaces/vip_settings/addItem', $payload);
+        $this->post('/api/interfaces/vip_settings/reconfigure');
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function deleteVirtualIp(string $id): array
+    {
+        $res = $this->post("/api/interfaces/vip_settings/delItem/{$id}");
+        $this->post('/api/interfaces/vip_settings/reconfigure');
+        return ['status' => 200, 'data' => $res];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // DHCP Leases (Kea)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function getDhcpLeases(): array
+    {
+        try {
+            $res = $this->get('/api/kea/leases4/search');
+            $rows = $res['rows'] ?? [];
+            $leases = [];
+            foreach ($rows as $row) {
+                $cltt = $row['cltt'] ?? null;
+                $lifetime = $row['valid_lifetime'] ?? 7200;
+                $leases[] = [
+                    'ip' => $row['address'] ?? ($row['ip'] ?? ''),
+                    'mac' => $row['hwaddr'] ?? ($row['mac'] ?? ''),
+                    'if' => $row['if'] ?? ($row['interface'] ?? 'LAN'),
+                    'hostname' => $row['hostname'] ?? '',
+                    'start' => $cltt ? date('Y-m-d H:i:s', (int) $cltt) : '',
+                    'end' => $cltt ? date('Y-m-d H:i:s', (int) $cltt + (int) $lifetime) : '',
+                    'state' => $row['state'] ?? 'active',
+                ];
+            }
+            return ['status' => 200, 'data' => $leases];
+        } catch (\Exception $e) {
+            return ['status' => 200, 'data' => []];
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // IDS (Suricata) & Monit
     // ─────────────────────────────────────────────────────────────────────────
 
     public function getIdsStatus(): array
@@ -1224,9 +1494,44 @@ class OpnSenseApiService
         return $this->get('/api/ids/settings/get');
     }
 
+    public function getIdsAlerts(): array
+    {
+        try {
+            $res = $this->get('/api/ids/service/queryAlerts');
+            return is_array($res) ? $res : [];
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    public function startIdsService(): array
+    {
+        return $this->post('/api/ids/service/start');
+    }
+
+    public function stopIdsService(): array
+    {
+        return $this->post('/api/ids/service/stop');
+    }
+
+    public function restartIdsService(): array
+    {
+        return $this->post('/api/ids/service/restart');
+    }
+
     public function getMonitStatus(): array
     {
         return $this->get('/api/monit/service/status');
+    }
+
+    public function getMonitSettings(): array
+    {
+        return $this->get('/api/monit/settings/get');
+    }
+
+    public function restartMonitService(): array
+    {
+        return $this->post('/api/monit/service/restart');
     }
 
     // ─────────────────────────────────────────────────────────────────────────

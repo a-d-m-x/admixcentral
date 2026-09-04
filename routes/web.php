@@ -471,6 +471,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
         ->name('services.dns.host-overrides.store');
 
+    // Services - Intrusion Detection (IDS / Suricata - OPNsense)
+    Route::get('/firewall/{firewall}/services/ids', [App\Http\Controllers\ServicesIdsController::class, 'index'])
+        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->name('services.ids.index');
+    Route::post('/firewall/{firewall}/services/ids/service/{action}', [App\Http\Controllers\ServicesIdsController::class, 'serviceAction'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.ids.action');
+
+    // Services - Monit (OPNsense)
+    Route::get('/firewall/{firewall}/services/monit', [App\Http\Controllers\ServicesMonitController::class, 'index'])
+        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->name('services.monit.index');
+    Route::post('/firewall/{firewall}/services/monit/service/{action}', [App\Http\Controllers\ServicesMonitController::class, 'serviceAction'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.monit.action');
+
 
 
 

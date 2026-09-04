@@ -238,6 +238,12 @@
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Wake-on-LAN</a>
                                     <a href="{{ route('vpn.wireguard.index', request()->route('firewall')) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">WireGuard</a>
+                                    @if($isOpnSense)
+                                        <a href="{{ route('services.ids.index', request()->route('firewall')) }}"
+                                            class="block px-4 py-2 text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:bg-gray-100 dark:hover:bg-gray-700">Intrusion Detection (IDS)</a>
+                                        <a href="{{ route('services.monit.index', request()->route('firewall')) }}"
+                                            class="block px-4 py-2 text-sm text-indigo-600 dark:text-indigo-400 font-medium hover:bg-gray-100 dark:hover:bg-gray-700">Monit</a>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -618,6 +624,12 @@
                         :active="request()->routeIs('services.wake-on-lan')">{{ __('Wake-on-LAN') }}</x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('vpn.wireguard.index', request()->route('firewall'))"
                         :active="request()->routeIs('vpn.wireguard.*')">{{ __('WireGuard') }}</x-responsive-nav-link>
+                    @if($isOpnSense)
+                        <x-responsive-nav-link :href="route('services.ids.index', request()->route('firewall'))"
+                            :active="request()->routeIs('services.ids.*')">{{ __('Intrusion Detection (IDS)') }}</x-responsive-nav-link>
+                        <x-responsive-nav-link :href="route('services.monit.index', request()->route('firewall'))"
+                            :active="request()->routeIs('services.monit.*')">{{ __('Monit') }}</x-responsive-nav-link>
+                    @endif
                 </div>
             </div>
 
