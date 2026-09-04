@@ -28,7 +28,10 @@ class DiagnosticsBackupController extends Controller
             // We might need a raw method if it returns file stream.
             // But let's assume standard API behavior for now.
 
-            return response()->attachment($response, 'config.xml');
+            return response($response, 200, [
+                'Content-Type' => 'application/xml',
+                'Content-Disposition' => 'attachment; filename="' . ($firewall->name ? \Illuminate\Support\Str::slug($firewall->name) . '-' : '') . 'config.xml"',
+            ]);
 
         } catch (\Exception $e) {
             if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'Not Found')) {

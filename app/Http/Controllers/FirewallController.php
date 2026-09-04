@@ -261,16 +261,51 @@ class FirewallController extends Controller
         $validated = $request->validate([
             'company_id' => 'required|exists:companies,id',
             'name' => 'required|string|max:255',
+            'os_type' => 'nullable|in:pfsense,opnsense',
             'url' => 'required|url',
             'auth_method' => 'required|in:basic,token',
-            'api_key' => 'required_if:auth_method,basic|nullable|string',
-            'api_secret' => 'required_if:auth_method,basic|nullable|string',
-            'api_token' => 'required_if:auth_method,token|nullable|string',
+            'api_key' => 'nullable|string',
+            'api_secret' => 'nullable|string',
+            'api_token' => 'nullable|string',
+            'opn_username' => 'nullable|string',
+            'opn_password' => 'nullable|string',
             'description' => 'nullable|string',
             'ssh_port' => 'nullable|integer',
             'ssh_username' => 'nullable|string|max:255',
             'ssh_password' => 'nullable|string',
         ]);
+
+        $validated['os_type'] = $validated['os_type'] ?? 'pfsense';
+
+        if ($validated['os_type'] === 'opnsense' && !empty($validated['opn_username']) && !empty($validated['opn_password'])) {
+            try {
+                $keys = \App\Services\OpnSenseApiService::provisionApiKeyFromCredentials(
+                    $validated['url'],
+                    $validated['opn_username'],
+                    $validated['opn_password']
+                );
+                $validated['auth_method'] = 'basic';
+                $validated['api_key'] = $keys['key'];
+                $validated['api_secret'] = $keys['secret'];
+            } catch (\Exception $e) {
+                return back()
+                    ->withInput()
+                    ->with('error', 'OPNsense API key auto-generation failed: ' . $e->getMessage())
+                    ->withErrors(['url' => $e->getMessage()]);
+            }
+        }
+        unset($validated['opn_username'], $validated['opn_password']);
+
+        if ($validated['auth_method'] === 'basic' && (empty($validated['api_key']) || empty($validated['api_secret']))) {
+            return back()
+                ->withInput()
+                ->withErrors(['api_key' => 'API Key and Secret are required for Basic Authentication.']);
+        }
+        if ($validated['auth_method'] === 'token' && empty($validated['api_token'])) {
+            return back()
+                ->withInput()
+                ->withErrors(['api_token' => 'API Token is required for Token Authentication.']);
+        }
 
         if ($user->isCompanyAdmin()) {
             if ((int) $validated['company_id'] !== (int) $user->company_id) {
@@ -284,19 +319,11 @@ class FirewallController extends Controller
 
         try {
             $api = new \App\Services\PfSenseApiService($firewall);
-            // We need to set credentials manually on the service if the model isn't saved/mutated yet?
-            // PfSenseApiService constructor uses model attributes.
-            // Model attributes are set in new Firewall($validated).
-            // Encrypted casting might not happen if not saving? 
-            // Actually, casts happen on set/save. If we just 'new', attributes are raw.
-            // But Service expects raw/decrypted.
-            // Wait, if I set 'api_key' on model, it might auto-encrypt if cast is 'encrypted'.
-            // If I read it back, it decrypts.
-            // So new Firewall($validated) should work in memory.
-
             $response = $api->get('/status/system');
             if (isset($response['data']['netgate_id'])) {
                 $validated['netgate_id'] = $response['data']['netgate_id'];
+            } elseif ($firewall->isOpnSense()) {
+                $validated['netgate_id'] = 'opn-' . substr(md5($validated['url'] . '_' . microtime()), 0, 12);
             }
         } catch (\Exception $e) {
             return back()
@@ -380,6 +407,7 @@ class FirewallController extends Controller
         $validated = $request->validate([
             'company_id' => 'required|exists:companies,id',
             'name' => 'required|string|max:255',
+            'os_type' => 'nullable|in:pfsense,opnsense',
             'url' => 'required|url',
             'auth_method' => 'required|in:basic,token',
             'api_key' => 'required_if:auth_method,basic|nullable|string',

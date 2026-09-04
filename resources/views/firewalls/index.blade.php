@@ -440,6 +440,8 @@
                     this.firewalls = {{ json_encode($firewalls->map(fn($f) => [
     'id'                 => $f->id,
     'name'               => $f->name,
+    'os_type'            => $f->os_type ?? 'pfsense',
+    'os_display_name'    => $f->os_display_name,
     'status'             => ($firewallCaches[$f->id]['online'] ?? $f->is_online) === true ? 'online'
                             : (($firewallCaches[$f->id]['online'] ?? $f->is_online) === false ? 'offline' : 'unknown'),
     'isOnline'           => $firewallCaches[$f->id]['online'] ?? $f->is_online,
@@ -861,10 +863,16 @@
                                                 </td>
                                             @endif
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <a :href="firewall.dashboard_url"
-                                                    class="font-medium text-indigo-600 hover:text-indigo-900 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
-                                                    x-text="firewall.name">
-                                                </a>
+                                                <div class="flex items-center space-x-2">
+                                                    <a :href="firewall.dashboard_url"
+                                                        class="font-medium text-indigo-600 hover:text-indigo-900 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
+                                                        x-text="firewall.name">
+                                                    </a>
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
+                                                          :class="firewall.os_type === 'opnsense' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'"
+                                                          x-text="firewall.os_display_name || (firewall.os_type === 'opnsense' ? 'OPNsense' : 'pfSense')">
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <!-- Online/Offline Badge -->

@@ -9,6 +9,7 @@ class Firewall extends Model
     protected $fillable = [
         'company_id',
         'name',
+        'os_type',
         'url',
         'auth_method',
         'api_key',
@@ -36,6 +37,28 @@ class Firewall extends Model
     public function getRouteKeyName()
     {
         return 'netgate_id';
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->where('netgate_id', $value)
+            ->orWhere('id', $value)
+            ->first() ?? abort(404);
+    }
+
+    public function isOpnSense(): bool
+    {
+        return ($this->os_type ?? 'pfsense') === 'opnsense';
+    }
+
+    public function isPfSense(): bool
+    {
+        return ($this->os_type ?? 'pfsense') === 'pfsense';
+    }
+
+    public function getOsDisplayNameAttribute(): string
+    {
+        return $this->isOpnSense() ? 'OPNsense' : 'pfSense';
     }
 
     public function company()

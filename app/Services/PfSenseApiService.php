@@ -15,10 +15,21 @@ class PfSenseApiService
     protected $password;
     protected $apiToken;
     protected $authMethod;
+    protected ?OpnSenseApiService $opnSense = null;
 
     public function __construct(Firewall $firewall)
     {
         $this->firewall = $firewall;
+
+        if ($firewall->isOpnSense()) {
+            $this->opnSense = new OpnSenseApiService($firewall);
+            $this->baseUrl = rtrim($firewall->url, '/');
+            $this->username = $firewall->api_key;
+            $this->password = $firewall->api_secret;
+            $this->authMethod = 'basic';
+            return;
+        }
+
         $this->baseUrl = rtrim($firewall->url, '/') . '/api/v2';
         $this->authMethod = $firewall->auth_method ?? 'basic'; // Default to basic if null
 
@@ -42,6 +53,9 @@ class PfSenseApiService
      */
     public function get(string $endpoint, array $params = [])
     {
+        if ($this->opnSense) {
+            return $this->handleOpnSenseGet($endpoint, $params);
+        }
         return $this->request('GET', $endpoint, $params);
     }
 
@@ -50,6 +64,9 @@ class PfSenseApiService
      */
     public function post(string $endpoint, array $data = [])
     {
+        if ($this->opnSense) {
+            return $this->handleOpnSensePost($endpoint, $data);
+        }
         return $this->request('POST', $endpoint, $data);
     }
 
@@ -58,6 +75,9 @@ class PfSenseApiService
      */
     public function put(string $endpoint, array $data = [])
     {
+        if ($this->opnSense) {
+            return $this->handleOpnSensePatch($endpoint, $data);
+        }
         return $this->request('PUT', $endpoint, $data);
     }
 
@@ -66,6 +86,9 @@ class PfSenseApiService
      */
     public function patch(string $endpoint, array $data = [])
     {
+        if ($this->opnSense) {
+            return $this->handleOpnSensePatch($endpoint, $data);
+        }
         return $this->request('PATCH', $endpoint, $data);
     }
 
@@ -74,7 +97,145 @@ class PfSenseApiService
      */
     public function delete(string $endpoint, array $data = [])
     {
+        if ($this->opnSense) {
+            return $this->handleOpnSenseDelete($endpoint, $data);
+        }
         return $this->request('DELETE', $endpoint, $data);
+    }
+
+    public function __call($method, $arguments)
+    {
+        if ($this->opnSense && method_exists($this->opnSense, $method)) {
+            return call_user_func_array([$this->opnSense, $method], $arguments);
+        }
+        throw new \BadMethodCallException("Method {$method} does not exist on " . get_class($this));
+    }
+
+    protected function handleOpnSenseGet(string $endpoint, array $params = [])
+    {
+        $ep = trim($endpoint, '/');
+        $ep = preg_replace('#^api/v2/#', '', $ep);
+
+        if ($ep === 'status/system' || $ep === 'system/status') {
+            return $this->opnSense->getSystemStatus();
+        }
+        if ($ep === 'system/version') {
+            return $this->opnSense->getSystemVersion();
+        }
+        if ($ep === 'system/hostname') {
+            return $this->opnSense->getSystemHostname();
+        }
+        if ($ep === 'system/api/version' || $ep === 'api/version') {
+            return $this->opnSense->getApiVersion();
+        }
+        if (str_starts_with($ep, 'status/gateway') || str_starts_with($ep, 'routing/gateway')) {
+            return $this->opnSense->getGateways();
+        }
+        if (str_starts_with($ep, 'status/interfaces') || $ep === 'interfaces' || $ep === 'interface') {
+            return $this->opnSense->getInterfacesStatus();
+        }
+        if ($ep === 'firewall/aliases') {
+            return $this->opnSense->getFirewallAliases();
+        }
+        if ($ep === 'firewall/alias') {
+            if (!empty($params['id'])) {
+                return $this->opnSense->getFirewallAlias($params['id']);
+            }
+            return $this->opnSense->getFirewallAliases();
+        }
+        if ($ep === 'firewall/rules') {
+            return $this->opnSense->getFirewallRules();
+        }
+        if ($ep === 'firewall/rule') {
+            if (!empty($params['id'])) {
+                return $this->opnSense->getFirewallRule($params['id']);
+            }
+            return $this->opnSense->getFirewallRules();
+        }
+        if (str_starts_with($ep, 'diagnostics/states') || str_starts_with($ep, 'firewall/states') || str_starts_with($ep, 'status/states')) {
+            return $this->opnSense->getStates();
+        }
+        if (str_starts_with($ep, 'diagnostics/arp')) {
+            return $this->opnSense->getArp();
+        }
+        if (str_starts_with($ep, 'diagnostics/backup') || str_starts_with($ep, 'system/backup') || str_starts_with($ep, 'api/v1/diagnostics/backup')) {
+            return $this->opnSense->downloadBackup();
+        }
+
+        // Pass-through to underlying OPNsense API if endpoint matches an OPNsense path
+        if (str_starts_with($endpoint, '/api/')) {
+            return $this->opnSense->get($endpoint, $params);
+        }
+
+        // If pfSense-specific endpoint not supported on OPNsense, return empty dataset gracefully
+        return ['status' => 200, 'data' => []];
+    }
+
+    protected function handleOpnSensePost(string $endpoint, array $data = [])
+    {
+        $ep = trim($endpoint, '/');
+        $ep = preg_replace('#^api/v2/#', '', $ep);
+
+        if ($ep === 'firewall/alias') {
+            return $this->opnSense->createFirewallAlias($data);
+        }
+        if ($ep === 'firewall/rule') {
+            return $this->opnSense->createFirewallRule($data);
+        }
+        if ($ep === 'firewall/apply') {
+            return $this->opnSense->applyChanges();
+        }
+        if (str_starts_with($ep, 'diagnostics/ping')) {
+            return $this->opnSense->ping($data);
+        }
+        if (str_starts_with($ep, 'diagnostics/traceroute')) {
+            return $this->opnSense->traceroute($data);
+        }
+
+        if (str_starts_with($endpoint, '/api/')) {
+            return $this->opnSense->post($endpoint, $data);
+        }
+
+        return ['status' => 200, 'data' => []];
+    }
+
+    protected function handleOpnSensePatch(string $endpoint, array $data = [])
+    {
+        $ep = trim($endpoint, '/');
+        $ep = preg_replace('#^api/v2/#', '', $ep);
+
+        if ($ep === 'firewall/alias') {
+            return $this->opnSense->updateFirewallAlias($data);
+        }
+        if ($ep === 'firewall/rule') {
+            $id = $data['id'] ?? $data['tracker'] ?? 0;
+            return $this->opnSense->updateFirewallRule($id, $data);
+        }
+
+        if (str_starts_with($endpoint, '/api/')) {
+            return $this->opnSense->post($endpoint, $data);
+        }
+
+        return ['status' => 200, 'data' => []];
+    }
+
+    protected function handleOpnSenseDelete(string $endpoint, array $data = [])
+    {
+        $ep = trim($endpoint, '/');
+        $ep = preg_replace('#^api/v2/#', '', $ep);
+
+        if ($ep === 'firewall/alias') {
+            return $this->opnSense->deleteFirewallAlias($data['id'] ?? '');
+        }
+        if ($ep === 'firewall/rule') {
+            return $this->opnSense->deleteFirewallRule($data['id'] ?? 0);
+        }
+
+        if (str_starts_with($endpoint, '/api/')) {
+            return $this->opnSense->delete($endpoint, $data);
+        }
+
+        return ['status' => 200, 'data' => []];
     }
 
     /**
@@ -599,33 +760,46 @@ class PfSenseApiService
      */
     public function getFirewallRules()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getFirewallRules();
+        }
         return $this->get('/firewall/rules');
     }
 
     public function createFirewallRule(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createFirewallRule($data);
+        }
+
         // Ensure interface is an array
         if (isset($data['interface']) && !is_array($data['interface'])) {
             $data['interface'] = [$data['interface']];
         }
-
-
 
         $response = $this->post('/firewall/rule', $data);
         $this->markSubsystemDirty('filter');
         return $response;
     }
 
-    public function updateFirewallRule(int $id, array $data)
+    public function updateFirewallRule($id, array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateFirewallRule($id, $data);
+        }
+
         $data['id'] = $id;
         $response = $this->patch("/firewall/rule", $data);
         $this->markSubsystemDirty('filter');
         return $response;
     }
 
-    public function deleteFirewallRule(int $id)
+    public function deleteFirewallRule($id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteFirewallRule($id);
+        }
+
         $response = $this->delete('/firewall/rule', ['id' => $id]);
         $this->markSubsystemDirty('filter');
         return $response;
@@ -795,6 +969,9 @@ class PfSenseApiService
      */
     public function getAliases()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getFirewallAliases();
+        }
         return $this->get('/firewall/aliases');
     }
 
@@ -803,6 +980,9 @@ class PfSenseApiService
      */
     public function createAlias(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createFirewallAlias($data);
+        }
         $response = $this->post('/firewall/alias', $data);
         $this->markSubsystemDirty('filter');
         return $response;
@@ -813,6 +993,9 @@ class PfSenseApiService
      */
     public function updateAlias(string $id, array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateFirewallAlias($id, $data);
+        }
         $data['id'] = $id;
         $response = $this->patch('/firewall/alias', $data);
         $this->markSubsystemDirty('filter');
@@ -824,6 +1007,9 @@ class PfSenseApiService
      */
     public function deleteAlias(string $id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteFirewallAlias($id);
+        }
         $response = $this->delete('/firewall/alias', ['id' => $id]);
         $this->markSubsystemDirty('filter');
         return $response;
@@ -1547,7 +1733,18 @@ class PfSenseApiService
 
     public function backupConfiguration()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->backupConfiguration();
+        }
         return $this->get('/api/v1/diagnostics/backup');
+    }
+
+    public function downloadBackup()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->downloadBackup();
+        }
+        return $this->backupConfiguration();
     }
 
     public function restoreConfiguration(array $data)
@@ -1666,6 +1863,10 @@ class PfSenseApiService
      */
     public function refreshSystemStatus()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->refreshSystemStatus();
+        }
+
         $staticCacheKey = 'firewall_static_info_' . $this->firewall->id;
         $staticInfo = [];
 

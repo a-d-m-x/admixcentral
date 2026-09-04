@@ -2,10 +2,14 @@
 
 <div>
     <div class="flex justify-between items-start">
-        <div>
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                {{ $title }}
-            </h2>
+            <div class="flex items-center space-x-2.5">
+                <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+                    {{ $title }}
+                </h2>
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold uppercase tracking-wider {{ ($firewall->isOpnSense() ?? false) ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' }}">
+                    {{ $firewall->os_display_name ?? 'pfSense' }}
+                </span>
+            </div>
             <div class="mt-1 flex flex-col sm:flex-row sm:items-center">
                 <div class="text-sm text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-y-1">
                     <a href="{{ route('dashboard') }}"

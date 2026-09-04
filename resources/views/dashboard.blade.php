@@ -479,6 +479,9 @@
                                             </div>
                                             <a href="{{ route('firewall.dashboard', $firewall) }}"
                                                class="font-semibold text-sm text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline underline-offset-2 truncate shrink-0 max-w-[130px] sm:max-w-[180px]">{{ $firewall->name }}</a>
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider shrink-0 {{ $firewall->isOpnSense() ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' }}">
+                                                {{ $firewall->os_display_name }}
+                                            </span>
                                             @if(auth()->user()->role === 'admin')
                                                 <a href="{{ route('companies.show', $firewall->company) }}"
                                                    class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 truncate shrink hidden md:block max-w-[110px]">{{ $firewall->company->name }}</a>

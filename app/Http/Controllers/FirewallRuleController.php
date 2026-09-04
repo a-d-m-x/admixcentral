@@ -187,7 +187,7 @@ class FirewallRuleController extends Controller
         $request->validate([
             'action' => 'required|in:enable,disable,delete',
             'trackers' => 'required|array',
-            'trackers.*' => 'required|numeric',
+            'trackers.*' => 'required',
         ]);
 
         $action = $request->input('action');
