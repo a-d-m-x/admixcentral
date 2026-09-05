@@ -141,6 +141,12 @@ class SystemConfigurationService
      */
     public function updateNginxHostname(string $hostname): bool
     {
+        // M02: Defense-in-depth — validate hostname even though caller also validates
+        if (!preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9.\-]*[a-zA-Z0-9])$/', $hostname) || strlen($hostname) > 255) {
+            Log::warning("SystemConfigurationService: Rejected unsafe hostname for Nginx: {$hostname}");
+            return false;
+        }
+
         $nginxPath = storage_path('app/admixcentral.nginx.conf');
 
         if (!file_exists($nginxPath)) {

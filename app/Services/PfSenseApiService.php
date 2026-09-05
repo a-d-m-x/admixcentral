@@ -674,6 +674,12 @@ class PfSenseApiService
 
     public function markSubsystemDirty(string $subsystem)
     {
+        // H01: Allowlist validation — prevent shell injection via $subsystem interpolation
+        $allowed = ['filter', 'sysctl', 'interfaces', 'vip', 'config'];
+        if (!in_array($subsystem, $allowed, true)) {
+            throw new \InvalidArgumentException("Invalid subsystem: {$subsystem}");
+        }
+
         // Force the subsystem to be marked as dirty path used by pfSense
         // /var/run/{subsystem}.dirty
         return $this->diagnosticsCommandPrompt("touch /var/run/{$subsystem}.dirty");
