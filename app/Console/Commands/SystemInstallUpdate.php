@@ -84,7 +84,7 @@ class SystemInstallUpdate extends Command
 
             // Construct URLs
             // Use the repository from config or default
-            $repo = config('services.github.repository', 'a-d-m-x/admixcentral');
+            $repo = config('services.github.repository', 'admxlz/admixcentral');
 
 
             // Use GitHub Source Code Zipball URL
@@ -117,6 +117,14 @@ class SystemInstallUpdate extends Command
             $this->log($update, "Extracting update...");
             $zip = new ZipArchive;
             if ($zip->open("$tempDir/update.zip") === TRUE) {
+                for ($i = 0; $i < $zip->numFiles; $i++) {
+                    $stat = $zip->statIndex($i);
+                    $entryName = $stat['name'];
+                    if (str_contains($entryName, '..') || str_starts_with($entryName, '/') || str_starts_with($entryName, '\\')) {
+                        $zip->close();
+                        throw new \Exception("Potential zip-slip detected in entry: {$entryName}");
+                    }
+                }
                 $zip->extractTo($extractPath);
                 $zip->close();
             } else {
@@ -165,10 +173,20 @@ class SystemInstallUpdate extends Command
 
             $this->info("Update complete!");
 
+            // Clean up obsolete files that may remain on flat installations
+            $obsoleteFiles = [
+                public_path('reset_updates.php'),
+            ];
+            foreach ($obsoleteFiles as $file) {
+                if (File::exists($file)) {
+                    File::delete($file);
+                }
+            }
+
             // Cleanup Temp
             File::deleteDirectory($tempDir);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $update->status = 'failed';
             $update->last_error = $e->getMessage();
             $update->log = array_merge($update->log ?? [], ["Error: " . $e->getMessage()]);
@@ -218,10 +236,17 @@ class SystemInstallUpdate extends Command
             $this->info('Opcache flushed.');
         }
 
-        $this->call('migrate', ['--force' => true]);
-        $this->call('config:cache');
-        $this->call('route:cache');
-        $this->call('view:cache');
+        $code = $this->call('migrate', ['--force' => true]);
+        if ($code !== 0) throw new \Exception("Database migration failed with exit code $code");
+
+        $code = $this->call('config:cache');
+        if ($code !== 0) throw new \Exception("Config cache failed with exit code $code");
+
+        $code = $this->call('route:cache');
+        if ($code !== 0) throw new \Exception("Route cache failed with exit code $code");
+
+        $code = $this->call('view:cache');
+        if ($code !== 0) throw new \Exception("View cache failed with exit code $code");
     }
 
     protected function downloadFile($url, $path)

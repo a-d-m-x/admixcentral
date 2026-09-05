@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 
@@ -11,7 +12,7 @@ class SetupController extends Controller
 {
     public function welcome()
     {
-        if (User::exists()) {
+        if (file_exists(storage_path('app/setup.lock')) || User::exists()) {
             return redirect()->route('login');
         }
         return view('setup.welcome');
@@ -19,8 +20,7 @@ class SetupController extends Controller
 
     public function store(Request $request, \App\Services\SystemConfigurationService $configService)
     {
-        // Fix CRIT-03: Prevent setup if admin already exists
-        if (User::exists()) {
+        if (file_exists(storage_path('app/setup.lock')) || User::exists()) {
             abort(403, 'Setup has already been completed.');
         }
 
@@ -31,24 +31,33 @@ class SetupController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        // Apply Hostname Configuration
+        // Atomic lock and user creation inside transaction before external system changes
+        DB::transaction(function () use ($request) {
+            if (file_exists(storage_path('app/setup.lock')) || User::lockForUpdate()->exists()) {
+                abort(403, 'Setup has already been completed.');
+            }
+
+            User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'role' => 'admin',
+                'company_id' => null,
+            ]);
+
+            @file_put_contents(storage_path('app/setup.lock'), json_encode([
+                'completed_at' => now()->toIso8601String(),
+                'admin_email' => $request->email,
+            ]));
+        });
+
+        // Apply Hostname Configuration AFTER atomic creation succeeds
         $hostname = $request->hostname;
-        $configService->updateSystemHostname($hostname, 'http'); // Defaulting to http for initial setup to avoid SSL issues immediately, or detect from request?
-
-        // If request was secure, keep it secure.
-        if ($request->secure()) {
-            $configService->updateSystemHostname($hostname, 'https');
-        }
-
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'role' => 'admin',
-        ]);
+        $protocol = $request->secure() ? 'https' : 'http';
+        $configService->updateSystemHostname($hostname, $protocol);
 
         // Redirect to the new hostname
-        $protocol = $request->secure() ? 'https://' : 'http://';
-        return redirect($protocol . $hostname . '/login')->with('status', 'Admin account created! Please login.');
+        $fullProtocol = $request->secure() ? 'https://' : 'http://';
+        return redirect($fullProtocol . $hostname . '/login')->with('status', 'Admin account created! Please login.');
     }
 }

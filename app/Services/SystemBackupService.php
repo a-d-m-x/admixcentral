@@ -91,173 +91,219 @@ class SystemBackupService
 
     protected function gatherSystemData(): array
     {
+        $usersData = [];
+        foreach (User::all()->makeVisible(['password', 'two_factor_secret', 'two_factor_recovery_codes']) as $user) {
+            $uArr = $user->toArray();
+            unset($uArr['remember_token']);
+
+            if (!empty($user->two_factor_secret)) {
+                try {
+                    $uArr['two_factor_secret_plain'] = decrypt($user->two_factor_secret);
+                } catch (\Throwable) {
+                    $uArr['two_factor_secret_plain'] = null;
+                }
+            }
+            if (!empty($user->two_factor_recovery_codes)) {
+                try {
+                    $uArr['two_factor_recovery_codes_plain'] = decrypt($user->two_factor_recovery_codes);
+                } catch (\Throwable) {
+                    $uArr['two_factor_recovery_codes_plain'] = null;
+                }
+            }
+            $usersData[] = $uArr;
+        }
+
         return [
-            'version' => '1.0', // Schema version
+            'version' => '2.0', // Schema version
             'timestamp' => now()->toIso8601String(),
             'companies' => Company::all()->makeVisible(['api_token'])->toArray(),
-            'users' => User::all()->makeVisible(['password', 'remember_token'])->toArray(), // Include password hashes
-            'firewalls' => Firewall::all()->makeVisible(['api_key', 'api_secret', 'api_token'])->toArray(),
+            'users' => $usersData,
+            'firewalls' => Firewall::all()->makeVisible([
+                'api_key', 'api_secret', 'api_token', 'ssh_username', 'ssh_password'
+            ])->toArray(),
             'system_settings' => SystemSetting::whereNotIn('key', ['logo_path', 'favicon_path'])->get()->toArray(),
-            'device_connections' => DeviceConnection::all()->toArray(),
         ];
     }
 
     protected function restoreSystemData(array $data, array $options = [])
     {
         DB::transaction(function () use ($data, $options) {
-            // Disable foreign key checks to avoid constraint violations during truncate
-            Schema::disableForeignKeyConstraints();
+            try {
+                // Disable foreign key checks to avoid constraint violations during truncate
+                Schema::disableForeignKeyConstraints();
 
-            // 1. Restore Companies
-            if (isset($data['companies'])) {
-                Company::query()->delete();
-                foreach ($data['companies'] as $record) {
-                    // Sanitize dates
-                    if (isset($record['created_at']))
-                        $record['created_at'] = \Carbon\Carbon::parse($record['created_at'])->toDateTimeString();
-                    if (isset($record['updated_at']))
-                        $record['updated_at'] = \Carbon\Carbon::parse($record['updated_at'])->toDateTimeString();
+                // 1. Restore Companies
+                if (isset($data['companies'])) {
+                    Company::query()->delete();
+                    foreach ($data['companies'] as $record) {
+                        if (isset($record['created_at']))
+                            $record['created_at'] = \Carbon\Carbon::parse($record['created_at'])->toDateTimeString();
+                        if (isset($record['updated_at']))
+                            $record['updated_at'] = \Carbon\Carbon::parse($record['updated_at'])->toDateTimeString();
 
-                    Company::forceCreate($record);
-                }
-            }
-
-            // 2. Restore Users (Granular Logic)
-            if (isset($data['users'])) {
-                // Logic: Delete specific groups UNLESS excluded (preserved).
-
-                // Group 1: Global Admins
-                if (!($options['exclude_global_admins'] ?? false)) {
-                    // Delete Global Admins
-                    User::where('role', 'admin')
-                        ->whereNull('company_id')
-                        ->delete();
+                        Company::forceCreate($record);
+                    }
                 }
 
-                // Group 2: End Users & Company Admins
-                if (!($options['exclude_end_users'] ?? false)) {
-                    // Delete everyone else (Not Global Admin)
-                    User::where(function ($q) {
-                        $q->where('role', '!=', 'admin')
-                            ->orWhereNotNull('company_id');
-                    })->delete();
-                }
-
-                // Now Insert from Backup (Skipping preserved types)
-                foreach ($data['users'] as $record) {
-                    $isGlobalArg = ($record['role'] === 'admin' && is_null($record['company_id']));
-                    $isEndOrCompanyArg = !$isGlobalArg;
-
-                    // If we are keeping Global Admins, skip restoring Global Admins from backup
-                    if (($options['exclude_global_admins'] ?? false) && $isGlobalArg) {
-                        continue;
+                // 2. Restore Users (Granular Logic)
+                if (isset($data['users'])) {
+                    if (!($options['exclude_global_admins'] ?? false)) {
+                        User::where('role', 'admin')
+                            ->whereNull('company_id')
+                            ->delete();
                     }
 
-                    // If we are keeping End/Company Users, skip restoring them from backup
-                    if (($options['exclude_end_users'] ?? false) && $isEndOrCompanyArg) {
-                        continue;
+                    if (!($options['exclude_end_users'] ?? false)) {
+                        User::where(function ($q) {
+                            $q->where('role', '!=', 'admin')
+                                ->orWhereNotNull('company_id');
+                        })->delete();
                     }
 
-                    // Sanitize dates
-                    if (isset($record['created_at']))
-                        $record['created_at'] = \Carbon\Carbon::parse($record['created_at'])->toDateTimeString();
-                    if (isset($record['updated_at']))
-                        $record['updated_at'] = \Carbon\Carbon::parse($record['updated_at'])->toDateTimeString();
-                    if (isset($record['email_verified_at']))
-                        $record['email_verified_at'] = \Carbon\Carbon::parse($record['email_verified_at'])->toDateTimeString();
+                    foreach ($data['users'] as $record) {
+                        $isGlobalArg = ($record['role'] === 'admin' && is_null($record['company_id']));
+                        $isEndOrCompanyArg = !$isGlobalArg;
 
-                    User::forceCreate($record);
+                        if (($options['exclude_global_admins'] ?? false) && $isGlobalArg) {
+                            continue;
+                        }
+
+                        if (($options['exclude_end_users'] ?? false) && $isEndOrCompanyArg) {
+                            continue;
+                        }
+
+                        unset($record['remember_token']);
+
+                        // Re-encrypt 2FA credentials under the current application key
+                        if (isset($record['two_factor_secret_plain'])) {
+                            if (!empty($record['two_factor_secret_plain'])) {
+                                $record['two_factor_secret'] = encrypt($record['two_factor_secret_plain']);
+                            }
+                            unset($record['two_factor_secret_plain']);
+                        }
+                        if (isset($record['two_factor_recovery_codes_plain'])) {
+                            if (!empty($record['two_factor_recovery_codes_plain'])) {
+                                $record['two_factor_recovery_codes'] = encrypt($record['two_factor_recovery_codes_plain']);
+                            }
+                            unset($record['two_factor_recovery_codes_plain']);
+                        }
+
+                        if (isset($record['created_at']))
+                            $record['created_at'] = \Carbon\Carbon::parse($record['created_at'])->toDateTimeString();
+                        if (isset($record['updated_at']))
+                            $record['updated_at'] = \Carbon\Carbon::parse($record['updated_at'])->toDateTimeString();
+                        if (isset($record['email_verified_at']))
+                            $record['email_verified_at'] = \Carbon\Carbon::parse($record['email_verified_at'])->toDateTimeString();
+
+                        User::forceCreate($record);
+                    }
                 }
-            }
 
-            // 3. Restore Firewalls
-            if (isset($data['firewalls'])) {
-                Firewall::query()->delete();
-                foreach ($data['firewalls'] as $record) {
-                    // Important: The 'encrypted' casted columns (api_key, etc) were decrypted on export.
-                    // Firewalls need explicit date sanitization too just in case
-                    if (isset($record['created_at']))
-                        $record['created_at'] = \Carbon\Carbon::parse($record['created_at'])->toDateTimeString();
-                    if (isset($record['updated_at']))
-                        $record['updated_at'] = \Carbon\Carbon::parse($record['updated_at'])->toDateTimeString();
+                // 3. Restore Firewalls
+                if (isset($data['firewalls'])) {
+                    Firewall::query()->delete();
+                    foreach ($data['firewalls'] as $record) {
+                        if (isset($record['created_at']))
+                            $record['created_at'] = \Carbon\Carbon::parse($record['created_at'])->toDateTimeString();
+                        if (isset($record['updated_at']))
+                            $record['updated_at'] = \Carbon\Carbon::parse($record['updated_at'])->toDateTimeString();
 
-                    Firewall::forceCreate($record);
-                }
-            }
-
-            // 4. Restore System Settings
-            if (isset($data['system_settings'])) {
-                // Keys to ALWAYS preserve (Branding) + Optional (Hostname)
-                $keysToPreserve = ['logo_path', 'favicon_path'];
-
-                if ($options['exclude_hostname'] ?? false) {
-                    $keysToPreserve[] = 'site_url';
-                    $keysToPreserve[] = 'site_protocol';
+                        Firewall::forceCreate($record);
+                    }
                 }
 
-                // Delete all settings EXCEPT those we are preserving
-                SystemSetting::whereNotIn('key', $keysToPreserve)->delete();
+                // 4. Restore System Settings
+                if (isset($data['system_settings'])) {
+                    $keysToPreserve = ['logo_path', 'favicon_path'];
 
-                foreach ($data['system_settings'] as $record) {
-                    // Skip restoration for preserved keys
-                    if (in_array($record['key'], $keysToPreserve)) {
-                        continue;
+                    if ($options['exclude_hostname'] ?? false) {
+                        $keysToPreserve[] = 'site_url';
+                        $keysToPreserve[] = 'site_protocol';
                     }
 
-                    // Prevent ID collision with preserved settings
-                    unset($record['id']);
+                    SystemSetting::whereNotIn('key', $keysToPreserve)->delete();
 
-                    // Sanitize dates for Query Builder
-                    if (isset($record['created_at']))
-                        $record['created_at'] = \Carbon\Carbon::parse($record['created_at'])->toDateTimeString();
-                    if (isset($record['updated_at']))
-                        $record['updated_at'] = \Carbon\Carbon::parse($record['updated_at'])->toDateTimeString();
+                    foreach ($data['system_settings'] as $record) {
+                        if (in_array($record['key'], $keysToPreserve)) {
+                            continue;
+                        }
 
-                    SystemSetting::updateOrInsert(
-                        ['key' => $record['key']],
-                        $record
-                    );
+                        unset($record['id']);
+
+                        if (isset($record['created_at']))
+                            $record['created_at'] = \Carbon\Carbon::parse($record['created_at'])->toDateTimeString();
+                        if (isset($record['updated_at']))
+                            $record['updated_at'] = \Carbon\Carbon::parse($record['updated_at'])->toDateTimeString();
+
+                        SystemSetting::updateOrInsert(
+                            ['key' => $record['key']],
+                            $record
+                        );
+                    }
                 }
-            }
 
-            // 5. Restore Device Connections
-            if (isset($data['device_connections'])) {
+                // Ephemeral live connections are cleared, not restored
                 DeviceConnection::query()->delete();
-                foreach ($data['device_connections'] as $record) {
-                    // Sanitize dates
-                    if (isset($record['created_at']))
-                        $record['created_at'] = \Carbon\Carbon::parse($record['created_at'])->toDateTimeString();
-                    if (isset($record['updated_at']))
-                        $record['updated_at'] = \Carbon\Carbon::parse($record['updated_at'])->toDateTimeString();
 
-                    DeviceConnection::forceCreate($record);
-                }
+            } finally {
+                Schema::enableForeignKeyConstraints();
             }
-
-            Schema::enableForeignKeyConstraints();
         });
     }
 
     protected function encryptData(string $data, string $password): string
     {
-        $salt = openssl_random_pseudo_bytes(16);
-        $key = hash_pbkdf2("sha256", $password, $salt, 10000, 32, true);
-        $iv = openssl_random_pseudo_bytes(16);
-        $encrypted = openssl_encrypt($data, $this->encryptionMethod, $key, 0, $iv);
+        $salt = random_bytes(16);
+        $iv = random_bytes(12); // Standard GCM 96-bit nonce
+        $key = hash_pbkdf2("sha256", $password, $salt, 100000, 32, true);
+        $tag = '';
+        $aad = 'admixcentral-backup-v2';
 
-        // Combine salt, iv, and encrypted data
-        return base64_encode($salt . $iv . $encrypted);
+        $encrypted = openssl_encrypt($data, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, $aad, 16);
+        if ($encrypted === false) {
+            throw new \Exception("Encryption failed.");
+        }
+
+        // Format: 'ADMX2' (5) + Salt (16) + IV (12) + Tag (16) + Ciphertext
+        return base64_encode('ADMX2' . $salt . $iv . $tag . $encrypted);
     }
 
     protected function decryptData(string $data, string $password): string
     {
-        $data = base64_decode($data);
-        $salt = substr($data, 0, 16);
-        $iv = substr($data, 16, 16);
-        $encrypted = substr($data, 32);
+        $raw = base64_decode($data);
+        if ($raw === false) {
+            throw new \Exception("Invalid base64 payload.");
+        }
+
+        // Check for Authenticated V2 Format (ADMX2)
+        if (str_starts_with($raw, 'ADMX2')) {
+            if (strlen($raw) < 5 + 16 + 12 + 16) {
+                throw new \Exception("Malformed backup archive.");
+            }
+
+            $salt = substr($raw, 5, 16);
+            $iv = substr($raw, 21, 12);
+            $tag = substr($raw, 33, 16);
+            $ciphertext = substr($raw, 49);
+            $aad = 'admixcentral-backup-v2';
+
+            $key = hash_pbkdf2("sha256", $password, $salt, 100000, 32, true);
+            $decrypted = openssl_decrypt($ciphertext, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, $aad);
+
+            if ($decrypted === false) {
+                throw new \Exception("Decryption failed. Authentication tag mismatch, incorrect password, or corrupted file.");
+            }
+
+            return $decrypted;
+        }
+
+        // Legacy CBC Fallback (only for unversioned legacy backups)
+        $salt = substr($raw, 0, 16);
+        $iv = substr($raw, 16, 16);
+        $encrypted = substr($raw, 32);
 
         $key = hash_pbkdf2("sha256", $password, $salt, 10000, 32, true);
-        $decrypted = openssl_decrypt($encrypted, $this->encryptionMethod, $key, 0, $iv);
+        $decrypted = openssl_decrypt($encrypted, 'AES-256-CBC', $key, 0, $iv);
 
         if ($decrypted === false) {
             throw new \Exception("Decryption failed. Incorrect password or corrupted file.");

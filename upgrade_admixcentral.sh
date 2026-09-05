@@ -302,7 +302,7 @@ ${web_user} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/php/8.3/fpm/p
 ${web_user} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/php/8.2/fpm/pool.d/www.conf
 ${web_user} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/php-fpm.d/www.conf
 # Performance Tuning — service restarts
-${web_user} ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl
+${web_user} ALL=(ALL) NOPASSWD: /usr/bin/supervisorctl reread, /usr/bin/supervisorctl update, /usr/bin/supervisorctl restart admix-worker:*, /usr/bin/supervisorctl restart admix-reverb:*
 ${web_user} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8.3-fpm
 ${web_user} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8.2-fpm
 ${web_user} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8.1-fpm

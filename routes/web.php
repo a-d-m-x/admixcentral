@@ -700,13 +700,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('firewall/{firewall}/diagnostics')->name('diagnostics.')->middleware(App\Http\Middleware\EnsureTenantScope::class)->group(function () {
         Route::get('/arp-table', [App\Http\Controllers\DiagnosticsController::class, 'arpTable'])->name('arp-table');
         Route::get('/authentication', [App\Http\Controllers\DiagnosticsController::class, 'authentication'])->name('authentication');
-        Route::get('/backup', [App\Http\Controllers\DiagnosticsBackupController::class, 'index'])->name('backup.index');
-        Route::get('/backup/download', [App\Http\Controllers\DiagnosticsBackupController::class, 'backup'])->name('backup.download');
-        Route::post('/backup/restore', [App\Http\Controllers\DiagnosticsBackupController::class, 'restore'])->middleware('deny.readonly')->name('backup.restore');
+        Route::middleware(\App\Http\Middleware\CheckRole::class . ':global_admin')->group(function () {
+            Route::get('/backup', [App\Http\Controllers\DiagnosticsBackupController::class, 'index'])->name('backup.index');
+            Route::get('/backup/download', [App\Http\Controllers\DiagnosticsBackupController::class, 'backup'])->name('backup.download');
+            Route::post('/backup/restore', [App\Http\Controllers\DiagnosticsBackupController::class, 'restore'])->middleware('deny.readonly')->name('backup.restore');
+            Route::post('/backup/restore-upload', [App\Http\Controllers\DiagnosticsBackupController::class, 'restore'])->middleware('deny.readonly')->name('restore.upload');
+        });
 
         Route::get('/reboot', [App\Http\Controllers\DiagnosticsRebootController::class, 'index'])->name('reboot.index');
         Route::post('/reboot', [App\Http\Controllers\DiagnosticsRebootController::class, 'reboot'])->middleware('deny.readonly')->name('reboot.update');
-        Route::post('/backup/restore-upload', [App\Http\Controllers\DiagnosticsBackupController::class, 'restore'])->middleware('deny.readonly')->name('restore.upload');
         Route::match(['get', 'post'], '/command-prompt', [App\Http\Controllers\DiagnosticsController::class, 'commandPrompt'])
             ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin', 'deny.readonly'])
             ->name('command-prompt');

@@ -28,12 +28,16 @@ class FirewallBackupTest extends TestCase
         \Illuminate\Support\Facades\Queue::fake();
 
         $company = \App\Models\Company::factory()->create();
-        $admin = \App\Models\User::factory()->create(['role' => 'global_admin', 'company_id' => $company->id]);
-        $firewall = \App\Models\Firewall::factory()->create(['company_id' => $company->id]);
+        $admin = \App\Models\User::factory()->create(['role' => 'admin', 'company_id' => null]);
+        $firewall = \App\Models\Firewall::factory()->create([
+            'company_id' => $company->id,
+            'ssh_username' => 'admin',
+            'ssh_password' => 'secret',
+        ]);
 
         $response = $this->actingAs($admin)->post(route('firewall.backup.trigger', $firewall));
         
-        $response->assertRedirect();
+        $response->assertOk()->assertJson(['queued' => true]);
         \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\PullFirewallConfigBackupJob::class);
     }
 

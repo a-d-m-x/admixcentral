@@ -318,7 +318,7 @@ class PfSenseApiService
             return $this->opnSense->post($endpoint, $data);
         }
 
-        return ['status' => 200, 'data' => []];
+        throw new \BadMethodCallException("POST endpoint not supported on OPNsense: {$endpoint}");
     }
 
     protected function handleOpnSensePatch(string $endpoint, array $data = [])
@@ -369,7 +369,7 @@ class PfSenseApiService
             return $this->opnSense->post($endpoint, $data);
         }
 
-        return ['status' => 200, 'data' => []];
+        throw new \BadMethodCallException("PATCH endpoint not supported on OPNsense: {$endpoint}");
     }
 
     protected function handleOpnSenseDelete(string $endpoint, array $data = [])
@@ -409,7 +409,7 @@ class PfSenseApiService
             return $this->opnSense->delete($endpoint, $data);
         }
 
-        return ['status' => 200, 'data' => []];
+        throw new \BadMethodCallException("DELETE endpoint not supported on OPNsense: {$endpoint}");
     }
 
     /**

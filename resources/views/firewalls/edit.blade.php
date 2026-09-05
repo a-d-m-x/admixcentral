@@ -121,9 +121,12 @@
                                     <label for="api_key" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                                            x-text="osType === 'opnsense' ? 'OPNsense API Key' : 'API Username'"></label>
                                     <input type="text" name="api_key" id="api_key"
-                                        value="{{ old('api_key', $firewall->api_key) }}"
-                                        :required="authMethod === 'basic'"
+                                        value="{{ old('api_key', $firewall->os_type === 'opnsense' ? '' : $firewall->api_key) }}"
+                                        placeholder="{{ !empty($firewall->api_key) ? 'Configured (Leave blank to keep current)' : 'Enter API Key / Username' }}"
                                         class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                    @if(!empty($firewall->api_key) && $firewall->os_type === 'opnsense')
+                                        <p class="text-green-600 dark:text-green-400 text-xs mt-1">✓ OPNsense API Key is configured</p>
+                                    @endif
                                     @error('api_key')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                                 </div>
                                 <div>
@@ -132,16 +135,21 @@
                                     <input type="password" name="api_secret" id="api_secret"
                                         placeholder="Leave blank to keep current"
                                         class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                    @if(!empty($firewall->api_secret))
+                                        <p class="text-green-600 dark:text-green-400 text-xs mt-1">✓ Secret / Password is configured</p>
+                                    @endif
                                     @error('api_secret')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                                 </div>
                             </div>
 
                             <div x-show="authMethod === 'token'" x-cloak>
                                 <label for="api_token" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bearer Token</label>
-                                <textarea name="api_token" id="api_token" rows="4"
-                                    :required="authMethod === 'token'"
-                                    placeholder="ey…"
-                                    class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm font-mono">{{ old('api_token', $firewall->api_token) }}</textarea>
+                                <textarea name="api_token" id="api_token" rows="3"
+                                    placeholder="{{ !empty($firewall->api_token) ? 'Configured (Leave blank to keep current)' : 'ey…' }}"
+                                    class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm font-mono"></textarea>
+                                @if(!empty($firewall->api_token))
+                                    <p class="text-green-600 dark:text-green-400 text-xs mt-1">✓ Bearer token is configured</p>
+                                @endif
                                 @error('api_token')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                             </div>
 

@@ -46,7 +46,7 @@ class PullFirewallConfigBackupJob implements ShouldQueue
             if ($firewall->isOpnSense()) {
                 $api = new \App\Services\OpnSenseApiService($firewall);
                 $res = $api->downloadBackup();
-                $content = $res['data'] ?? '';
+                $content = is_array($res) ? ($res['data'] ?? '') : (string) $res;
 
                 if (empty($content) || !str_contains($content, '<opnsense>')) {
                     $backupRecord->update(['status' => 'failed', 'error_message' => 'OPNsense API backup download failed or returned invalid XML.']);
@@ -78,9 +78,8 @@ class PullFirewallConfigBackupJob implements ShouldQueue
                 }
             }
 
-            $folderSlug = Str::slug($firewall->name);
-            $finalFile  = "firewall-backups/{$folderSlug}/{$host}.xml";
-            Storage::disk('local')->makeDirectory("firewall-backups/{$folderSlug}");
+            $finalFile = "firewall-backups/{$firewall->company_id}/{$firewall->id}/config.xml";
+            Storage::disk('local')->makeDirectory("firewall-backups/{$firewall->company_id}/{$firewall->id}");
             Storage::disk('local')->put($finalFile, $content);
 
             $backupRecord->update([

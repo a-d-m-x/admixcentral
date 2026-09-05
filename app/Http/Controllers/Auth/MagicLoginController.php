@@ -7,6 +7,7 @@ use App\Mail\MagicLoginLink;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 
@@ -39,7 +40,23 @@ class MagicLoginController extends Controller
             abort(401);
         }
 
+        $signature = $request->query('signature');
+        $cacheKey = 'magic_link_consumed_' . $signature;
+        if (Cache::has($cacheKey)) {
+            abort(401, 'This magic login link has already been used.');
+        }
+        Cache::put($cacheKey, true, now()->addMinutes(15));
+
         $user = User::findOrFail($id);
+
+        if (!empty($user->two_factor_secret) && !is_null($user->two_factor_confirmed_at)) {
+            $request->session()->put([
+                'login.id' => $user->getKey(),
+                'login.remember' => false,
+            ]);
+
+            return redirect()->route('two-factor.login');
+        }
 
         Auth::login($user);
         $request->session()->regenerate();

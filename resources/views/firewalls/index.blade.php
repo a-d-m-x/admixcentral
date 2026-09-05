@@ -261,6 +261,17 @@
                         },
 
                         addMarker(lat, lng, name, address) {
+                            const container = document.createElement('div');
+                            const boldTitle = document.createElement('b');
+                            boldTitle.textContent = name || '';
+                            container.appendChild(boldTitle);
+                            if (address) {
+                                container.appendChild(document.createElement('br'));
+                                const addrSpan = document.createElement('span');
+                                addrSpan.textContent = address;
+                                container.appendChild(addrSpan);
+                            }
+
                             const marker = L.circleMarker([lat, lng], {
                                 radius: 5,
                                 fillColor: '#6366f1',
@@ -270,7 +281,7 @@
                                 fillOpacity: 0.9
                             })
                                 .addTo(this.map)
-                                .bindPopup(`<b>${name}</b><br>${address}`);
+                                .bindPopup(container);
                             this.markers.push(marker);
                         },
 

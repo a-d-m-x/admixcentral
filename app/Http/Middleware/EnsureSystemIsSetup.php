@@ -19,15 +19,11 @@ class EnsureSystemIsSetup
         // Don't intercept static assets or API calls generally, but here we want to block UI access
         // Avoid intercepting debugbar or similar if present
 
-        $userCount = User::count();
+        $isSetup = file_exists(storage_path('app/setup.lock')) || User::count() > 0;
         // Use path checking as route() might be null in early global middleware
         $isSetupRoute = $request->is('setup') || $request->is('setup/*');
 
-        // Safe logging
-        $routeName = $request->route() ? $request->route()->getName() : 'NULL';
-        \Log::info("Middleware: Count={$userCount}, RouteName={$routeName}, IsSetupPath=" . ($isSetupRoute ? 'YES' : 'NO'));
-
-        if ($userCount === 0) {
+        if (!$isSetup) {
             // System is NOT setup
             if (!$isSetupRoute && !$request->routeIs('debugbar.*') && !$request->is('sanctum/*')) {
                 return redirect()->route('setup.welcome');

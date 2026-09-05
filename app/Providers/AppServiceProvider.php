@@ -61,6 +61,8 @@ class AppServiceProvider extends ServiceProvider
             return $user->isGlobalAdmin();
         });
 
+        \Illuminate\Support\Facades\Gate::policy(\App\Models\Firewall::class, \App\Policies\FirewallPolicy::class);
+
         Event::listen(Login::class, RecordLastLogin::class);
     }
 }
