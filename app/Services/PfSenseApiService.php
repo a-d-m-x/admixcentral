@@ -16,10 +16,12 @@ class PfSenseApiService
     protected $apiToken;
     protected $authMethod;
     protected ?OpnSenseApiService $opnSense = null;
+    protected bool $isOpnSense = false;
 
     public function __construct(Firewall $firewall)
     {
         $this->firewall = $firewall;
+        $this->isOpnSense = $firewall->isOpnSense();
 
         if ($firewall->isOpnSense()) {
             $this->opnSense = new OpnSenseApiService($firewall);
@@ -1603,14 +1605,142 @@ class PfSenseApiService
         return $this->patch('/services/dhcp_server', $data);
     }
 
+    public function getWireGuardGeneral(): array
+    {
+        if ($this->isOpnSense && $this->opnSense) {
+            return $this->opnSense->getWireGuardGeneral();
+        }
+        return ['status' => 200, 'enabled' => false, 'data' => []];
+    }
+
+    public function setWireGuardGeneral(array $data): array
+    {
+        if ($this->isOpnSense && $this->opnSense) {
+            return $this->opnSense->setWireGuardGeneral($data);
+        }
+        throw new \BadMethodCallException("WireGuard general configuration is not supported for pfSense via API.");
+    }
+
+    public function getWireGuardServiceStatus(): array
+    {
+        if ($this->isOpnSense && $this->opnSense) {
+            return $this->opnSense->getWireGuardServiceStatus();
+        }
+        return ['status' => 200, 'data' => ['status' => 'unknown']];
+    }
+
+    public function getWireGuardServiceShow(): array
+    {
+        if ($this->isOpnSense && $this->opnSense) {
+            return $this->opnSense->getWireGuardServiceShow();
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function serviceWireGuardAction(string $action): array
+    {
+        if ($this->isOpnSense && $this->opnSense) {
+            return $this->opnSense->serviceWireGuardAction($action);
+        }
+        throw new \BadMethodCallException("WireGuard service control is not supported for pfSense via API.");
+    }
+
+    public function generateWireGuardKeyPair(): array
+    {
+        if ($this->isOpnSense && $this->opnSense) {
+            return $this->opnSense->generateWireGuardKeyPair();
+        }
+        throw new \BadMethodCallException("WireGuard keypair generation is not supported for pfSense via API.");
+    }
+
     public function getWireGuardTunnels()
     {
         return $this->get('/vpn/wireguard/tunnels');
     }
 
+    public function getWireGuardTunnel(string $id): array
+    {
+        if ($this->isOpnSense && $this->opnSense) {
+            return $this->opnSense->getWireGuardTunnel($id);
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function createWireGuardTunnel(array $data): array
+    {
+        if ($this->isOpnSense && $this->opnSense) {
+            return $this->opnSense->createWireGuardTunnel($data);
+        }
+        throw new \BadMethodCallException("WireGuard tunnel creation is not supported for pfSense via API.");
+    }
+
+    public function updateWireGuardTunnel(string $id, array $data): array
+    {
+        if ($this->isOpnSense && $this->opnSense) {
+            return $this->opnSense->updateWireGuardTunnel($id, $data);
+        }
+        throw new \BadMethodCallException("WireGuard tunnel modification is not supported for pfSense via API.");
+    }
+
+    public function deleteWireGuardTunnel(string $id): array
+    {
+        if ($this->isOpnSense && $this->opnSense) {
+            return $this->opnSense->deleteWireGuardTunnel($id);
+        }
+        throw new \BadMethodCallException("WireGuard tunnel deletion is not supported for pfSense via API.");
+    }
+
+    public function toggleWireGuardTunnel(string $id): array
+    {
+        if ($this->isOpnSense && $this->opnSense) {
+            return $this->opnSense->toggleWireGuardTunnel($id);
+        }
+        throw new \BadMethodCallException("WireGuard tunnel toggle is not supported for pfSense via API.");
+    }
+
     public function getWireGuardPeers()
     {
         return $this->get('/vpn/wireguard/peers');
+    }
+
+    public function getWireGuardPeer(string $id): array
+    {
+        if ($this->isOpnSense && $this->opnSense) {
+            return $this->opnSense->getWireGuardPeer($id);
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function createWireGuardPeer(array $data): array
+    {
+        if ($this->isOpnSense && $this->opnSense) {
+            return $this->opnSense->createWireGuardPeer($data);
+        }
+        throw new \BadMethodCallException("WireGuard peer creation is not supported for pfSense via API.");
+    }
+
+    public function updateWireGuardPeer(string $id, array $data): array
+    {
+        if ($this->isOpnSense && $this->opnSense) {
+            return $this->opnSense->updateWireGuardPeer($id, $data);
+        }
+        throw new \BadMethodCallException("WireGuard peer modification is not supported for pfSense via API.");
+    }
+
+    public function deleteWireGuardPeer(string $id): array
+    {
+        if ($this->isOpnSense && $this->opnSense) {
+            return $this->opnSense->deleteWireGuardPeer($id);
+        }
+        throw new \BadMethodCallException("WireGuard peer deletion is not supported for pfSense via API.");
+    }
+
+    public function toggleWireGuardPeer(string $id): array
+    {
+        if ($this->isOpnSense && $this->opnSense) {
+            return $this->opnSense->toggleWireGuardPeer($id);
+        }
+        throw new \BadMethodCallException("WireGuard peer toggle is not supported for pfSense via API.");
     }
 
     /**

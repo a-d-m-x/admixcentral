@@ -1214,14 +1214,65 @@ class OpnSenseApiService
     // WireGuard
     // ─────────────────────────────────────────────────────────────────────────
 
+    public function getWireGuardGeneral(): array
+    {
+        $res = $this->get('/api/wireguard/general/get');
+        $enabled = !empty($res['general']['enabled']) && (string) $res['general']['enabled'] !== '0';
+        return ['status' => 200, 'enabled' => $enabled, 'data' => $res['general'] ?? []];
+    }
+
+    public function setWireGuardGeneral(array $data): array
+    {
+        $enabled = !empty($data['enabled']) && (string) $data['enabled'] !== '0' ? '1' : '0';
+        $payload = [
+            'general' => [
+                'enabled' => $enabled,
+            ]
+        ];
+        $res = $this->post('/api/wireguard/general/set', $payload);
+        $this->post('/api/wireguard/service/reconfigure');
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function getWireGuardServiceStatus(): array
+    {
+        $res = $this->get('/api/wireguard/service/status');
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function getWireGuardServiceShow(): array
+    {
+        $res = $this->get('/api/wireguard/service/show');
+        return ['status' => 200, 'data' => $res['rows'] ?? []];
+    }
+
+    public function serviceWireGuardAction(string $action): array
+    {
+        $validActions = ['start', 'stop', 'restart', 'reconfigure'];
+        if (!in_array($action, $validActions)) {
+            throw new \InvalidArgumentException("Invalid WireGuard service action: {$action}");
+        }
+        $res = $this->post("/api/wireguard/service/{$action}");
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function generateWireGuardKeyPair(): array
+    {
+        $res = $this->get('/api/wireguard/server/keyPair');
+        return ['status' => 200, 'pubkey' => $res['pubkey'] ?? '', 'privkey' => $res['privkey'] ?? ''];
+    }
+
     public function getWireGuardTunnels(): array
     {
         $res = $this->get('/api/wireguard/server/searchServer');
         $rows = $res['rows'] ?? [];
         $tunnels = [];
         foreach ($rows as $row) {
+            $peers = $row['peers'] ?? '';
+            $peerList = is_string($peers) ? array_filter(array_map('trim', explode(',', $peers))) : (array) $peers;
             $tunnels[] = [
                 'id' => $row['uuid'] ?? ($row['name'] ?? ''),
+                'uuid' => $row['uuid'] ?? '',
                 'name' => $row['name'] ?? '',
                 'descr' => $row['name'] ?? '',
                 'address' => $row['tunneladdress'] ?? '',
@@ -1229,45 +1280,73 @@ class OpnSenseApiService
                 'listenport' => $row['port'] ?? '51820',
                 'port' => $row['port'] ?? '51820',
                 'public_key' => $row['pubkey'] ?? '',
+                'pubkey' => $row['pubkey'] ?? '',
+                'privkey' => $row['privkey'] ?? '',
+                'interface' => $row['interface'] ?? '',
+                'mtu' => $row['mtu'] ?? '',
+                'dns' => $row['dns'] ?? '',
+                'disableroutes' => !empty($row['disableroutes']) && (string) $row['disableroutes'] !== '0',
+                'peers' => $peerList,
                 'enabled' => !empty($row['enabled']) && (string) $row['enabled'] !== '0',
             ];
         }
         return ['status' => 200, 'data' => $tunnels];
     }
 
-    public function getWireGuardPeers(): array
+    public function getWireGuardTunnel(string $uuid): array
     {
-        $res = $this->get('/api/wireguard/client/searchClient');
-        $rows = $res['rows'] ?? [];
-        $peers = [];
-        foreach ($rows as $row) {
-            $peers[] = [
-                'id' => $row['uuid'] ?? ($row['name'] ?? ''),
-                'name' => $row['name'] ?? '',
-                'descr' => $row['name'] ?? '',
-                'endpoint' => $row['serveraddress'] ?? ($row['endpoint'] ?? ''),
-                'port' => $row['serverport'] ?? '',
-                'allowedips' => $row['tunneladdress'] ?? '',
-                'public_key' => $row['pubkey'] ?? '',
-                'enabled' => !empty($row['enabled']) && (string) $row['enabled'] !== '0',
-            ];
-        }
-        return ['status' => 200, 'data' => $peers];
+        $res = $this->get("/api/wireguard/server/getServer/{$uuid}");
+        return ['status' => 200, 'data' => $res['server'] ?? []];
     }
 
     public function createWireGuardTunnel(array $data): array
     {
+        $peers = $data['peers'] ?? '';
+        if (is_array($peers)) {
+            $peers = implode(',', array_filter($peers));
+        }
+
         $payload = [
             'server' => [
-                'enabled' => empty($data['disabled']) ? '1' : '0',
+                'enabled' => !empty($data['enabled']) && (string) $data['enabled'] !== '0' ? '1' : (empty($data['disabled']) ? '1' : '0'),
                 'name' => $data['name'] ?? '',
                 'port' => (string) ($data['port'] ?? ($data['listenport'] ?? '51820')),
                 'tunneladdress' => $data['address'] ?? ($data['tunneladdress'] ?? ''),
                 'pubkey' => $data['pubkey'] ?? ($data['public_key'] ?? ''),
                 'privkey' => $data['privkey'] ?? ($data['private_key'] ?? ''),
+                'mtu' => (string) ($data['mtu'] ?? ''),
+                'dns' => $data['dns'] ?? '',
+                'disableroutes' => !empty($data['disableroutes']) ? '1' : '0',
+                'peers' => $peers,
             ]
         ];
         $res = $this->post('/api/wireguard/server/addServer', $payload);
+        $this->post('/api/wireguard/service/reconfigure');
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function updateWireGuardTunnel(string $uuid, array $data): array
+    {
+        $peers = $data['peers'] ?? '';
+        if (is_array($peers)) {
+            $peers = implode(',', array_filter($peers));
+        }
+
+        $payload = [
+            'server' => [
+                'enabled' => !empty($data['enabled']) && (string) $data['enabled'] !== '0' ? '1' : (empty($data['disabled']) ? '1' : '0'),
+                'name' => $data['name'] ?? '',
+                'port' => (string) ($data['port'] ?? ($data['listenport'] ?? '51820')),
+                'tunneladdress' => $data['address'] ?? ($data['tunneladdress'] ?? ''),
+                'pubkey' => $data['pubkey'] ?? ($data['public_key'] ?? ''),
+                'privkey' => $data['privkey'] ?? ($data['private_key'] ?? ''),
+                'mtu' => (string) ($data['mtu'] ?? ''),
+                'dns' => $data['dns'] ?? '',
+                'disableroutes' => !empty($data['disableroutes']) ? '1' : '0',
+                'peers' => $peers,
+            ]
+        ];
+        $res = $this->post("/api/wireguard/server/setServer/{$uuid}", $payload);
         $this->post('/api/wireguard/service/reconfigure');
         return ['status' => 200, 'data' => $res];
     }
@@ -1279,16 +1358,67 @@ class OpnSenseApiService
         return ['status' => 200, 'data' => $res];
     }
 
+    public function toggleWireGuardTunnel(string $id): array
+    {
+        $res = $this->post("/api/wireguard/server/toggleServer/{$id}");
+        $this->post('/api/wireguard/service/reconfigure');
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function getWireGuardPeers(): array
+    {
+        $res = $this->get('/api/wireguard/client/searchClient');
+        $rows = $res['rows'] ?? [];
+        $peers = [];
+        foreach ($rows as $row) {
+            $servers = $row['servers'] ?? '';
+            $serverList = is_string($servers) ? array_filter(array_map('trim', explode(',', $servers))) : (array) $servers;
+            $peers[] = [
+                'id' => $row['uuid'] ?? ($row['name'] ?? ''),
+                'uuid' => $row['uuid'] ?? '',
+                'name' => $row['name'] ?? '',
+                'descr' => $row['name'] ?? '',
+                'endpoint' => $row['serveraddress'] ?? ($row['endpoint'] ?? ''),
+                'serveraddress' => $row['serveraddress'] ?? '',
+                'port' => $row['serverport'] ?? '',
+                'serverport' => $row['serverport'] ?? '',
+                'allowedips' => $row['tunneladdress'] ?? '',
+                'tunneladdress' => $row['tunneladdress'] ?? '',
+                'public_key' => $row['pubkey'] ?? '',
+                'pubkey' => $row['pubkey'] ?? '',
+                'psk' => $row['psk'] ?? '',
+                'keepalive' => $row['keepalive'] ?? '',
+                'servers' => $serverList,
+                'enabled' => !empty($row['enabled']) && (string) $row['enabled'] !== '0',
+            ];
+        }
+        return ['status' => 200, 'data' => $peers];
+    }
+
+    public function getWireGuardPeer(string $uuid): array
+    {
+        $res = $this->get("/api/wireguard/client/getClient/{$uuid}");
+        return ['status' => 200, 'data' => $res['client'] ?? []];
+    }
+
     public function createWireGuardPeer(array $data): array
     {
+        $servers = $data['servers'] ?? '';
+        if (is_array($servers)) {
+            $servers = implode(',', array_filter($servers));
+        }
+
         $payload = [
             'client' => [
-                'enabled' => empty($data['disabled']) ? '1' : '0',
+                'enabled' => !empty($data['enabled']) && (string) $data['enabled'] !== '0' ? '1' : (empty($data['disabled']) ? '1' : '0'),
                 'name' => $data['name'] ?? ($data['descr'] ?? ''),
                 'serveraddress' => $data['endpoint'] ?? ($data['serveraddress'] ?? ''),
                 'serverport' => (string) ($data['port'] ?? ($data['serverport'] ?? '')),
                 'tunneladdress' => $data['allowedips'] ?? ($data['tunneladdress'] ?? ''),
                 'pubkey' => $data['pubkey'] ?? ($data['public_key'] ?? ''),
+                'psk' => $data['psk'] ?? '',
+                'keepalive' => (string) ($data['keepalive'] ?? ''),
+                'servers' => $servers,
             ]
         ];
         $res = $this->post('/api/wireguard/client/addClient', $payload);
@@ -1296,9 +1426,41 @@ class OpnSenseApiService
         return ['status' => 200, 'data' => $res];
     }
 
+    public function updateWireGuardPeer(string $uuid, array $data): array
+    {
+        $servers = $data['servers'] ?? '';
+        if (is_array($servers)) {
+            $servers = implode(',', array_filter($servers));
+        }
+
+        $payload = [
+            'client' => [
+                'enabled' => !empty($data['enabled']) && (string) $data['enabled'] !== '0' ? '1' : (empty($data['disabled']) ? '1' : '0'),
+                'name' => $data['name'] ?? ($data['descr'] ?? ''),
+                'serveraddress' => $data['endpoint'] ?? ($data['serveraddress'] ?? ''),
+                'serverport' => (string) ($data['port'] ?? ($data['serverport'] ?? '')),
+                'tunneladdress' => $data['allowedips'] ?? ($data['tunneladdress'] ?? ''),
+                'pubkey' => $data['pubkey'] ?? ($data['public_key'] ?? ''),
+                'psk' => $data['psk'] ?? '',
+                'keepalive' => (string) ($data['keepalive'] ?? ''),
+                'servers' => $servers,
+            ]
+        ];
+        $res = $this->post("/api/wireguard/client/setClient/{$uuid}", $payload);
+        $this->post('/api/wireguard/service/reconfigure');
+        return ['status' => 200, 'data' => $res];
+    }
+
     public function deleteWireGuardPeer(string $id): array
     {
         $res = $this->post("/api/wireguard/client/delClient/{$id}");
+        $this->post('/api/wireguard/service/reconfigure');
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function toggleWireGuardPeer(string $id): array
+    {
+        $res = $this->post("/api/wireguard/client/toggleClient/{$id}");
         $this->post('/api/wireguard/service/reconfigure');
         return ['status' => 200, 'data' => $res];
     }

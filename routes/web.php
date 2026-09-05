@@ -666,7 +666,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/openvpn/server/{id}', [VpnOpenVpnController::class, 'destroyServer'])->middleware('deny.readonly')->name('openvpn.server.destroy');
         Route::get('/openvpn/client', [VpnOpenVpnController::class, 'clients'])->name('openvpn.clients');
 
+        // WireGuard
         Route::get('/wireguard', [App\Http\Controllers\VpnWireGuardController::class, 'index'])->name('wireguard.index');
+        Route::post('/wireguard/general', [App\Http\Controllers\VpnWireGuardController::class, 'updateGeneral'])->middleware('deny.readonly')->name('wireguard.general.update');
+        Route::post('/wireguard/service/{action}', [App\Http\Controllers\VpnWireGuardController::class, 'serviceAction'])->middleware('deny.readonly')->name('wireguard.service.action');
+        Route::post('/wireguard/keypair', [App\Http\Controllers\VpnWireGuardController::class, 'generateKeyPair'])->middleware('deny.readonly')->name('wireguard.keypair');
+        Route::post('/wireguard/tunnels', [App\Http\Controllers\VpnWireGuardController::class, 'storeTunnel'])->middleware('deny.readonly')->name('wireguard.tunnels.store');
+        Route::put('/wireguard/tunnels/{id}', [App\Http\Controllers\VpnWireGuardController::class, 'updateTunnel'])->middleware('deny.readonly')->name('wireguard.tunnels.update');
+        Route::delete('/wireguard/tunnels/{id}', [App\Http\Controllers\VpnWireGuardController::class, 'destroyTunnel'])->middleware('deny.readonly')->name('wireguard.tunnels.destroy');
+        Route::post('/wireguard/tunnels/{id}/toggle', [App\Http\Controllers\VpnWireGuardController::class, 'toggleTunnel'])->middleware('deny.readonly')->name('wireguard.tunnels.toggle');
+        Route::post('/wireguard/peers', [App\Http\Controllers\VpnWireGuardController::class, 'storePeer'])->middleware('deny.readonly')->name('wireguard.peers.store');
+        Route::put('/wireguard/peers/{id}', [App\Http\Controllers\VpnWireGuardController::class, 'updatePeer'])->middleware('deny.readonly')->name('wireguard.peers.update');
+        Route::delete('/wireguard/peers/{id}', [App\Http\Controllers\VpnWireGuardController::class, 'destroyPeer'])->middleware('deny.readonly')->name('wireguard.peers.destroy');
+        Route::post('/wireguard/peers/{id}/toggle', [App\Http\Controllers\VpnWireGuardController::class, 'togglePeer'])->middleware('deny.readonly')->name('wireguard.peers.toggle');
     });
 
 
