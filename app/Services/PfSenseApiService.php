@@ -2573,6 +2573,43 @@ class PfSenseApiService
 
     /*
     |--------------------------------------------------------------------------
+    | Services: DNS Forwarder (Dnsmasq)
+    |--------------------------------------------------------------------------
+    */
+    public function getDnsForwarderSettings()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getDnsForwarderSettings();
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function getDnsForwarderHostOverrides()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getDnsForwarderHostOverrides();
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function createDnsForwarderHostOverride(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->createDnsForwarderHostOverride($data);
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function deleteDnsForwarderHostOverride(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteDnsForwarderHostOverride($uuid);
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Services: UPnP
     |--------------------------------------------------------------------------
     */
