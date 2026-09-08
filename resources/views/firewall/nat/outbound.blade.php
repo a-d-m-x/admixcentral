@@ -171,7 +171,7 @@
                                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition {{ !empty($rule['disabled']) ? 'opacity-50' : '' }}">
                                         <td class="px-3 py-2 whitespace-nowrap text-center">
                                             @if(!auth()->user()->isReadOnly())
-                                            <form action="{{ route('firewall.nat.outbound.toggle', ['firewall' => $firewall, 'id' => $index]) }}" method="POST" class="inline-block">
+                                            <form action="{{ route('firewall.nat.outbound.toggle', ['firewall' => $firewall, 'id' => $rule['id'] ?? $index]) }}" method="POST" class="inline-block">
                                                 @csrf
                                                 @method('PATCH')
                                                 <button type="submit" class="focus:outline-none" title="Toggle Status">
@@ -207,21 +207,29 @@
                                         <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                             {{ is_array($rule['destination']) && isset($rule['destination']['port']) ? $rule['destination']['port'] : '*' }}
                                         </td>
-                                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ $rule['target'] ?? '' }}</td>
-                                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ $rule['local-port'] ?? '' }}</td>
-                                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">{{ isset($rule['static-port']) ? 'Yes' : 'No' }}</td>
-                                        <td class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">{{ $rule['descr'] ?? '' }}</td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                            {{ $rule['target'] ?? '' }}
+                                        </td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                            {{ $rule['target_port'] ?? '*' }}
+                                        </td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                            {{ !empty($rule['staticnatport']) ? 'YES' : 'NO' }}
+                                        </td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                            {{ $rule['descr'] ?? '' }}
+                                        </td>
                                         @if(!auth()->user()->isReadOnly())
                                         <td class="px-3 py-2 whitespace-nowrap text-center text-sm font-medium">
                                             <div class="flex justify-center items-center space-x-2">
-                                                <button @click="editRule({{ json_encode($rule) }}, {{ $index }})"
+                                                <button @click="editRule({{ json_encode($rule) }}, '{{ $rule['id'] ?? $index }}')"
                                                     class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                                                     title="Edit">
                                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                     </svg>
                                                 </button>
-                                                <button @click="confirmDelete({{ $index }})"
+                                                <button @click="confirmDelete('{{ $rule['id'] ?? $index }}')"
                                                     class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                                                     title="Delete">
                                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

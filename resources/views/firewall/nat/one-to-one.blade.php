@@ -84,10 +84,10 @@
                                             </td>
                                             @if(!auth()->user()->isReadOnly())
                                             <td class="px-3 py-2 whitespace-nowrap text-sm font-medium">
-                                                <button @click="editRule({{ $index }}, {{ json_encode($rule) }})"
+                                                <button @click="editRule('{{ $rule['id'] ?? $index }}', {{ json_encode($rule) }})"
                                                     class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
                                                 <form
-                                                    action="{{ route('firewall.nat.one-to-one.destroy', ['firewall' => $firewall, 'id' => $index]) }}"
+                                                    action="{{ route('firewall.nat.one-to-one.destroy', ['firewall' => $firewall, 'id' => $rule['id'] ?? $index]) }}"
                                                     method="POST" class="inline-block"
                                                     onsubmit="return confirm('Are you sure you want to delete this rule?');">
                                                     @csrf

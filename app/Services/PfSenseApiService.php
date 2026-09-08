@@ -245,6 +245,18 @@ class PfSenseApiService
         if (str_starts_with($ep, 'firewall/virtual_ips')) {
             return $this->opnSense->getVirtualIps();
         }
+        if (str_starts_with($ep, 'firewall/nat/port_forwards') || str_starts_with($ep, 'firewall/nat/port_forward')) {
+            return $this->opnSense->getNatPortForwards();
+        }
+        if (str_starts_with($ep, 'firewall/nat/outbound/mappings') || str_starts_with($ep, 'firewall/nat/outbound/mapping')) {
+            return $this->opnSense->getNatOutboundRules();
+        }
+        if (str_starts_with($ep, 'firewall/nat/outbound/mode')) {
+            return $this->opnSense->getNatOutboundMode();
+        }
+        if (str_starts_with($ep, 'firewall/nat/one_to_one/mappings') || str_starts_with($ep, 'firewall/nat/one_to_one/mapping')) {
+            return $this->opnSense->getNatOneToOneRules();
+        }
         if (str_starts_with($ep, 'status/dhcp_server/leases')) {
             return $this->opnSense->getDhcpLeases();
         }
@@ -305,6 +317,15 @@ class PfSenseApiService
         if (str_starts_with($ep, 'firewall/virtual_ip')) {
             return $this->opnSense->createVirtualIp($data);
         }
+        if (str_starts_with($ep, 'firewall/nat/port_forward')) {
+            return $this->opnSense->createNatPortForward($data);
+        }
+        if (str_starts_with($ep, 'firewall/nat/outbound/mapping')) {
+            return $this->opnSense->createNatOutboundRule($data);
+        }
+        if (str_starts_with($ep, 'firewall/nat/one_to_one/mapping')) {
+            return $this->opnSense->createNatOneToOneRule($data);
+        }
         if (str_starts_with($ep, 'diagnostics/halt') || $ep === 'system/halt') {
             return $this->opnSense->haltSystem();
         }
@@ -338,6 +359,21 @@ class PfSenseApiService
         if ($ep === 'firewall/category') {
             $uuid = $data['uuid'] ?? $data['id'] ?? '';
             return $this->opnSense->updateCategory($uuid, $data);
+        }
+        if (str_starts_with($ep, 'firewall/nat/port_forward')) {
+            $id = $data['id'] ?? ($data['uuid'] ?? '');
+            return $this->opnSense->updateNatPortForward($id, $data);
+        }
+        if (str_starts_with($ep, 'firewall/nat/outbound/mode')) {
+            return $this->opnSense->updateNatOutboundMode($data['mode'] ?? 'automatic');
+        }
+        if (str_starts_with($ep, 'firewall/nat/outbound/mapping')) {
+            $id = $data['id'] ?? ($data['uuid'] ?? '');
+            return $this->opnSense->updateNatOutboundRule($id, $data);
+        }
+        if (str_starts_with($ep, 'firewall/nat/one_to_one/mapping')) {
+            $id = $data['id'] ?? ($data['uuid'] ?? '');
+            return $this->opnSense->updateNatOneToOneRule($id, $data);
         }
         if (str_starts_with($ep, 'services/dns_resolver/settings')) {
             try {
@@ -387,6 +423,15 @@ class PfSenseApiService
         }
         if ($ep === 'firewall/category') {
             return $this->opnSense->deleteCategory($data['id'] ?? $data['uuid'] ?? '');
+        }
+        if (str_starts_with($ep, 'firewall/nat/port_forward')) {
+            return $this->opnSense->deleteNatPortForward($data['id'] ?? ($data['uuid'] ?? ''));
+        }
+        if (str_starts_with($ep, 'firewall/nat/outbound/mapping')) {
+            return $this->opnSense->deleteNatOutboundRule($data['id'] ?? ($data['uuid'] ?? ''));
+        }
+        if (str_starts_with($ep, 'firewall/nat/one_to_one/mapping')) {
+            return $this->opnSense->deleteNatOneToOneRule($data['id'] ?? ($data['uuid'] ?? ''));
         }
         if ($ep === 'cron/job' || $ep === 'system/cron/job') {
             return $this->opnSense->deleteCronJob($data['id'] ?? $data['uuid'] ?? '');
@@ -1016,6 +1061,9 @@ class PfSenseApiService
      */
     public function getNatPortForwards()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getNatPortForwards();
+        }
         return $this->get('/firewall/nat/port_forwards');
     }
 
@@ -1024,6 +1072,9 @@ class PfSenseApiService
      */
     public function createNatPortForward(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createNatPortForward($data);
+        }
         $response = $this->post('/firewall/nat/port_forward', $data);
         $this->markSubsystemDirty('filter');
         return $response;
@@ -1032,8 +1083,11 @@ class PfSenseApiService
     /**
      * Update NAT Port Forward
      */
-    public function updateNatPortForward(int $id, array $data)
+    public function updateNatPortForward($id, array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateNatPortForward($id, $data);
+        }
         $data['id'] = $id;
         $response = $this->patch("/firewall/nat/port_forward", $data);
         $this->markSubsystemDirty('filter');
@@ -1043,8 +1097,11 @@ class PfSenseApiService
     /**
      * Delete NAT Port Forward
      */
-    public function deleteNatPortForward(int $id)
+    public function deleteNatPortForward($id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteNatPortForward($id);
+        }
         $response = $this->delete('/firewall/nat/port_forward', ['id' => $id]);
         $this->markSubsystemDirty('filter');
         return $response;
@@ -1055,6 +1112,9 @@ class PfSenseApiService
      */
     public function getNatOutboundRules()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getNatOutboundRules();
+        }
         return $this->get('/firewall/nat/outbound/mappings');
     }
 
@@ -1063,6 +1123,9 @@ class PfSenseApiService
      */
     public function getNatOutboundMode()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getNatOutboundMode();
+        }
         return $this->get('/firewall/nat/outbound/mode');
     }
 
@@ -1071,6 +1134,9 @@ class PfSenseApiService
      */
     public function updateNatOutboundMode(string $mode)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateNatOutboundMode($mode);
+        }
         $response = $this->patch('/firewall/nat/outbound/mode', ['mode' => $mode]);
         $this->markSubsystemDirty('filter');
         return $response;
@@ -1081,6 +1147,9 @@ class PfSenseApiService
      */
     public function createNatOutboundRule(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createNatOutboundRule($data);
+        }
         $response = $this->post('/firewall/nat/outbound/mapping', $data);
         $this->markSubsystemDirty('filter');
         return $response;
@@ -1089,8 +1158,11 @@ class PfSenseApiService
     /**
      * Update NAT Outbound Rule
      */
-    public function updateNatOutboundRule(int $id, array $data)
+    public function updateNatOutboundRule($id, array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateNatOutboundRule($id, $data);
+        }
         $data['id'] = $id;
         $response = $this->patch("/firewall/nat/outbound/mapping", $data);
         $this->markSubsystemDirty('filter');
@@ -1100,8 +1172,11 @@ class PfSenseApiService
     /**
      * Delete NAT Outbound Rule
      */
-    public function deleteNatOutboundRule(int $id)
+    public function deleteNatOutboundRule($id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteNatOutboundRule($id);
+        }
         $response = $this->delete("/firewall/nat/outbound/mapping?id={$id}");
         $this->markSubsystemDirty('filter');
         return $response;
@@ -1112,6 +1187,9 @@ class PfSenseApiService
      */
     public function getNatOneToOneRules()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getNatOneToOneRules();
+        }
         return $this->get('/firewall/nat/one_to_one/mappings');
     }
 
@@ -1120,6 +1198,9 @@ class PfSenseApiService
      */
     public function createNatOneToOneRule(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createNatOneToOneRule($data);
+        }
         $response = $this->post('/firewall/nat/one_to_one/mapping', $data);
         $this->markSubsystemDirty('filter');
         return $response;
@@ -1128,8 +1209,11 @@ class PfSenseApiService
     /**
      * Update NAT 1:1 Rule
      */
-    public function updateNatOneToOneRule(int $id, array $data)
+    public function updateNatOneToOneRule($id, array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateNatOneToOneRule($id, $data);
+        }
         $data['id'] = $id;
         $response = $this->patch("/firewall/nat/one_to_one/mapping", $data);
         $this->markSubsystemDirty('filter');
@@ -1139,8 +1223,11 @@ class PfSenseApiService
     /**
      * Delete NAT 1:1 Rule
      */
-    public function deleteNatOneToOneRule(int $id)
+    public function deleteNatOneToOneRule($id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteNatOneToOneRule($id);
+        }
         $response = $this->delete("/firewall/nat/one_to_one/mapping?id={$id}");
         $this->markSubsystemDirty('filter');
         return $response;
