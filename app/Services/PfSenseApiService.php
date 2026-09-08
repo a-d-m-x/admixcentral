@@ -799,48 +799,75 @@ class PfSenseApiService
     // Routing - Gateways
     public function getRoutingGateways()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getRoutingGateways();
+        }
         return $this->get('/routing/gateways');
     }
 
     public function createRoutingGateway(array $data)
     {
+        if ($this->opnSense) {
+            throw new \Exception("Creating gateways via API is not supported on OPNsense; gateways are managed via interfaces.");
+        }
         return $this->post('/routing/gateway', $data);
     }
 
     public function updateRoutingGateway(array $data)
     {
+        if ($this->opnSense) {
+            throw new \Exception("Updating gateways via API is not supported on OPNsense.");
+        }
         return $this->patch('/routing/gateway', $data);
     }
 
     public function deleteRoutingGateway(string $id)
     {
+        if ($this->opnSense) {
+            throw new \Exception("Deleting gateways via API is not supported on OPNsense.");
+        }
         return $this->delete('/routing/gateway', ['id' => $id]);
     }
 
     // Routing - Static Routes
     public function getRoutingStaticRoutes()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getRoutingStaticRoutes();
+        }
         return $this->get('/routing/static_routes');
     }
 
     public function createRoutingStaticRoute(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createRoutingStaticRoute($data);
+        }
         return $this->post('/routing/static_route', $data);
     }
 
     public function updateRoutingStaticRoute(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateRoutingStaticRoute($data);
+        }
         return $this->patch('/routing/static_route', $data);
     }
 
     public function deleteRoutingStaticRoute(string $id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteRoutingStaticRoute($id);
+        }
         return $this->delete('/routing/static_route', ['id' => $id]);
     }
 
     // Routing - Gateway Groups
     public function getRoutingGatewayGroups()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getRoutingGatewayGroups();
+        }
         return $this->get('/routing/gateway/groups');
     }
 

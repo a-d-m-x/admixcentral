@@ -79,7 +79,7 @@
                     <!-- Gateways Tab -->
                     @if($tab === 'gateways')
                         <x-card-header title="Gateways">
-                            @if(!auth()->user()->isReadOnly())
+                            @if(!auth()->user()->isReadOnly() && $firewall->os_type !== 'opnsense')
                             <x-button-add @click="openGatewayModal()">
                                 Add Gateway
                             </x-button-add>
@@ -101,7 +101,9 @@
                                         <th
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Description</th>
+                                        @if($firewall->os_type !== 'opnsense')
                                         <th class="relative px-6 py-3"><span class="sr-only">Actions</span></th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
@@ -115,7 +117,7 @@
                                                 {{ $gateway['gateway'] }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {{ $gateway['descr'] ?? '' }}</td>
-                                            @if(!auth()->user()->isReadOnly())
+                                            @if(!auth()->user()->isReadOnly() && $firewall->os_type !== 'opnsense')
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <button @click="openGatewayModal({{ json_encode($gateway) }})"
                                                     class="text-indigo-600 hover:text-indigo-900 mr-4">Edit</button>
