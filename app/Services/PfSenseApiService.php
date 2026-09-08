@@ -2187,6 +2187,52 @@ class PfSenseApiService
 
     /*
     |--------------------------------------------------------------------------
+    | Interfaces: Loopback
+    |--------------------------------------------------------------------------
+    */
+
+    public function getLoopbacks()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getLoopbacks();
+        }
+        throw new \Exception('Loopback interfaces are not supported on pfSense.');
+    }
+
+    public function getLoopback($id)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getLoopback($id);
+        }
+        throw new \Exception('Loopback interfaces are not supported on pfSense.');
+    }
+
+    public function createLoopback(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->createLoopback($data);
+        }
+        throw new \Exception('Loopback interfaces are not supported on pfSense.');
+    }
+
+    public function updateLoopback($id, array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateLoopback($id, $data);
+        }
+        throw new \Exception('Loopback interfaces are not supported on pfSense.');
+    }
+
+    public function deleteLoopback($id)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteLoopback($id);
+        }
+        throw new \Exception('Loopback interfaces are not supported on pfSense.');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Diagnostics: Backup/Restore
     |--------------------------------------------------------------------------
     */
