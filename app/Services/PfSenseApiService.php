@@ -1479,16 +1479,22 @@ class PfSenseApiService
     /**
      * Update Virtual IP
      */
-    public function updateVirtualIp(int $id, array $data)
+    public function updateVirtualIp($id, array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateVirtualIp((string) $id, $data);
+        }
         return $this->patch("/firewall/virtual_ip?id={$id}", $data);
     }
 
     /**
      * Delete Virtual IP
      */
-    public function deleteVirtualIp(int $id)
+    public function deleteVirtualIp($id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteVirtualIp((string) $id);
+        }
         return $this->delete("/firewall/virtual_ip", ['id' => $id]);
     }
     /**

@@ -78,7 +78,7 @@ class FirewallVirtualIpController extends Controller
             'subnet' => $validated['subnet'],
             'subnet_bits' => (int) $validated['subnet_bits'],
             'descr' => $validated['descr'] ?? '',
-            'id' => (int) $id,
+            'id' => is_numeric($id) ? (int) $id : (string) $id,
         ];
 
         if ($validated['mode'] === 'carp') {
@@ -88,7 +88,7 @@ class FirewallVirtualIpController extends Controller
 
         try {
             $api = new PfSenseApiService($firewall);
-            $api->updateVirtualIp((int) $id, $data);
+            $api->updateVirtualIp($data['id'], $data);
             $firewall->update(['is_dirty' => true]);
 
             return redirect()->route('firewall.virtual_ips.index', $firewall)
@@ -102,7 +102,8 @@ class FirewallVirtualIpController extends Controller
     {
         try {
             $api = new PfSenseApiService($firewall);
-            $api->deleteVirtualIp((int) $id);
+            $idParam = is_numeric($id) ? (int) $id : (string) $id;
+            $api->deleteVirtualIp($idParam);
             $firewall->update(['is_dirty' => true]);
 
             return redirect()->route('firewall.virtual_ips.index', $firewall)
