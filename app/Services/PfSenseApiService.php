@@ -899,48 +899,75 @@ class PfSenseApiService
     // System - User Manager - Users
     public function getSystemUsers()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getSystemUsers();
+        }
         return $this->get('/users');
     }
 
     public function createSystemUser(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createSystemUser($data);
+        }
         return $this->post('/user', $data);
     }
 
     public function updateSystemUser(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateSystemUser($data);
+        }
         return $this->patch('/user', $data);
     }
 
     public function deleteSystemUser(string $id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteSystemUser($id);
+        }
         return $this->delete('/user', ['id' => $id]);
     }
 
     // System - User Manager - Groups
     public function getSystemGroups()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getSystemGroups();
+        }
         return $this->get('/user/groups');
     }
 
     public function createSystemGroup(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createSystemGroup($data);
+        }
         return $this->post('/user/group', $data);
     }
 
     public function updateSystemGroup(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateSystemGroup($data);
+        }
         return $this->patch('/user/group', $data);
     }
 
     public function deleteSystemGroup(string $id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteSystemGroup($id);
+        }
         return $this->delete('/user/group', ['id' => $id]);
     }
 
     // System - User Manager - Auth Servers
     public function getSystemAuthServers()
     {
+        if ($this->opnSense) {
+            return ['status' => 200, 'data' => []];
+        }
         return $this->get('/user/auth_servers');
     }
 
