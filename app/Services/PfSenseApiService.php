@@ -1435,6 +1435,9 @@ class PfSenseApiService
      */
     public function getIpsecStatus()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getIpsecStatus();
+        }
         return $this->get('/status/ipsec/sas');
     }
 
@@ -1665,6 +1668,9 @@ class PfSenseApiService
      */
     public function getIpsecPhase1s()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getIpsecPhase1s();
+        }
         return $this->get('/vpn/ipsec/phase1s', ['limit' => 0]);
     }
 
@@ -1673,6 +1679,9 @@ class PfSenseApiService
      */
     public function getIpsecPhase2s()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getIpsecPhase2s();
+        }
         return $this->get('/vpn/ipsec/phase2s', ['limit' => 0]);
     }
 
@@ -1681,15 +1690,21 @@ class PfSenseApiService
      */
     public function createIpsecPhase1(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createIpsecPhase1($data);
+        }
         return $this->post('/vpn/ipsec/phase1', $data);
     }
 
     /**
      * Delete IPsec Phase 1
      */
-    public function deleteIpsecPhase1(int $id)
+    public function deleteIpsecPhase1($id)
     {
-        return $this->delete("/vpn/ipsec/phase1", ['ikeid' => $id]);
+        if ($this->opnSense) {
+            return $this->opnSense->deleteIpsecPhase1((string) $id);
+        }
+        return $this->delete("/vpn/ipsec/phase1", ['ikeid' => (int) $id]);
     }
 
     /**
@@ -1697,6 +1712,9 @@ class PfSenseApiService
      */
     public function createIpsecPhase2(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createIpsecPhase2($data);
+        }
         return $this->post('/vpn/ipsec/phase2', $data);
     }
 
@@ -1705,6 +1723,9 @@ class PfSenseApiService
      */
     public function deleteIpsecPhase2(string $id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteIpsecPhase2($id);
+        }
         return $this->delete("/vpn/ipsec/phase2", ['uniqid' => $id]);
     }
 
