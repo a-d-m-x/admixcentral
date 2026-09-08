@@ -89,8 +89,11 @@
                                         <td data-label="Description">{{ $host['descr'] ?? '' }}</td>
                                         @if(!auth()->user()->isReadOnly())
                                         <td data-label="Actions">
-                                            <button class="text-red-600 hover:text-red-900 dark:text-red-400"
-                                                disabled>Delete</button>
+                                            <form action="{{ route('services.dns.host-overrides.destroy', ['firewall' => $firewall, 'id' => $host['id'] ?? ($host['uuid'] ?? $loop->index)]) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this host override?');" class="inline">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:text-red-900 dark:text-red-400 font-medium">Delete</button>
+                                            </form>
                                         </td>
                                         @endif
                                     </tr>

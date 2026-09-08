@@ -1676,6 +1676,9 @@ class PfSenseApiService
      */
     public function getDnsResolver()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getDnsResolver();
+        }
         return $this->get('/services/dns_resolver/settings');
     }
 
@@ -1684,6 +1687,9 @@ class PfSenseApiService
      */
     public function updateDnsResolver(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateDnsResolver($data);
+        }
         return $this->patch('/services/dns_resolver/settings', $data);
     }
 
@@ -1692,6 +1698,9 @@ class PfSenseApiService
      */
     public function getDnsResolverHostOverrides()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getDnsResolverHostOverrides();
+        }
         return $this->get('/services/dns_resolver/host_overrides');
     }
 
@@ -1700,7 +1709,21 @@ class PfSenseApiService
      */
     public function createDnsResolverHostOverride(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createDnsResolverHostOverride($data);
+        }
         return $this->post('/services/dns_resolver/host_override', $data);
+    }
+
+    /**
+     * Delete DNS Resolver Host Override
+     */
+    public function deleteDnsResolverHostOverride(string $id)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteDnsResolverHostOverride($id);
+        }
+        return $this->delete('/services/dns_resolver/host_override', ['id' => $id]);
     }
 
     /**

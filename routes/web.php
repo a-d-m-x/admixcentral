@@ -470,6 +470,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/firewall/{firewall}/services/dns-resolver/host-overrides', [App\Http\Controllers\ServicesDnsResolverController::class, 'storeHostOverride'])
         ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
         ->name('services.dns.host-overrides.store');
+    Route::delete('/firewall/{firewall}/services/dns-resolver/host-overrides/{id}', [App\Http\Controllers\ServicesDnsResolverController::class, 'destroyHostOverride'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.dns.host-overrides.destroy');
 
     // Services - Intrusion Detection (IDS / Suricata - OPNsense)
     Route::get('/firewall/{firewall}/services/ids', [App\Http\Controllers\ServicesIdsController::class, 'index'])

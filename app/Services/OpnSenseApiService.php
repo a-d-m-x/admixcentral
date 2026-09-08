@@ -2494,8 +2494,124 @@ class OpnSenseApiService
         return $this->get('/api/auth/user/searchUser');
     }
 
-    public function getGroups(): array
+    // ─────────────────────────────────────────────────────────────────────────
+    // DNS Resolver (Unbound)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function getDnsResolver(): array
     {
-        return $this->get('/api/auth/group/searchGroup');
+        $unbound = $this->get('/api/unbound/settings/get');
+        $general = $unbound['unbound']['general'] ?? [];
+        $fwd = $unbound['unbound']['forwarding'] ?? [];
+
+        return [
+            'status' => 200,
+            'data' => [
+                'enable' => ($general['enabled'] ?? '0') === '1',
+                'port' => (int) ($general['port'] ?? 53),
+                'dnssec' => ($general['dnssec'] ?? '0') === '1',
+                'forwarding' => ($fwd['enabled'] ?? '0') === '1',
+                'regdhcp' => ($general['regdhcp'] ?? '0') === '1',
+                'regdhcpstatic' => ($general['regdhcpstatic'] ?? '0') === '1',
+            ],
+        ];
+    }
+
+    public function updateDnsResolver(array $data): array
+    {
+        $payload = [
+            'unbound' => [
+                'general' => [
+                    'enabled' => !empty($data['enable']) ? '1' : '0',
+                    'port' => (string) ($data['port'] ?? '53'),
+                    'dnssec' => !empty($data['dnssec']) ? '1' : '0',
+                    'regdhcp' => !empty($data['regdhcp']) ? '1' : '0',
+                    'regdhcpstatic' => !empty($data['regdhcpstatic']) ? '1' : '0',
+                ],
+                'forwarding' => [
+                    'enabled' => !empty($data['forwarding']) ? '1' : '0',
+                ],
+            ]
+        ];
+
+        $res = $this->post('/api/unbound/settings/set', $payload);
+        try {
+            $this->post('/api/unbound/service/reconfigure');
+        } catch (\Throwable $e) {}
+
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function getDnsResolverHostOverrides(): array
+    {
+        $res = $this->post('/api/unbound/settings/searchHostOverride', ['rowCount' => -1, 'current' => 1]);
+        $rows = $res['rows'] ?? [];
+
+        $hosts = [];
+        foreach ($rows as $row) {
+            $hosts[] = [
+                'id' => $row['uuid'] ?? '',
+                'uuid' => $row['uuid'] ?? '',
+                'host' => $row['hostname'] ?? '',
+                'hostname' => $row['hostname'] ?? '',
+                'domain' => $row['domain'] ?? '',
+                'ip' => $row['server'] ?? '',
+                'server' => $row['server'] ?? '',
+                'descr' => $row['description'] ?? '',
+                'description' => $row['description'] ?? '',
+                'enabled' => !empty($row['enabled']) && (string) $row['enabled'] !== '0',
+            ];
+        }
+
+        return [
+            'status' => 200,
+            'data' => $hosts,
+        ];
+    }
+
+    public function createDnsResolverHostOverride(array $data): array
+    {
+        $ip = $data['ip'] ?? '';
+        $isIpv6 = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+
+        $payload = [
+            'host' => [
+                'enabled' => empty($data['disabled']) ? '1' : '0',
+                'hostname' => $data['host'] ?? ($data['hostname'] ?? ''),
+                'domain' => $data['domain'] ?? '',
+                'rr' => $data['rr'] ?? ($isIpv6 ? 'AAAA' : 'A'),
+                'server' => $ip,
+                'description' => $data['descr'] ?? ($data['description'] ?? ''),
+            ]
+        ];
+
+        $res = $this->post('/api/unbound/settings/addHostOverride', $payload);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to create host override in OPNsense');
+        }
+
+        try {
+            $this->post('/api/unbound/service/reconfigure');
+        } catch (\Throwable $e) {}
+
+        return [
+            'status' => 200,
+            'data' => $res,
+            'uuid' => $res['uuid'] ?? null,
+        ];
+    }
+
+    public function deleteDnsResolverHostOverride(string $id): array
+    {
+        $res = $this->post("/api/unbound/settings/delHostOverride/{$id}");
+        try {
+            $this->post('/api/unbound/service/reconfigure');
+        } catch (\Throwable $e) {}
+
+        return ['status' => 200, 'data' => $res];
     }
 }
