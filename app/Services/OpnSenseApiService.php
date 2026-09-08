@@ -933,6 +933,16 @@ class OpnSenseApiService
     {
         $payload = $this->buildDnatPayload($data);
         $res = $this->post('/api/firewall/d_nat/addRule', $payload);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to create port forward rule in OPNsense');
+        }
+
+        try { $this->post('/api/firewall/d_nat/apply'); } catch (\Throwable $e) {}
+
         return [
             'status' => 200,
             'data' => $res,
@@ -978,11 +988,21 @@ class OpnSenseApiService
                 ]
             ];
             $res = $this->post("/api/firewall/d_nat/setRule/{$uuid}", $payload);
+            try { $this->post('/api/firewall/d_nat/apply'); } catch (\Throwable $e) {}
             return ['status' => 200, 'data' => $res];
         }
 
         $payload = $this->buildDnatPayload($data);
         $res = $this->post("/api/firewall/d_nat/setRule/{$uuid}", $payload);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to update port forward rule in OPNsense');
+        }
+
+        try { $this->post('/api/firewall/d_nat/apply'); } catch (\Throwable $e) {}
         return ['status' => 200, 'data' => $res];
     }
 
@@ -997,6 +1017,7 @@ class OpnSenseApiService
         }
 
         $res = $this->post("/api/firewall/d_nat/delRule/{$uuid}");
+        try { $this->post('/api/firewall/d_nat/apply'); } catch (\Throwable $e) {}
         return ['status' => 200, 'data' => $res];
     }
 
@@ -1011,6 +1032,7 @@ class OpnSenseApiService
         }
 
         $res = $this->post("/api/firewall/d_nat/toggleRule/{$uuid}");
+        try { $this->post('/api/firewall/d_nat/apply'); } catch (\Throwable $e) {}
         return ['status' => 200, 'data' => $res];
     }
 
@@ -1023,8 +1045,11 @@ class OpnSenseApiService
             $src = substr($src, 1);
         }
         $srcNet = is_array($src) ? ($src['network'] ?? ($src['address'] ?? 'any')) : $src;
+        if (preg_match('/^([a-zA-Z0-9_-]+):ip$/i', $srcNet, $m)) {
+            $srcNet = strtolower($m[1]) . 'ip';
+        }
         $srcPort = is_array($src) ? ($src['port'] ?? '') : ($data['srcport'] ?? ($data['source_port'] ?? ''));
-        if ($srcPort === 'any') $srcPort = '';
+        if ($srcPort === 'any' || $srcPort === '*') $srcPort = '';
 
         $iface = strtolower($data['interface'] ?? 'wan');
         $dst = $data['destination'] ?? 'wanip';
@@ -1034,7 +1059,9 @@ class OpnSenseApiService
             $dst = substr($dst, 1);
         }
         $dstNet = is_array($dst) ? ($dst['network'] ?? ($dst['address'] ?? 'wanip')) : $dst;
-        if ($dstNet === '(self)' || $dstNet === $iface) {
+        if (preg_match('/^([a-zA-Z0-9_-]+):ip$/i', $dstNet, $m)) {
+            $dstNet = strtolower($m[1]) . 'ip';
+        } elseif ($dstNet === '(self)' || $dstNet === $iface) {
             $dstNet = $iface . 'ip';
         } elseif ($dstNet === 'wan') {
             $dstNet = 'wanip';
@@ -1042,6 +1069,7 @@ class OpnSenseApiService
             $dstNet = 'lanip';
         }
         $dstPort = is_array($dst) ? ($dst['port'] ?? '') : ($data['dstport'] ?? ($data['destination_port'] ?? ''));
+        if ($dstPort === 'any' || $dstPort === '*') $dstPort = '';
 
         $natref = $data['natreflection'] ?? '';
         if ($natref === 'enable' || $natref === 'purenat') {
@@ -1162,6 +1190,19 @@ class OpnSenseApiService
         ];
     }
 
+    protected function normalizeNetValue(mixed $val, string $default = 'any'): string
+    {
+        if (empty($val)) return $default;
+        if (is_array($val)) {
+            $val = $val['network'] ?? ($val['address'] ?? $default);
+        }
+        $val = (string) $val;
+        if (preg_match('/^([a-zA-Z0-9_-]+):ip$/i', $val, $m)) {
+            return strtolower($m[1]) . 'ip';
+        }
+        return $val;
+    }
+
     public function createNatOutboundRule(array $data): array
     {
         $payload = [
@@ -1171,17 +1212,27 @@ class OpnSenseApiService
                 'interface' => strtolower($data['interface'] ?? 'wan'),
                 'ipprotocol' => $data['ipprotocol'] ?? 'inet',
                 'protocol' => ($data['protocol'] ?? 'any') === 'any' ? '' : $data['protocol'],
-                'source_net' => $data['source'] ?? 'any',
-                'source_port' => $data['source_port'] ?? '',
-                'destination_net' => $data['destination'] ?? 'any',
-                'destination_port' => $data['destination_port'] ?? '',
-                'target' => $data['target'] ?? 'wanip',
-                'target_port' => $data['target_port'] ?? '',
+                'source_net' => $this->normalizeNetValue($data['source'] ?? 'any'),
+                'source_port' => ($data['source_port'] ?? '') === '*' ? '' : ($data['source_port'] ?? ''),
+                'destination_net' => $this->normalizeNetValue($data['destination'] ?? 'any'),
+                'destination_port' => ($data['destination_port'] ?? '') === '*' ? '' : ($data['destination_port'] ?? ''),
+                'target' => $this->normalizeNetValue($data['target'] ?? 'wanip', 'wanip'),
+                'target_port' => ($data['target_port'] ?? '') === '*' ? '' : ($data['target_port'] ?? ''),
                 'staticnatport' => !empty($data['staticnatport']) ? '1' : '0',
                 'description' => $data['descr'] ?? '',
             ]
         ];
         $res = $this->post('/api/firewall/source_nat/addRule', $payload);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to create outbound NAT rule in OPNsense');
+        }
+
+        try { $this->post('/api/firewall/source_nat/apply'); } catch (\Throwable $e) {}
+
         return [
             'status' => 200,
             'data' => $res,
@@ -1219,6 +1270,7 @@ class OpnSenseApiService
                 ]
             ];
             $res = $this->post("/api/firewall/source_nat/setRule/{$uuid}", $payload);
+            try { $this->post('/api/firewall/source_nat/apply'); } catch (\Throwable $e) {}
             return ['status' => 200, 'data' => $res];
         }
 
@@ -1229,17 +1281,26 @@ class OpnSenseApiService
                 'interface' => strtolower($data['interface'] ?? 'wan'),
                 'ipprotocol' => $data['ipprotocol'] ?? 'inet',
                 'protocol' => ($data['protocol'] ?? 'any') === 'any' ? '' : $data['protocol'],
-                'source_net' => $data['source'] ?? 'any',
-                'source_port' => $data['source_port'] ?? '',
-                'destination_net' => $data['destination'] ?? 'any',
-                'destination_port' => $data['destination_port'] ?? '',
-                'target' => $data['target'] ?? '',
-                'target_port' => $data['target_port'] ?? '',
+                'source_net' => $this->normalizeNetValue($data['source'] ?? 'any'),
+                'source_port' => ($data['source_port'] ?? '') === '*' ? '' : ($data['source_port'] ?? ''),
+                'destination_net' => $this->normalizeNetValue($data['destination'] ?? 'any'),
+                'destination_port' => ($data['destination_port'] ?? '') === '*' ? '' : ($data['destination_port'] ?? ''),
+                'target' => $this->normalizeNetValue($data['target'] ?? '', ''),
+                'target_port' => ($data['target_port'] ?? '') === '*' ? '' : ($data['target_port'] ?? ''),
                 'staticnatport' => !empty($data['staticnatport']) ? '1' : '0',
                 'description' => $data['descr'] ?? '',
             ]
         ];
         $res = $this->post("/api/firewall/source_nat/setRule/{$uuid}", $payload);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to update outbound NAT rule in OPNsense');
+        }
+
+        try { $this->post('/api/firewall/source_nat/apply'); } catch (\Throwable $e) {}
         return ['status' => 200, 'data' => $res];
     }
 
@@ -1254,6 +1315,7 @@ class OpnSenseApiService
         }
 
         $res = $this->post("/api/firewall/source_nat/delRule/{$uuid}");
+        try { $this->post('/api/firewall/source_nat/apply'); } catch (\Throwable $e) {}
         return ['status' => 200, 'data' => $res];
     }
 
@@ -1268,6 +1330,7 @@ class OpnSenseApiService
         }
 
         $res = $this->post("/api/firewall/source_nat/toggleRule/{$uuid}");
+        try { $this->post('/api/firewall/source_nat/apply'); } catch (\Throwable $e) {}
         return ['status' => 200, 'data' => $res];
     }
 
@@ -1307,14 +1370,24 @@ class OpnSenseApiService
                 'enabled' => empty($data['disabled']) ? '1' : '0',
                 'interface' => strtolower($data['interface'] ?? 'wan'),
                 'type' => 'binat',
-                'external' => $data['external'] ?? '',
-                'source_net' => $data['source'] ?? 'any',
-                'destination_net' => $data['destination'] ?? 'any',
+                'external' => $this->normalizeNetValue($data['external'] ?? '', ''),
+                'source_net' => $this->normalizeNetValue($data['source'] ?? 'any'),
+                'destination_net' => $this->normalizeNetValue($data['destination'] ?? 'any'),
                 'description' => $data['descr'] ?? '',
                 'natreflection' => $data['natreflection'] ?? '',
             ]
         ];
         $res = $this->post('/api/firewall/one_to_one/addRule', $payload);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to create 1:1 NAT rule in OPNsense');
+        }
+
+        try { $this->post('/api/firewall/one_to_one/apply'); } catch (\Throwable $e) {}
+
         return [
             'status' => 200,
             'data' => $res,
@@ -1347,6 +1420,7 @@ class OpnSenseApiService
                 ]
             ];
             $res = $this->post("/api/firewall/one_to_one/setRule/{$uuid}", $payload);
+            try { $this->post('/api/firewall/one_to_one/apply'); } catch (\Throwable $e) {}
             return ['status' => 200, 'data' => $res];
         }
 
@@ -1355,14 +1429,23 @@ class OpnSenseApiService
                 'enabled' => empty($data['disabled']) ? '1' : '0',
                 'interface' => strtolower($data['interface'] ?? 'wan'),
                 'type' => 'binat',
-                'external' => $data['external'] ?? '',
-                'source_net' => $data['source'] ?? 'any',
-                'destination_net' => $data['destination'] ?? 'any',
+                'external' => $this->normalizeNetValue($data['external'] ?? '', ''),
+                'source_net' => $this->normalizeNetValue($data['source'] ?? 'any'),
+                'destination_net' => $this->normalizeNetValue($data['destination'] ?? 'any'),
                 'description' => $data['descr'] ?? '',
                 'natreflection' => $data['natreflection'] ?? '',
             ]
         ];
         $res = $this->post("/api/firewall/one_to_one/setRule/{$uuid}", $payload);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to update 1:1 NAT rule in OPNsense');
+        }
+
+        try { $this->post('/api/firewall/one_to_one/apply'); } catch (\Throwable $e) {}
         return ['status' => 200, 'data' => $res];
     }
 
@@ -1377,6 +1460,7 @@ class OpnSenseApiService
         }
 
         $res = $this->post("/api/firewall/one_to_one/delRule/{$uuid}");
+        try { $this->post('/api/firewall/one_to_one/apply'); } catch (\Throwable $e) {}
         return ['status' => 200, 'data' => $res];
     }
 
@@ -1391,6 +1475,7 @@ class OpnSenseApiService
         }
 
         $res = $this->post("/api/firewall/one_to_one/toggleRule/{$uuid}");
+        try { $this->post('/api/firewall/one_to_one/apply'); } catch (\Throwable $e) {}
         return ['status' => 200, 'data' => $res];
     }
 
