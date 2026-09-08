@@ -284,8 +284,11 @@ class PfSenseApiService
         if ($ep === 'firewall/rule') {
             return $this->opnSense->createFirewallRule($data);
         }
-        if ($ep === 'firewall/apply') {
+        if ($ep === 'firewall/apply' || $ep === 'apply') {
             return $this->opnSense->applyChanges();
+        }
+        if (str_starts_with($ep, 'diagnostics/command_prompt')) {
+            return ['status' => 200, 'data' => ['output' => 'Command prompt not supported on OPNsense via API.']];
         }
         if ($ep === 'firewall/category') {
             return $this->opnSense->createCategory($data);
@@ -684,6 +687,10 @@ class PfSenseApiService
 
     public function getDirtyState()
     {
+        if ($this->opnSense) {
+            return false;
+        }
+
         // List all files in /tmp and check for known dirty markers
         // List all files in /tmp and /var/run (pfSense uses /var/run for most dirty flags)
         $response = $this->diagnosticsCommandPrompt('ls -1 /tmp /var/run');
@@ -719,6 +726,10 @@ class PfSenseApiService
 
     public function markSubsystemDirty(string $subsystem)
     {
+        if ($this->opnSense) {
+            return ['status' => 200, 'message' => 'Subsystem marked dirty'];
+        }
+
         // H01: Allowlist validation — prevent shell injection via $subsystem interpolation
         $allowed = ['filter', 'sysctl', 'interfaces', 'vip', 'config'];
         if (!in_array($subsystem, $allowed, true)) {
@@ -736,6 +747,10 @@ class PfSenseApiService
      */
     public function applySubsystemChanges(string $subsystem)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->applyChanges();
+        }
+
         $command = "";
 
         switch ($subsystem) {
@@ -1045,6 +1060,9 @@ class PfSenseApiService
 
     public function applyChanges()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->applyChanges();
+        }
         return $this->applySubsystemChanges('filter');
     }
 
@@ -1647,6 +1665,9 @@ class PfSenseApiService
      */
     public function commandPrompt(string $command)
     {
+        if ($this->opnSense) {
+            return ['status' => 200, 'data' => ['output' => 'Command prompt is not supported on OPNsense via API.']];
+        }
         return $this->post('/diagnostics/command_prompt', ['command' => $command]);
     }
 
@@ -1867,6 +1888,9 @@ class PfSenseApiService
      */
     public function diagnosticsCommandPrompt(string $command)
     {
+        if ($this->opnSense) {
+            return ['status' => 200, 'data' => ['output' => 'Command prompt is not supported on OPNsense via API.']];
+        }
         return $this->post('/diagnostics/command_prompt', ['command' => $command]);
     }
 
@@ -2241,6 +2265,16 @@ class PfSenseApiService
      */
     public function getApiVersion()
     {
+        if ($this->opnSense) {
+            $info = $this->opnSense->getSystemInformation();
+            return [
+                'status' => 200,
+                'data' => [
+                    'output' => $info['data']['product_version'] ?? 'OPNsense',
+                ],
+            ];
+        }
+
         // pkg info -E pfSense-pkg-RESTAPI returns "pfSense-pkg-RESTAPI-1.0.0" (example)
         // or -v for just version if supported, but simple info is safer.
         // pkg query %v pfSense-pkg-RESTAPI is best for just version.
