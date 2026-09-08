@@ -1,6 +1,6 @@
 <x-app-layout :firewall="$firewall">
     <x-slot name="header">
-        <x-firewall-header title="{{ __('Firewall NAT: Outbound') }}" :firewall="$firewall" />
+        <x-firewall-header title="{{ $firewall->isOpnSense() ? __('Firewall NAT: Outbound (SNAT)') : __('Firewall NAT: Outbound') }}" :firewall="$firewall" />
     </x-slot>
 
     <div class="py-12" x-data="{
@@ -274,7 +274,7 @@
 
                         <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                             <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100"
-                                x-text="isEdit ? 'Edit Outbound NAT Mapping' : 'Add Outbound NAT Mapping'"></h3>
+                                x-text="isEdit ? 'Edit {{ $firewall->isOpnSense() ? 'Source NAT (Outbound)' : 'Outbound NAT' }} Mapping' : 'Add {{ $firewall->isOpnSense() ? 'Source NAT (Outbound)' : 'Outbound NAT' }} Mapping'"></h3>
 
                             <div class="mt-4 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                                 {{-- Disabled --}}
