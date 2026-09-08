@@ -51,10 +51,23 @@ class DiagnosticsController extends Controller
         if ($request->isMethod('post')) {
             $request->validate(['host' => ['required', 'string', 'regex:/^[a-zA-Z0-9.:\-_]+$/']]);
             $api = new \App\Services\PfSenseApiService($firewall);
+            $hostInput = trim($request->input('host'));
             try {
-                $host = escapeshellarg($request->input('host'));
-                $response = $api->commandPrompt("host -- " . $host);
-                $output = $response['data']['output'] ?? [];
+                if ($firewall->isOpnSense() && filter_var($hostInput, FILTER_VALIDATE_IP)) {
+                    $rev = $api->reverseDnsLookup($hostInput);
+                    if (!empty($rev[$hostInput])) {
+                        $output = [
+                            "Reverse DNS lookup for {$hostInput}:",
+                            "{$hostInput} resolves to {$rev[$hostInput]}"
+                        ];
+                    } else {
+                        $output = ["No reverse DNS pointer record found for {$hostInput}."];
+                    }
+                } else {
+                    $host = escapeshellarg($hostInput);
+                    $response = $api->commandPrompt("host -- " . $host);
+                    $output = $response['data']['output'] ?? [];
+                }
             } catch (\Exception $e) {
                 $output = ['error' => $e->getMessage()];
             }

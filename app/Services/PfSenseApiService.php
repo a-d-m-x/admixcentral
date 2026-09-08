@@ -2261,6 +2261,17 @@ class PfSenseApiService
         throw new \Exception('VXLAN interfaces are not supported on pfSense.');
     }
 
+    public function reverseDnsLookup(string $address): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->reverseDnsLookup($address);
+        }
+        $cmd = 'host -- ' . escapeshellarg($address);
+        $res = $this->commandPrompt($cmd);
+        $output = $res['data']['output'] ?? [];
+        return is_array($output) ? $output : [$output];
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Diagnostics: Backup/Restore
