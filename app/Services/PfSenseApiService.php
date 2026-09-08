@@ -2996,4 +2996,186 @@ class PfSenseApiService
         }
         return ['status' => 200, 'data' => []];
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Services: Monit System & Service Monitoring
+    |--------------------------------------------------------------------------
+    */
+    public function getMonitStatus()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitStatus();
+        }
+        return ['status' => 'disabled'];
+    }
+
+    public function getMonitServiceStatus()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitServiceStatus();
+        }
+        return ['status' => 'disabled'];
+    }
+
+    public function startMonitService()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->startMonitService();
+        }
+        return ['result' => 'ok'];
+    }
+
+    public function stopMonitService()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->stopMonitService();
+        }
+        return ['result' => 'ok'];
+    }
+
+    public function restartMonitService()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->restartMonitService();
+        }
+        return ['result' => 'ok'];
+    }
+
+    public function reconfigureMonitService()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->reconfigureMonitService();
+        }
+        return ['status' => 'ok'];
+    }
+
+    public function getMonitSettings()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitSettings();
+        }
+        return [];
+    }
+
+    public function updateMonitSettings(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateMonitSettings($data);
+        }
+        return ['result' => 'saved'];
+    }
+
+    public function getMonitServices()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitServices();
+        }
+        return ['status' => 200, 'data' => [], 'total' => 0];
+    }
+
+    public function getMonitService(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitService($uuid);
+        }
+        return [];
+    }
+
+    public function createMonitService(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->createMonitService($data);
+        }
+        return ['result' => 'saved'];
+    }
+
+    public function updateMonitService(string $uuid, array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateMonitService($uuid, $data);
+        }
+        return ['result' => 'saved'];
+    }
+
+    public function deleteMonitService(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteMonitService($uuid);
+        }
+        return ['result' => 'deleted'];
+    }
+
+    public function toggleMonitService(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->toggleMonitService($uuid);
+        }
+        return ['result' => 'ok'];
+    }
+
+    public function getMonitAlerts()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitAlerts();
+        }
+        return ['status' => 200, 'data' => [], 'total' => 0];
+    }
+
+    public function getMonitAlert(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitAlert($uuid);
+        }
+        return [];
+    }
+
+    public function createMonitAlert(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->createMonitAlert($data);
+        }
+        return ['result' => 'saved'];
+    }
+
+    public function updateMonitAlert(string $uuid, array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateMonitAlert($uuid, $data);
+        }
+        return ['result' => 'saved'];
+    }
+
+    public function deleteMonitAlert(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteMonitAlert($uuid);
+        }
+        return ['result' => 'deleted'];
+    }
+
+    public function toggleMonitAlert(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->toggleMonitAlert($uuid);
+        }
+        return ['result' => 'ok'];
+    }
+
+    public function getMonitTests()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitTests();
+        }
+        return ['status' => 200, 'data' => [], 'total' => 0];
+    }
+
+    public function getMonitTest(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitTest($uuid);
+        }
+        return [];
+    }
 }
+

@@ -505,6 +505,27 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/firewall/{firewall}/services/monit/service/{action}', [App\Http\Controllers\ServicesMonitController::class, 'serviceAction'])
         ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
         ->name('services.monit.action');
+    Route::post('/firewall/{firewall}/services/monit/settings', [App\Http\Controllers\ServicesMonitController::class, 'updateSettings'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.monit.settings.update');
+    Route::post('/firewall/{firewall}/services/monit/services', [App\Http\Controllers\ServicesMonitController::class, 'storeService'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.monit.services.store');
+    Route::post('/firewall/{firewall}/services/monit/services/{uuid}/toggle', [App\Http\Controllers\ServicesMonitController::class, 'toggleService'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.monit.services.toggle');
+    Route::delete('/firewall/{firewall}/services/monit/services/{uuid}', [App\Http\Controllers\ServicesMonitController::class, 'destroyService'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.monit.services.destroy');
+    Route::post('/firewall/{firewall}/services/monit/alerts', [App\Http\Controllers\ServicesMonitController::class, 'storeAlert'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.monit.alerts.store');
+    Route::post('/firewall/{firewall}/services/monit/alerts/{uuid}/toggle', [App\Http\Controllers\ServicesMonitController::class, 'toggleAlert'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.monit.alerts.toggle');
+    Route::delete('/firewall/{firewall}/services/monit/alerts/{uuid}', [App\Http\Controllers\ServicesMonitController::class, 'destroyAlert'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.monit.alerts.destroy');
 
 
 
