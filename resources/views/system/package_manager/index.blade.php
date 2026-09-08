@@ -58,9 +58,16 @@
                                 @forelse($data['packages'] as $pkg)
                                     <tr>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                                            {{ $pkg['name'] ?? 'Unknown' }}
+                                            <div class="flex items-center space-x-2">
+                                                <span>{{ $pkg['name'] ?? 'Unknown' }}</span>
+                                                @if(!empty($pkg['locked']))
+                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200">
+                                                        Locked
+                                                    </span>
+                                                @endif
+                                            </div>
                                             @if(!empty($pkg['shortname']))
-                                                <br><span class="text-xs text-gray-500 dark:text-gray-400">({{ $pkg['shortname'] }})</span>
+                                                <span class="text-xs text-gray-500 dark:text-gray-400">({{ $pkg['shortname'] }})</span>
                                             @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -72,8 +79,29 @@
                                         <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate"
                                             title="{{ $pkg['descr'] ?? '' }}">{{ $pkg['descr'] ?? '-' }}</td>
                                         @if(!auth()->user()->isReadOnly())
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
                                             @if($tab === 'installed')
+                                                @if($firewall->isOpnSense())
+                                                    @if(!empty($pkg['locked']))
+                                                        <form action="{{ route('system.package_manager.unlock', $firewall) }}" method="POST" class="inline-block">
+                                                            @csrf
+                                                            <input type="hidden" name="name" value="{{ $pkg['name'] ?? '' }}">
+                                                            <button type="submit" class="text-amber-600 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-300">Unlock</button>
+                                                        </form>
+                                                    @else
+                                                        <form action="{{ route('system.package_manager.lock', $firewall) }}" method="POST" class="inline-block">
+                                                            @csrf
+                                                            <input type="hidden" name="name" value="{{ $pkg['name'] ?? '' }}">
+                                                            <button type="submit" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300">Lock</button>
+                                                        </form>
+                                                    @endif
+                                                    <form action="{{ route('system.package_manager.reinstall', $firewall) }}" method="POST" class="inline-block"
+                                                        onsubmit="return confirm('Are you sure you want to reinstall {{ $pkg['name'] ?? 'this package' }}?');">
+                                                        @csrf
+                                                        <input type="hidden" name="name" value="{{ $pkg['name'] ?? '' }}">
+                                                        <button type="submit" class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">Reinstall</button>
+                                                    </form>
+                                                @endif
                                                 <form action="{{ route('system.package_manager.uninstall', $firewall) }}"
                                                     method="POST" class="inline-block"
                                                     onsubmit="return confirm('Are you sure you want to uninstall {{ $pkg['name'] ?? 'this package' }}?');">

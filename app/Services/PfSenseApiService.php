@@ -191,6 +191,23 @@ class PfSenseApiService
                 return ['status' => 200, 'data' => []];
             }
         }
+        if ($ep === 'system/package/available') {
+            $info = $this->opnSense->getFirmwareInfo();
+            $available = [];
+            foreach (array_merge($info['plugin'] ?? [], $info['package'] ?? []) as $pkg) {
+                if (empty($pkg['installed']) || (string)$pkg['installed'] === '0') {
+                    $available[] = [
+                        'name' => $pkg['name'] ?? '',
+                        'version' => $pkg['version'] ?? '',
+                        'descr' => $pkg['comment'] ?? ($pkg['descr'] ?? ''),
+                        'installed' => false,
+                        'locked' => !empty($pkg['locked']) && (string)$pkg['locked'] === '1',
+                        'repository' => $pkg['repository'] ?? '',
+                    ];
+                }
+            }
+            return ['status' => 200, 'data' => $available];
+        }
         if (str_starts_with($ep, 'system/packages') || str_starts_with($ep, 'system/package')) {
             $info = $this->opnSense->getFirmwareInfo();
             $installed = [];
@@ -201,6 +218,8 @@ class PfSenseApiService
                         'version' => $pkg['version'] ?? '',
                         'descr' => $pkg['comment'] ?? ($pkg['descr'] ?? ''),
                         'installed' => true,
+                        'locked' => !empty($pkg['locked']) && (string)$pkg['locked'] === '1',
+                        'repository' => $pkg['repository'] ?? '',
                     ];
                 }
             }
@@ -899,12 +918,100 @@ class PfSenseApiService
 
     public function installSystemPackage(string $name)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->installPackage($name);
+        }
         return $this->post('/system/package', ['name' => $name]);
     }
 
-    public function uninstallSystemPackage(int $id)
+    public function uninstallSystemPackage($id, ?string $name = null)
     {
+        if ($this->opnSense) {
+            $pkgName = $name ?: (string)$id;
+            return $this->opnSense->removePackage($pkgName);
+        }
         return $this->delete('/system/package', ['id' => $id]);
+    }
+
+    public function reinstallSystemPackage(string $name)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->reinstallPackage($name);
+        }
+        return ['status' => 400, 'message' => 'Not supported on pfSense'];
+    }
+
+    public function lockSystemPackage(string $name)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->lockPackage($name);
+        }
+        return ['status' => 400, 'message' => 'Not supported on pfSense'];
+    }
+
+    public function unlockSystemPackage(string $name)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->unlockPackage($name);
+        }
+        return ['status' => 400, 'message' => 'Not supported on pfSense'];
+    }
+
+    // System - Firmware & Updates
+    public function getFirmwareStatus(): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getFirmwareStatus();
+        }
+        return [];
+    }
+
+    public function getFirmwareInfo(): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getFirmwareInfo();
+        }
+        return [];
+    }
+
+    public function getFirmwareUpgradeStatus(): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getFirmwareUpgradeStatus();
+        }
+        return ['status' => 'done', 'log' => ''];
+    }
+
+    public function checkFirmwareUpdates(): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->checkFirmwareUpdates();
+        }
+        return ['status' => 'error', 'message' => 'Not supported on pfSense'];
+    }
+
+    public function upgradeFirmware(): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->upgradeFirmware();
+        }
+        return ['status' => 'error', 'message' => 'Not supported on pfSense'];
+    }
+
+    public function auditFirmware(): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->auditFirmware();
+        }
+        return ['status' => 'error', 'message' => 'Not supported on pfSense'];
+    }
+
+    public function getFirmwareChangelog(string $version): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getFirmwareChangelog($version);
+        }
+        return [];
     }
 
     // System - User Manager - Users

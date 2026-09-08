@@ -375,17 +375,19 @@ class SystemController extends Controller
         $api = new \App\Services\PfSenseApiService($firewall);
         $version = [];
         $firmwareStatus = [];
+        $upgradeStatus = [];
 
         try {
             $version = $api->getSystemVersion()['data'] ?? [];
             if ($firewall->isOpnSense()) {
                 $firmwareStatus = $api->getFirmwareStatus();
+                $upgradeStatus = $api->getFirmwareUpgradeStatus();
             }
         } catch (\Exception $e) {
             // Log error
         }
 
-        return view('system.update', compact('firewall', 'version', 'firmwareStatus'));
+        return view('system.update', compact('firewall', 'version', 'firmwareStatus', 'upgradeStatus'));
     }
 
     public function checkFirmware(Firewall $firewall)
@@ -396,6 +398,39 @@ class SystemController extends Controller
             return back()->with('success', 'Firmware update check initiated: ' . ($res['status'] ?? 'ok'));
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to check firmware updates: ' . $e->getMessage());
+        }
+    }
+
+    public function auditFirmware(Firewall $firewall)
+    {
+        try {
+            $api = new \App\Services\PfSenseApiService($firewall);
+            $res = $api->auditFirmware();
+            return back()->with('success', 'Security audit initiated: ' . ($res['status'] ?? 'ok'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to initiate security audit: ' . $e->getMessage());
+        }
+    }
+
+    public function upgradeFirmware(Firewall $firewall)
+    {
+        try {
+            $api = new \App\Services\PfSenseApiService($firewall);
+            $res = $api->upgradeFirmware();
+            return back()->with('success', 'Firmware upgrade initiated: ' . ($res['status'] ?? 'ok'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to initiate firmware upgrade: ' . $e->getMessage());
+        }
+    }
+
+    public function getFirmwareStatusJson(Firewall $firewall)
+    {
+        try {
+            $api = new \App\Services\PfSenseApiService($firewall);
+            $status = $api->getFirmwareUpgradeStatus();
+            return response()->json($status);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'log' => $e->getMessage()], 500);
         }
     }
 
