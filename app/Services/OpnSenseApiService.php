@@ -461,8 +461,8 @@ class OpnSenseApiService
                 'srcip' => $addr,
                 'status' => strtolower($item['status_translated'] ?? ($item['status'] === 'none' ? 'Online' : 'Offline')),
                 'loss' => $lossNum,
-                'delay' => $item['delay'] === '~' ? '0.0ms' : ($item['delay'] ?? '0.0ms'),
-                'stddev' => $item['stddev'] === '~' ? '0.0ms' : ($item['stddev'] ?? '0.0ms'),
+                'delay' => (!empty($item['delay']) && $item['delay'] !== '~') ? $item['delay'] : '0.0ms',
+                'stddev' => (!empty($item['stddev']) && $item['stddev'] !== '~') ? $item['stddev'] : '0.0ms',
                 'descr' => $item['descr'] ?? ($item['name'] ?? 'Gateway'),
             ];
         }
@@ -3199,6 +3199,94 @@ class OpnSenseApiService
 
         $res = $this->post("/api/auth/group/del/{$id}", []);
         return ['status' => 200, 'data' => $res];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | System: Routing & Static Routes
+    |--------------------------------------------------------------------------
+    */
+
+    public function getRoutingStaticRoutes(): array
+    {
+        $res = $this->post('/api/routes/routes/searchroute', [
+            'current' => 1,
+            'rowCount' => -1,
+        ]);
+        $rows = $res['rows'] ?? [];
+        $routes = [];
+        foreach ($rows as $row) {
+            $routes[] = [
+                'id' => $row['uuid'],
+                'uuid' => $row['uuid'],
+                'network' => $row['network'] ?? '',
+                'gateway' => $row['gateway'] ?? '',
+                'descr' => $row['descr'] ?? '',
+                'disabled' => empty($row['enabled']) || $row['enabled'] === '0',
+            ];
+        }
+        return ['status' => 200, 'data' => $routes];
+    }
+
+    public function getRoutingStaticRoute(string $id): array
+    {
+        $res = $this->get("/api/routes/routes/getroute/{$id}");
+        return ['status' => 200, 'data' => $res['route'] ?? []];
+    }
+
+    public function createRoutingStaticRoute(array $data): array
+    {
+        $payload = [
+            'network' => $data['network'] ?? '',
+            'gateway' => $data['gateway'] ?? '',
+            'descr' => $data['descr'] ?? '',
+            'disabled' => !empty($data['disabled']) ? '1' : '0',
+        ];
+
+        $res = $this->post('/api/routes/routes/addroute', ['route' => $payload]);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to create static route on OPNsense: {$validation}");
+        }
+
+        $this->post('/api/routes/routes/reconfigure', []);
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function updateRoutingStaticRoute(array $data): array
+    {
+        $id = $data['id'] ?? $data['uuid'] ?? null;
+        if (!$id) {
+            throw new \Exception("Static route ID is required for update.");
+        }
+
+        $payload = [
+            'network' => $data['network'] ?? '',
+            'gateway' => $data['gateway'] ?? '',
+            'descr' => $data['descr'] ?? '',
+            'disabled' => !empty($data['disabled']) ? '1' : '0',
+        ];
+
+        $res = $this->post("/api/routes/routes/setroute/{$id}", ['route' => $payload]);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to update static route on OPNsense: {$validation}");
+        }
+
+        $this->post('/api/routes/routes/reconfigure', []);
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function deleteRoutingStaticRoute(string $id): array
+    {
+        $res = $this->post("/api/routes/routes/delroute/{$id}", []);
+        $this->post('/api/routes/routes/reconfigure', []);
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function getRoutingGatewayGroups(): array
+    {
+        return ['status' => 200, 'data' => []];
     }
 }
 
