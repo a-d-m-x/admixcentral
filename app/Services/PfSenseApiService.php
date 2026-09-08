@@ -2983,4 +2983,17 @@ class PfSenseApiService
         }
         return [];
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Diagnostics: Kernel Routing Table
+    |--------------------------------------------------------------------------
+    */
+    public function getKernelRoutes()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getKernelRoutes();
+        }
+        return ['status' => 200, 'data' => []];
+    }
 }
