@@ -2557,7 +2557,34 @@ class PfSenseApiService
     */
     public function getCaptivePortalZones()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getCaptivePortalZones();
+        }
         return $this->get('/api/v1/services/captiveportal');
+    }
+
+    public function getCaptivePortalSessions()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getCaptivePortalSessions();
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function createCaptivePortalZone(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->createCaptivePortalZone($data);
+        }
+        return $this->post('/api/v1/services/captiveportal', $data);
+    }
+
+    public function deleteCaptivePortalZone(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteCaptivePortalZone($uuid);
+        }
+        return $this->delete('/api/v1/services/captiveportal', ['zone' => $uuid]);
     }
 
     /*

@@ -3750,6 +3750,121 @@ class OpnSenseApiService
         $this->reconfigureIpsecService();
         return ['status' => 200, 'data' => $res];
     }
+
+    /**
+     * Get Captive Portal Zones
+     */
+    public function getCaptivePortalZones(): array
+    {
+        $res = $this->get('/api/captiveportal/settings/searchZones');
+        $rows = $res['rows'] ?? [];
+
+        $zones = [];
+        foreach ($rows as $row) {
+            $name = !empty($row['description']) ? $row['description'] : ('Zone ' . ($row['zoneid'] ?? ''));
+            $zones[$name] = [
+                'uuid' => $row['uuid'] ?? '',
+                'zoneid' => $row['zoneid'] ?? '0',
+                'descr' => $row['description'] ?? '',
+                'interface' => $row['%interfaces'] ?? ($row['interfaces'] ?? ''),
+                'enabled' => !empty($row['enabled']) && (string)$row['enabled'] !== '0',
+            ];
+        }
+
+        return [
+            'status' => 200,
+            'data' => $zones,
+        ];
+    }
+
+    /**
+     * Get a specific Captive Portal Zone
+     */
+    public function getCaptivePortalZone(string $uuid): array
+    {
+        $res = $this->get("/api/captiveportal/settings/getZone/{$uuid}");
+        return ['status' => 200, 'data' => $res['zone'] ?? []];
+    }
+
+    /**
+     * Create Captive Portal Zone
+     */
+    public function createCaptivePortalZone(array $data): array
+    {
+        $payload = [
+            'enabled' => !empty($data['enabled']) || !isset($data['enabled']) ? '1' : '0',
+            'description' => $data['description'] ?? ($data['descr'] ?? ''),
+            'interfaces' => $data['interfaces'] ?? ($data['interface'] ?? 'lan'),
+        ];
+
+        $res = $this->post('/api/captiveportal/settings/addZone', ['zone' => $payload]);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to create Captive Portal zone on OPNsense: {$validation}");
+        }
+
+        $this->reconfigureCaptivePortalService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Update Captive Portal Zone
+     */
+    public function updateCaptivePortalZone(string $uuid, array $data): array
+    {
+        $payload = [
+            'enabled' => !empty($data['enabled']) || !isset($data['enabled']) ? '1' : '0',
+            'description' => $data['description'] ?? ($data['descr'] ?? ''),
+            'interfaces' => $data['interfaces'] ?? ($data['interface'] ?? 'lan'),
+        ];
+
+        $res = $this->post("/api/captiveportal/settings/setZone/{$uuid}", ['zone' => $payload]);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to update Captive Portal zone on OPNsense: {$validation}");
+        }
+
+        $this->reconfigureCaptivePortalService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Delete Captive Portal Zone
+     */
+    public function deleteCaptivePortalZone(string $uuid): array
+    {
+        $res = $this->post("/api/captiveportal/settings/delZone/{$uuid}", []);
+        $this->reconfigureCaptivePortalService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Get Captive Portal Sessions
+     */
+    public function getCaptivePortalSessions(): array
+    {
+        $res = $this->get('/api/captiveportal/session/search');
+        return [
+            'status' => 200,
+            'data' => $res['rows'] ?? [],
+        ];
+    }
+
+    /**
+     * Get Captive Portal Service Status
+     */
+    public function getCaptivePortalServiceStatus(): array
+    {
+        return $this->get('/api/captiveportal/service/status');
+    }
+
+    /**
+     * Reconfigure Captive Portal Service
+     */
+    public function reconfigureCaptivePortalService(): array
+    {
+        return $this->post('/api/captiveportal/service/reconfigure', []);
+    }
 }
 
 
