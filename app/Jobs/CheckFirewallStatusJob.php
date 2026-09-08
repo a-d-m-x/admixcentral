@@ -133,6 +133,12 @@ class CheckFirewallStatusJob implements ShouldQueue, ShouldBeUnique
                 }
 
             } catch (\Exception $e) {
+                // Log the actual error so we can diagnose why firewalls are being marked offline.
+                Log::warning("Firewall [{$firewall->id}] status check failed: " . $e->getMessage(), [
+                    'firewall_id'  => $firewall->id,
+                    'firewall_url' => $firewall->url,
+                ]);
+
                 $cached = Cache::get($cacheKey);
 
                 $offlineStatus = [

@@ -1414,20 +1414,29 @@
                     // Apply cached status with source tag — no pfSense API call.
                     if (this.status) {
                         this.status._source = 'cache';
-                        this.updateFromStatus(this.status);
 
                         // PHP already seeds offlineCount from this same cached data.
-                        // Pre-mark as reported so the card doesn't fire device-offline
-                        // again during init, which would double the count.
-                        if (!this.online) {
+                        // Pre-mark as reported BEFORE calling updateFromStatus so that
+                        // the device-offline dispatch inside updateFromStatus is suppressed,
+                        // preventing a double-count of the already PHP-seeded offline tally.
+                        const cachedOnline = this.status.online === true || this.status.online === 'true' || this.status.online === 1;
+                        if (!cachedOnline) {
                             this.reportedOffline = true;
                         }
+
+                        this.updateFromStatus(this.status);
                     }
 
                     // If starting in skeleton state (no cache, or cached-offline),
                     // arm the 30s safety timeout to prevent eternal skeletons.
+                    // Also immediately attempt a live verification — don't wait for
+                    // WebSocket (which may be unavailable) or a poll cycle (which is
+                    // debounced up to 45s). This mirrors what the individual firewall
+                    // management page does on load and resolves cached-offline cards
+                    // within ~5–20 seconds rather than 30–45 seconds.
                     if (this.loading) {
                         this._startSafetyTimeout();
+                        this.fetchStatus();
                     }
 
                     // Listen for coordinator poll results (_source: 'poll_cache')
@@ -1537,13 +1546,186 @@
                     this.error = status.error || null;
 
                     // Update reported state & Dispatch events
-                    if (this.online && this.reportedOffline) {
-                        this.reportedOffline = false;
-                        this.$dispatch('device-online', { id: this.firewallId });
+                    // Skip offline/online events for 'timeout_stale' — that source means we
+                    // timed out waiting for a result, not that the device is confirmed offline.
+                    // Dispatching device-offline here would incorrectly inflate the badge count
+                    // and mark accessible devices as offline.
+                    const isTimeoutStale = (source === 'timeout_stale');
+                    if (!isTimeoutStale) {
+                        if (this.online && this.reportedOffline) {
+                            this.reportedOffline = false;
+                            this.$dispatch('device-online', { id: this.firewallId });
+                        }
+                        if (!this.online && !this.reportedOffline) {
+                            this.reportedOffline = true;
+                            this.$dispatch('device-offline', { id: this.firewallId });
+                        }
                     }
-                    if (!this.online && !this.reportedOffline) {
-                        this.reportedOffline = true;
-                        this.$dispatch('device-offline', { id: this.firewallId });
+
+                    // Update bandwidth if interface data is present
+                    if (this.online && this.status.data && this.status.data.interfaces) {
+                        this.updateBandwidthFromInterfaces(this.status.data.interfaces);
+                    }
+
+                    // Update Load History
+                    if (this.status && this.status.data && this.status.data.cpu_load_avg && this.status.data.cpu_load_avg.length > 0) {
+                        const oneMinLoad = parseFloat(this.status.data.cpu_load_avg[0]) || 0;
+                        this.loadHistory.shift();
+                        this.loadHistory.push(oneMinLoad);
+                    }
+
+                    // Notify global listeners
+                    this.$dispatch('device-updated', { id: this.firewallId, online: this.online });
+                },
+
+                async fetchStatus() {
+                    try {
+                        const controller = new AbortController();
+                        // The server-side pfSense API timeout is 20 seconds.
+                        // Allow 35 seconds here so we don't abort before the server-side
+                        // call can complete — the previous 5s timeout was causing all
+                        // dashboard card live checks to fail prematurely.
+                        const timeoutId = setTimeout(() => controller.abort(), 35000);
+
+                        let response = await fetch(this.checkUrl + '?t=' + new Date().getTime(), {
+                            signal: controller.signal
+                        });
+                        clearTimeout(timeoutId);
+
+                        let data = await response.json();
+
+                        // Use standardized update logic
+                        this.updateFromStatus(data.status);
+                    } catch (e) {
+                        console.warn(`[Firewall ${this.firewallId}] fetchStatus failed:`, e.message || e);
+                        // Don't unconditionally mark offline on fetch failure — the error
+                        // could be a transient network blip, an abort from navigation, or
+                        // the safety timeout. The safety timeout will resolve the skeleton
+                        // after 30s if no update arrives. Dispatching device-offline here
+                        // would cause false offline flips for reachable firewalls.
+                        if (this.loading) {
+                            // Keep existing skeleton state — let safety timeout handle it
+                            this.error = 'Connection error — retrying...';
+                        } else if (!this.online && !this.reportedOffline) {
+                            this.reportedOffline = true;
+                            this.$dispatch('device-offline', { id: this.firewallId });
+                            this.$dispatch('device-updated', { id: this.firewallId, online: false });
+                        }
+                    }
+                },
+
+                _startSafetyTimeout() {
+                    if (this._safetyTimer) return;
+                    this._safetyTimer = setTimeout(() => {
+                        if (this.loading) {
+                            console.warn(`[Firewall ${this.firewallId}] Safety timeout (30s) — forcing stale state`);
+                            this.updateFromStatus({
+                                ...(this.status || {}),
+                                online: false,
+                                _source: 'timeout_stale',
+                                freshness: 'stale',
+                                error: `Verification timed out. Last check: ${this.status?.updated_at ?? 'unknown'}`,
+                            });
+                        }
+                    }, 30000);
+                },
+
+                _clearSafetyTimeout() {
+                    if (this._safetyTimer) {
+                        clearTimeout(this._safetyTimer);
+                        this._safetyTimer = null;
+                    }
+                },
+
+                updateFromStatus(status) {
+                    if (!status) return;
+
+                    // Normalize to the cache wrapper shape { online, api_version, data: {...} }
+                    // which the template reads as status.data.product_version etc.
+                    //
+                    // Two possible incoming shapes:
+                    // 1. Cache wrapper (from init or fetchStatus): { online, api_version, data: { product_version, ... } }
+                    // 2. WS broadcast (flat): { online, api_version, product_version, gateways, cpu_usage, ... }
+                    //
+                    // Detect flat broadcast: has top-level pfSense fields but no .data object.
+                    if (!status.data || typeof status.data !== 'object') {
+                        // Flat broadcast — promote all non-wrapper fields into .data
+                        const wrapperKeys = new Set(['online','error','api_version','updated_at','_source','firewall_id','timestamp']);
+                        const data = {};
+                        Object.keys(status).forEach(k => { if (!wrapperKeys.has(k)) data[k] = status[k]; });
+                        status = Object.assign({}, status, { data });
+                    }
+
+                    // Legacy: flatten status.data.data if it exists (defensive)
+                    if (status.data && status.data.data && typeof status.data.data === 'object') {
+                        Object.assign(status.data, status.data.data);
+                        delete status.data.data;
+                    }
+
+                    // Merge into existing status to preserve last-known values for null fields
+                    if (this.status && this.status.data) {
+                        status.data = Object.assign({}, this.status.data, status.data);
+                    }
+
+                    this.status = status;
+
+                    // Explicitly check for boolean/string truthiness
+                    const prevOnline = this.online;
+                    this.online = (status.online === true || status.online === 'true' || status.online === 1);
+
+                    // SOURCE DISCRIMINATION — loading state and verificationState
+                    const source = status._source || 'live';
+                    const isPollCache = (source === 'cache' || source === 'poll_cache');
+                    const isLive = !isPollCache; // WebSocket events have no _source tag
+                    const isStale = (status.freshness === 'stale' || source === 'timeout_stale');
+
+                    if (isLive) {
+                        // Live WebSocket event — definitive, always resolve skeleton
+                        this.loading = false;
+                        this.verificationState = this.online ? 'verified_online' : 'verified_offline';
+                        this._clearSafetyTimeout();
+                    } else if (isPollCache && this.online) {
+                        // Cached/polled online — show optimistically
+                        this.loading = false;
+                        this.verificationState = isStale ? 'stale' : 'cached';
+                    } else if (isPollCache && !this.online && isStale) {
+                        // Cached offline AND stale — reveal with stale warning rather than skeleton forever
+                        this.loading = false;
+                        this.verificationState = 'stale';
+                    } else {
+                        // Cached offline, still fresh — keep skeleton (job in-flight, WS event expected)
+                        this.loading = true;
+                        this.verificationState = 'pending_verification';
+                    }
+
+                    // Safety timeout guard: if source is timeout_stale, always exit skeleton
+                    if (source === 'timeout_stale') {
+                        this.loading = false;
+                        this.verificationState = 'timeout_stale';
+                    }
+
+                    // Status Change Logging
+                    if (prevOnline !== this.online) {
+                        console.log(`[Firewall ${this.firewallId}] Status changed: ${prevOnline ? 'Online' : 'Offline'} -> ${this.online ? 'Online' : 'Offline'}`, status);
+                    }
+
+                    this.error = status.error || null;
+
+                    // Update reported state & Dispatch events
+                    // Skip offline/online events for 'timeout_stale' — that source means we
+                    // timed out waiting for a result, not that the device is confirmed offline.
+                    // Dispatching device-offline here would incorrectly inflate the badge count
+                    // and mark accessible devices as offline.
+                    const isTimeoutStale = (source === 'timeout_stale');
+                    if (!isTimeoutStale) {
+                        if (this.online && this.reportedOffline) {
+                            this.reportedOffline = false;
+                            this.$dispatch('device-online', { id: this.firewallId });
+                        }
+                        if (!this.online && !this.reportedOffline) {
+                            this.reportedOffline = true;
+                            this.$dispatch('device-offline', { id: this.firewallId });
+                        }
                     }
 
                     // Update bandwidth if interface data is present

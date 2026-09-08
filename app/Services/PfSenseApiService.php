@@ -2181,8 +2181,12 @@ class PfSenseApiService
         $staticInfo = [];
 
         // 1. Try Live Static Fetch
+        // Track whether we got a live response from ANY endpoint — if so the
+        // firewall is reachable regardless of which specific status endpoints succeed.
+        $reachable = false;
         try {
             $versionInfo = $this->getSystemVersion();
+            $reachable = true; // getSystemVersion() succeeded — firewall is online
             if (isset($versionInfo['data'])) {
                 $staticInfo = array_merge($staticInfo, $versionInfo['data']);
             }
@@ -2229,11 +2233,30 @@ class PfSenseApiService
             Cache::put($staticCacheKey, $staticInfo, now()->addDay());
 
         } catch (\Exception $e) {
+            // getSystemVersion() failed — firewall may be unreachable, but don't
+            // conclude offline yet; /status/system below is tried as a second probe.
             $staticInfo = Cache::get($staticCacheKey, []);
         }
 
         // 2. Try Live Dynamic Fetch
-        $dynamicStatus = $this->getSystemStatus(); // Throws exception if fails, which is handled by caller
+        // NOTE: The /status/system endpoint does not exist in pfSense REST API v2.
+        // If this call fails AND getSystemVersion() also failed (i.e. $reachable is
+        // still false), then the firewall is truly unreachable and we throw to the
+        // caller so it marks the firewall offline correctly.
+        // If getSystemVersion() succeeded ($reachable = true) but /status/system
+        // returns 404/error (API v2 firewalls), we fall back to an empty array and
+        // continue — the firewall is online, it just lacks this specific endpoint.
+        try {
+            $dynamicStatus = $this->getSystemStatus();
+            $reachable = true; // Confirm reachable if /status/system succeeded
+        } catch (\Exception $e) {
+            if (!$reachable) {
+                // Neither version check nor /status/system responded — firewall is offline.
+                throw $e;
+            }
+            \Illuminate\Support\Facades\Log::debug("Firewall [{$this->firewall->id}] /status/system unavailable ({$e->getMessage()}) — continuing with partial data (API v2 firewall).");
+            $dynamicStatus = [];
+        }
 
         try {
             $interfaces = $this->getInterfacesStatus();

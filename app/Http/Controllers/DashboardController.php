@@ -234,8 +234,10 @@ class DashboardController extends Controller
                 'updated_at' => now()->toIso8601String()
             ];
 
-            // Cache the FULL wrapper to match Background Job format
-            \Illuminate\Support\Facades\Cache::put('firewall_status_' . $firewall->id, $statusEventData, now()->addMinutes(10));
+            // Cache with 1-day TTL to match CheckFirewallStatusJob — prevents a subsequent
+            // job failure from immediately overwriting a successful live check with an offline
+            // entry that persists for 24 hours.
+            \Illuminate\Support\Facades\Cache::put('firewall_status_' . $firewall->id, $statusEventData, now()->addDay());
 
             event(new \App\Events\DeviceStatusUpdateEvent($firewall, $statusEventData));
 
