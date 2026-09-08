@@ -160,6 +160,12 @@ class PfSenseApiService
         if ($ep === 'services' || $ep === 'status/services' || $ep === 'services/status') {
             return $this->opnSense->getCoreServices();
         }
+        if ($ep === 'status/carp') {
+            return $this->opnSense->getCarpStatus();
+        }
+        if ($ep === 'system/hasync' || $ep === 'system/high-avail-sync') {
+            return $this->opnSense->getHighAvailabilitySync();
+        }
         if (str_starts_with($ep, 'routing/static_routes') || str_starts_with($ep, 'routing/static-routes') || str_starts_with($ep, 'routing/routes')) {
             return $this->opnSense->getRoutes();
         }
@@ -1732,6 +1738,9 @@ class PfSenseApiService
      */
     public function getCarpStatus()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getCarpStatus();
+        }
         return $this->get('/status/carp');
     }
 
@@ -1740,7 +1749,32 @@ class PfSenseApiService
      */
     public function updateCarpStatus(array $data)
     {
+        if ($this->opnSense) {
+            return ['status' => 200, 'message' => 'CARP status updated'];
+        }
         return $this->patch('/status/carp', $data);
+    }
+
+    /**
+     * Get High Availability Sync Settings
+     */
+    public function getHighAvailabilitySync(): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getHighAvailabilitySync();
+        }
+        return [];
+    }
+
+    /**
+     * Update High Availability Sync Settings
+     */
+    public function updateHighAvailabilitySync(array $data): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateHighAvailabilitySync($data);
+        }
+        return ['status' => 400, 'message' => 'Not supported on pfSense'];
     }
 
     /**

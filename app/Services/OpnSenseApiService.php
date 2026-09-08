@@ -4682,6 +4682,68 @@ class OpnSenseApiService
             'data' => is_array($res) ? $res : [],
         ];
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | High Availability & CARP (/api/core/hasync/* & /api/diagnostics/interface/getVipStatus)
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Get High Availability Sync Settings (hasync)
+     */
+    public function getHighAvailabilitySync(): array
+    {
+        return $this->get('/api/core/hasync/get');
+    }
+
+    /**
+     * Update High Availability Sync Settings (hasync)
+     */
+    public function updateHighAvailabilitySync(array $data): array
+    {
+        return $this->post('/api/core/hasync/set', ['hasync' => $data]);
+    }
+
+    /**
+     * Get CARP and Virtual IP Status
+     */
+    public function getVipStatus(): array
+    {
+        return $this->get('/api/diagnostics/interface/getVipStatus');
+    }
+
+    /**
+     * Get CARP Status formatted for Central
+     */
+    public function getCarpStatus(): array
+    {
+        try {
+            $vipStatus = $this->getVipStatus();
+            $carp = $vipStatus['carp'] ?? [];
+            return [
+                'status' => 200,
+                'data' => [
+                    'enable' => ($carp['allow'] ?? '0') === '1' || ($carp['allow'] ?? 0) === 1,
+                    'maintenance_mode' => !empty($carp['maintenancemode']),
+                    'demotion' => $carp['demotion'] ?? '0',
+                    'status_msg' => $carp['status_msg'] ?? '',
+                    'rows' => $vipStatus['rows'] ?? [],
+                ],
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'status' => 200,
+                'data' => [
+                    'enable' => true,
+                    'maintenance_mode' => false,
+                    'demotion' => '0',
+                    'status_msg' => $e->getMessage(),
+                    'rows' => [],
+                ],
+            ];
+        }
+    }
 }
 
 

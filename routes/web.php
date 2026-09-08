@@ -559,6 +559,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/general-setup', [App\Http\Controllers\SystemController::class, 'generalSetup'])->name('general-setup');
         Route::post('/general-setup', [App\Http\Controllers\SystemController::class, 'updateGeneralSetup'])->middleware('deny.readonly')->name('general-setup.update');
         Route::get('/high-avail-sync', [App\Http\Controllers\SystemController::class, 'highAvailSync'])->name('high-avail-sync');
+        Route::post('/high-avail-sync', [App\Http\Controllers\SystemController::class, 'updateHighAvailSync'])->middleware('deny.readonly')->name('high-avail-sync.update');
 
         // Package Manager
         Route::get('/package-manager', [App\Http\Controllers\PackageManagerController::class, 'index'])->name('package_manager.index');
