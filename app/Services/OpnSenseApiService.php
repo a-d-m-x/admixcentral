@@ -2614,4 +2614,98 @@ class OpnSenseApiService
 
         return ['status' => 200, 'data' => $res];
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Interfaces: Loopback
+    |--------------------------------------------------------------------------
+    */
+
+    public function getLoopbacks(): array
+    {
+        $response = $this->post('/api/interfaces/loopback_settings/searchItem', [
+            'current' => 1,
+            'rowCount' => -1,
+        ]);
+        return ['status' => 200, 'data' => $response['rows'] ?? []];
+    }
+
+    public function getLoopback(string $uuid): array
+    {
+        $response = $this->get("/api/interfaces/loopback_settings/getItem/{$uuid}");
+        $item = $response['loopback'] ?? [];
+        return ['status' => 200, 'data' => $item];
+    }
+
+    public function createLoopback(array $data): array
+    {
+        $payload = [
+            'loopback' => [
+                'deviceId' => (string) ($data['deviceId'] ?? $data['device_id'] ?? ''),
+                'description' => $data['description'] ?? $data['descr'] ?? '',
+            ],
+        ];
+
+        $res = $this->post('/api/interfaces/loopback_settings/addItem', $payload);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to create loopback interface');
+        }
+
+        try {
+            $this->reconfigureLoopbacks();
+        } catch (\Throwable $e) {}
+
+        return [
+            'status' => 200,
+            'data' => $res,
+            'uuid' => $res['uuid'] ?? null,
+        ];
+    }
+
+    public function updateLoopback(string $uuid, array $data): array
+    {
+        $payload = [
+            'loopback' => [
+                'deviceId' => (string) ($data['deviceId'] ?? $data['device_id'] ?? ''),
+                'description' => $data['description'] ?? $data['descr'] ?? '',
+            ],
+        ];
+
+        $res = $this->post("/api/interfaces/loopback_settings/setItem/{$uuid}", $payload);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to update loopback interface');
+        }
+
+        try {
+            $this->reconfigureLoopbacks();
+        } catch (\Throwable $e) {}
+
+        return [
+            'status' => 200,
+            'data' => $res,
+        ];
+    }
+
+    public function deleteLoopback(string $uuid): array
+    {
+        $res = $this->post("/api/interfaces/loopback_settings/delItem/{$uuid}", []);
+        try {
+            $this->reconfigureLoopbacks();
+        } catch (\Throwable $e) {}
+
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function reconfigureLoopbacks(): array
+    {
+        return $this->post('/api/interfaces/loopback_settings/reconfigure', []);
+    }
 }

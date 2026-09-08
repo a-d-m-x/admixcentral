@@ -230,6 +230,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/groups/{id}/edit', [App\Http\Controllers\InterfacesGroupController::class, 'edit'])->name('groups.edit');
             Route::patch('/groups/{id}', [App\Http\Controllers\InterfacesGroupController::class, 'update'])->middleware('deny.readonly')->name('groups.update');
             Route::delete('/groups/{id}', [App\Http\Controllers\InterfacesGroupController::class, 'destroy'])->middleware('deny.readonly')->name('groups.destroy');
+
+            // Loopback
+            Route::get('/loopbacks', [App\Http\Controllers\InterfacesLoopbackController::class, 'index'])->name('loopbacks.index');
+            Route::get('/loopbacks/create', [App\Http\Controllers\InterfacesLoopbackController::class, 'create'])->name('loopbacks.create');
+            Route::post('/loopbacks', [App\Http\Controllers\InterfacesLoopbackController::class, 'store'])->middleware('deny.readonly')->name('loopbacks.store');
+            Route::get('/loopbacks/{id}/edit', [App\Http\Controllers\InterfacesLoopbackController::class, 'edit'])->name('loopbacks.edit');
+            Route::patch('/loopbacks/{id}', [App\Http\Controllers\InterfacesLoopbackController::class, 'update'])->middleware('deny.readonly')->name('loopbacks.update');
+            Route::delete('/loopbacks/{id}', [App\Http\Controllers\InterfacesLoopbackController::class, 'destroy'])->middleware('deny.readonly')->name('loopbacks.destroy');
         });
 
     // Interfaces management
