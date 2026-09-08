@@ -2375,6 +2375,12 @@ class OpnSenseApiService
         return ['status' => 200, 'data' => $vips];
     }
 
+    public function getVirtualIp(string $id): array
+    {
+        $res = $this->get("/api/interfaces/vip_settings/getItem/{$id}");
+        return ['status' => 200, 'data' => $res['vip'] ?? []];
+    }
+
     public function createVirtualIp(array $data): array
     {
         $ip = $data['subnet'] ?? ($data['address'] ?? '');
@@ -2393,6 +2399,28 @@ class OpnSenseApiService
             ]
         ];
         $res = $this->post('/api/interfaces/vip_settings/addItem', $payload);
+        $this->post('/api/interfaces/vip_settings/reconfigure');
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function updateVirtualIp(string $id, array $data): array
+    {
+        $ip = $data['subnet'] ?? ($data['address'] ?? '');
+        $bits = (string) ($data['subnet_bits'] ?? '32');
+        $network = str_contains($ip, '/') ? $ip : "{$ip}/{$bits}";
+
+        $payload = [
+            'vip' => [
+                'mode' => $data['mode'] ?? 'ipalias',
+                'interface' => $data['interface'] ?? 'wan',
+                'address' => $ip,
+                'network' => $network,
+                'descr' => $data['descr'] ?? '',
+                'password' => $data['password'] ?? '',
+                'vhid' => (string) ($data['vhid'] ?? ''),
+            ]
+        ];
+        $res = $this->post("/api/interfaces/vip_settings/setItem/{$id}", $payload);
         $this->post('/api/interfaces/vip_settings/reconfigure');
         return ['status' => 200, 'data' => $res];
     }
