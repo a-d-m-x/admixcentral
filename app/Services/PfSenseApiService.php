@@ -2217,6 +2217,52 @@ class PfSenseApiService
 
     /*
     |--------------------------------------------------------------------------
+    | Interfaces: VXLAN
+    |--------------------------------------------------------------------------
+    */
+
+    public function getVxlans()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getVxlans();
+        }
+        throw new \Exception('VXLAN interfaces are not supported on pfSense.');
+    }
+
+    public function getVxlan($id)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getVxlan($id);
+        }
+        throw new \Exception('VXLAN interfaces are not supported on pfSense.');
+    }
+
+    public function createVxlan(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->createVxlan($data);
+        }
+        throw new \Exception('VXLAN interfaces are not supported on pfSense.');
+    }
+
+    public function updateVxlan($id, array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateVxlan($id, $data);
+        }
+        throw new \Exception('VXLAN interfaces are not supported on pfSense.');
+    }
+
+    public function deleteVxlan($id)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteVxlan($id);
+        }
+        throw new \Exception('VXLAN interfaces are not supported on pfSense.');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Diagnostics: Backup/Restore
     |--------------------------------------------------------------------------
     */
