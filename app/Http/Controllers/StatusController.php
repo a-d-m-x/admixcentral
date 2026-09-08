@@ -225,7 +225,14 @@ class StatusController extends Controller
             $rawLogs = $api->getSystemLogs($type)['data'] ?? [];
 
             foreach ($rawLogs as $log) {
-                if (isset($log['text'])) {
+                if (isset($log['message'])) {
+                    $logs[] = [
+                        'time' => $log['time'] ?? '-',
+                        'process' => $log['process'] ?? '-',
+                        'pid' => $log['pid'] ?? '-',
+                        'message' => $log['message'],
+                    ];
+                } elseif (isset($log['text'])) {
                     // Parse syslog format: "Month Day Time Host Process[PID]: Message"
                     // Regex: Time Host Process [PID]? : Message
                     if (preg_match('/^([A-Z][a-z]{2}\s+\d+\s\d{2}:\d{2}:\d{2})\s+(\S+)\s+([^:\[\s]+)(?:\[(\d+)\])?:\s+(.*)$/', $log['text'], $matches)) {

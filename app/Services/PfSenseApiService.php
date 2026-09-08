@@ -1918,6 +1918,47 @@ class PfSenseApiService
      */
     public function getSystemLogs(string $type = 'system')
     {
+        if ($this->opnSense) {
+            $raw = $this->opnSense->getSystemLogs($type);
+            $raw = array_reverse($raw);
+            $mapped = [];
+            foreach ($raw as $entry) {
+                if (isset($entry['rulenr'])) {
+                    $time = isset($entry['__timestamp__']) ? date('M d H:i:s', strtotime($entry['__timestamp__'])) : '-';
+                    $action = strtoupper($entry['action'] ?? 'PASS');
+                    $dir = $entry['dir'] ?? '';
+                    $if = $entry['interface'] ?? '';
+                    $proto = strtoupper($entry['protoname'] ?? ($entry['protonum'] ?? 'IP'));
+                    $src = ($entry['src'] ?? '') . (isset($entry['srcport']) && $entry['srcport'] !== '' ? ":{$entry['srcport']}" : '');
+                    $dst = ($entry['dst'] ?? '') . (isset($entry['dstport']) && $entry['dstport'] !== '' ? ":{$entry['dstport']}" : '');
+                    $label = !empty($entry['label']) ? " ({$entry['label']})" : '';
+
+                    $mapped[] = [
+                        'time' => $time,
+                        'process' => "filterlog [{$action}]",
+                        'pid' => $if ?: '-',
+                        'message' => "{$dir} {$proto} {$src} -> {$dst}{$label}",
+                    ];
+                } elseif (isset($entry['line'])) {
+                    $time = isset($entry['timestamp']) ? date('M d H:i:s', strtotime($entry['timestamp'])) : '-';
+                    $mapped[] = [
+                        'time' => $time,
+                        'process' => $entry['process_name'] ?? 'system',
+                        'pid' => $entry['pid'] ?? '-',
+                        'message' => trim($entry['line']),
+                    ];
+                } else {
+                    $mapped[] = [
+                        'time' => '-',
+                        'process' => '-',
+                        'pid' => '-',
+                        'message' => is_string($entry) ? $entry : json_encode($entry),
+                    ];
+                }
+            }
+            return ['status' => 200, 'data' => $mapped];
+        }
+
         return $this->get("/status/logs/{$type}");
     }
 

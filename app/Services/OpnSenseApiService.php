@@ -2911,4 +2911,59 @@ class OpnSenseApiService
         }
         return ['status' => 200, 'data' => $statusList];
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Diagnostics: Logs (Firewall & System)
+    |--------------------------------------------------------------------------
+    */
+
+    public function getFirewallLogs(int $limit = 500): array
+    {
+        try {
+            $logs = $this->get('/api/diagnostics/firewall/log');
+            if (!is_array($logs)) {
+                return [];
+            }
+            if ($limit > 0 && count($logs) > $limit) {
+                $logs = array_slice($logs, 0, $limit);
+            }
+            return $logs;
+        } catch (\Exception $e) {
+            Log::warning("Failed to fetch OPNsense firewall logs: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function getSystemLogs(string $type = 'system', int $limit = 500): array
+    {
+        if ($type === 'firewall') {
+            return $this->getFirewallLogs($limit);
+        }
+
+        $moduleMap = [
+            'system' => 'core/system',
+            'dhcp' => 'core/dhcpd',
+            'auth' => 'core/auth',
+            'openvpn' => 'core/openvpn',
+            'ntp' => 'core/ntp',
+            'ipsec' => 'core/ipsec',
+            'routing' => 'core/routes',
+            'configd' => 'core/configd',
+        ];
+
+        $module = $moduleMap[$type] ?? 'core/system';
+
+        try {
+            $res = $this->post("/api/diagnostics/log/{$module}", [
+                'current' => 1,
+                'rowCount' => $limit,
+            ]);
+            return $res['rows'] ?? [];
+        } catch (\Exception $e) {
+            Log::warning("Failed to fetch OPNsense system logs for {$type}: " . $e->getMessage());
+            return [];
+        }
+    }
 }
+
