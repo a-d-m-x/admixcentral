@@ -3968,6 +3968,271 @@ class OpnSenseApiService
         $this->reconfigureDnsForwarderService();
         return ['status' => 200, 'data' => $res];
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Traffic Shaper (Limiters, Pipes, Queues, Rules)
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Get Traffic Shaper Limiters (mapped to pipes)
+     */
+    public function getLimiters(): array
+    {
+        $res = $this->get('/api/trafficshaper/settings/searchPipes');
+        $rows = $res['rows'] ?? [];
+        $limiters = [];
+
+        foreach ($rows as $row) {
+            $metric = $row['bandwidthMetric'] ?? 'Kbit';
+            $scale = match(strtolower($metric)) {
+                'gbit' => 'Gb',
+                'mbit' => 'Mb',
+                'bit' => 'b',
+                default => 'Kb',
+            };
+            $mask = match($row['mask'] ?? 'none') {
+                'src-ip' => 'srcaddress',
+                'dst-ip' => 'dstaddress',
+                default => 'none',
+            };
+
+            $limiters[] = [
+                'id' => $row['uuid'] ?? '',
+                'uuid' => $row['uuid'] ?? '',
+                'name' => $row['description'] ?? ('Pipe #' . ($row['number'] ?? '')),
+                'descr' => $row['description'] ?? '',
+                'bandwidth' => [
+                    [
+                        'bw' => $row['bandwidth'] ?? '0',
+                        'bwscale' => $scale,
+                    ]
+                ],
+                'mask' => $mask,
+                'sched' => $row['scheduler'] ?? 'fifo',
+                'aqm' => !empty($row['codel_enable']) ? 'codel' : (!empty($row['pie_enable']) ? 'pie' : 'none'),
+                'enabled' => $row['enabled'] ?? '1',
+            ];
+        }
+
+        return ['status' => 200, 'data' => $limiters];
+    }
+
+    /**
+     * Create Traffic Shaper Limiter (Pipe)
+     */
+    public function createLimiter(array $data): array
+    {
+        $bw = $data['bandwidth']['item']['bw'] ?? ($data['bandwidth_value'] ?? '10');
+        $scale = $data['bandwidth']['item']['bwscale'] ?? ($data['bandwidth_scale'] ?? 'Mb');
+        $metric = match(strtolower($scale)) {
+            'gb', 'gbit' => 'Gbit',
+            'mb', 'mbit' => 'Mbit',
+            'b', 'bit' => 'bit',
+            default => 'Kbit',
+        };
+        $mask = match($data['mask'] ?? 'none') {
+            'srcaddress', 'src-ip' => 'src-ip',
+            'dstaddress', 'dst-ip' => 'dst-ip',
+            default => 'none',
+        };
+
+        $payload = [
+            'pipe' => [
+                'enabled' => '1',
+                'bandwidth' => (string) $bw,
+                'bandwidthMetric' => $metric,
+                'mask' => $mask,
+                'description' => $data['descr'] ?? ($data['name'] ?? ''),
+            ]
+        ];
+
+        $res = $this->post('/api/trafficshaper/settings/addPipe', $payload);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to create traffic shaper limiter on OPNsense: {$validation}");
+        }
+
+        $this->reconfigureTrafficShaperService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Update Traffic Shaper Limiter (Pipe)
+     */
+    public function updateLimiter(string $id, array $data): array
+    {
+        $bw = $data['bandwidth']['item']['bw'] ?? ($data['bandwidth_value'] ?? '10');
+        $scale = $data['bandwidth']['item']['bwscale'] ?? ($data['bandwidth_scale'] ?? 'Mb');
+        $metric = match(strtolower($scale)) {
+            'gb', 'gbit' => 'Gbit',
+            'mb', 'mbit' => 'Mbit',
+            'b', 'bit' => 'bit',
+            default => 'Kbit',
+        };
+        $mask = match($data['mask'] ?? 'none') {
+            'srcaddress', 'src-ip' => 'src-ip',
+            'dstaddress', 'dst-ip' => 'dst-ip',
+            default => 'none',
+        };
+
+        $payload = [
+            'pipe' => [
+                'enabled' => '1',
+                'bandwidth' => (string) $bw,
+                'bandwidthMetric' => $metric,
+                'mask' => $mask,
+                'description' => $data['descr'] ?? ($data['name'] ?? ''),
+            ]
+        ];
+
+        $res = $this->post("/api/trafficshaper/settings/setPipe/{$id}", $payload);
+        $this->reconfigureTrafficShaperService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Delete Traffic Shaper Limiter (Pipe)
+     */
+    public function deleteLimiter(string $id): array
+    {
+        $res = $this->post("/api/trafficshaper/settings/delPipe/{$id}", []);
+        $this->reconfigureTrafficShaperService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Get Traffic Shaper Pipes
+     */
+    public function getTrafficShaperPipes(): array
+    {
+        $res = $this->get('/api/trafficshaper/settings/searchPipes');
+        return ['status' => 200, 'data' => $res['rows'] ?? []];
+    }
+
+    /**
+     * Get Traffic Shaper Pipe
+     */
+    public function getTrafficShaperPipe(string $uuid): array
+    {
+        $res = $this->get("/api/trafficshaper/settings/getPipe/{$uuid}");
+        return ['status' => 200, 'data' => $res['pipe'] ?? []];
+    }
+
+    /**
+     * Create Traffic Shaper Pipe
+     */
+    public function createTrafficShaperPipe(array $data): array
+    {
+        $res = $this->post('/api/trafficshaper/settings/addPipe', ['pipe' => $data]);
+        $this->reconfigureTrafficShaperService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Update Traffic Shaper Pipe
+     */
+    public function updateTrafficShaperPipe(string $uuid, array $data): array
+    {
+        $res = $this->post("/api/trafficshaper/settings/setPipe/{$uuid}", ['pipe' => $data]);
+        $this->reconfigureTrafficShaperService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Delete Traffic Shaper Pipe
+     */
+    public function deleteTrafficShaperPipe(string $uuid): array
+    {
+        $res = $this->post("/api/trafficshaper/settings/delPipe/{$uuid}", []);
+        $this->reconfigureTrafficShaperService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Get Traffic Shaper Queues
+     */
+    public function getTrafficShaperQueues(): array
+    {
+        $res = $this->get('/api/trafficshaper/settings/searchQueues');
+        return ['status' => 200, 'data' => $res['rows'] ?? []];
+    }
+
+    /**
+     * Get Traffic Shaper Queue
+     */
+    public function getTrafficShaperQueue(string $uuid): array
+    {
+        $res = $this->get("/api/trafficshaper/settings/getQueue/{$uuid}");
+        return ['status' => 200, 'data' => $res['queue'] ?? []];
+    }
+
+    /**
+     * Create Traffic Shaper Queue
+     */
+    public function createTrafficShaperQueue(array $data): array
+    {
+        $res = $this->post('/api/trafficshaper/settings/addQueue', ['queue' => $data]);
+        $this->reconfigureTrafficShaperService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Delete Traffic Shaper Queue
+     */
+    public function deleteTrafficShaperQueue(string $uuid): array
+    {
+        $res = $this->post("/api/trafficshaper/settings/delQueue/{$uuid}", []);
+        $this->reconfigureTrafficShaperService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Get Traffic Shaper Rules
+     */
+    public function getTrafficShaperRules(): array
+    {
+        $res = $this->get('/api/trafficshaper/settings/searchRules');
+        return ['status' => 200, 'data' => $res['rows'] ?? []];
+    }
+
+    /**
+     * Get Traffic Shaper Rule
+     */
+    public function getTrafficShaperRule(string $uuid): array
+    {
+        $res = $this->get("/api/trafficshaper/settings/getRule/{$uuid}");
+        return ['status' => 200, 'data' => $res['rule'] ?? []];
+    }
+
+    /**
+     * Create Traffic Shaper Rule
+     */
+    public function createTrafficShaperRule(array $data): array
+    {
+        $res = $this->post('/api/trafficshaper/settings/addRule', ['rule' => $data]);
+        $this->reconfigureTrafficShaperService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Delete Traffic Shaper Rule
+     */
+    public function deleteTrafficShaperRule(string $uuid): array
+    {
+        $res = $this->post("/api/trafficshaper/settings/delRule/{$uuid}", []);
+        $this->reconfigureTrafficShaperService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Reconfigure Traffic Shaper Service
+     */
+    public function reconfigureTrafficShaperService(): array
+    {
+        return $this->post('/api/trafficshaper/service/reconfigure', []);
+    }
 }
 
 

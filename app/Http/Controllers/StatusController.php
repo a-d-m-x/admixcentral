@@ -210,7 +210,25 @@ class StatusController extends Controller
 
     public function queues(Firewall $firewall)
     {
-        return view('status.queues', compact('firewall'));
+        $pipes = [];
+        $queues = [];
+        $rules = [];
+
+        if ($firewall->isOpnSense()) {
+            try {
+                $api = new \App\Services\PfSenseApiService($firewall);
+                $opn = $api->getOpnSense();
+                if ($opn) {
+                    $pipes = $opn->getTrafficShaperPipes()['data'] ?? [];
+                    $queues = $opn->getTrafficShaperQueues()['data'] ?? [];
+                    $rules = $opn->getTrafficShaperRules()['data'] ?? [];
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Failed to fetch traffic shaper status: " . $e->getMessage());
+            }
+        }
+
+        return view('status.queues', compact('firewall', 'pipes', 'queues', 'rules'));
     }
 
 

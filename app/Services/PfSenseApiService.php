@@ -1410,6 +1410,9 @@ class PfSenseApiService
      */
     public function getLimiters()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getLimiters();
+        }
         return $this->get('/firewall/traffic_shaper/limiters');
     }
 
@@ -1418,24 +1421,33 @@ class PfSenseApiService
      */
     public function createLimiter(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createLimiter($data);
+        }
         return $this->post('/firewall/traffic_shaper/limiter', $data);
     }
 
     /**
      * Update Traffic Shaper Limiter
      */
-    public function updateLimiter(int $id, array $data)
+    public function updateLimiter(int|string $id, array $data)
     {
-        $data['id'] = $id;
+        if ($this->opnSense) {
+            return $this->opnSense->updateLimiter((string) $id, $data);
+        }
+        $data['id'] = (int) $id;
         return $this->patch("/firewall/traffic_shaper/limiter", $data);
     }
 
     /**
      * Delete Traffic Shaper Limiter
      */
-    public function deleteLimiter(int $id)
+    public function deleteLimiter(int|string $id)
     {
-        return $this->delete("/firewall/traffic_shaper/limiter", ['id' => $id]);
+        if ($this->opnSense) {
+            return $this->opnSense->deleteLimiter((string) $id);
+        }
+        return $this->delete("/firewall/traffic_shaper/limiter", ['id' => (int) $id]);
     }
 
     /**
