@@ -83,7 +83,7 @@ class VpnIpsecController extends Controller
         }
     }
 
-    public function destroyPhase1(Firewall $firewall, int $id)
+    public function destroyPhase1(Firewall $firewall, string|int $id)
     {
         try {
             $api = new PfSenseApiService($firewall);
@@ -103,7 +103,8 @@ class VpnIpsecController extends Controller
             $response = $api->getIpsecPhase2s();
             \Illuminate\Support\Facades\Log::info('Phase 2 Response:', $response);
 
-            $phase2List = collect($response['data'] ?? [])->where('ikeid', (int) $phase1Id);
+            $ikeid = is_numeric($phase1Id) ? (int) $phase1Id : (string) $phase1Id;
+            $phase2List = collect($response['data'] ?? [])->where('ikeid', $ikeid);
             \Illuminate\Support\Facades\Log::info('Filtered Phase 2 List:', $phase2List->toArray());
 
             return view('vpn.ipsec.phase2', compact('firewall', 'phase1Id', 'phase2List'));
@@ -132,7 +133,7 @@ class VpnIpsecController extends Controller
         ]);
 
         $data = [
-            'ikeid' => (int) $phase1Id,
+            'ikeid' => is_numeric($phase1Id) ? (int) $phase1Id : (string) $phase1Id,
             'descr' => $validated['descr'] ?? '',
             'mode' => $validated['mode'],
             'localid_type' => $validated['localid_type'],

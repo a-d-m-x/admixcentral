@@ -3573,6 +3573,183 @@ class OpnSenseApiService
         $res = $this->post("/api/trust/crl/del/{$id}", []);
         return ['status' => 200, 'data' => $res];
     }
+
+    /**
+     * Get IPsec Status (SAs)
+     */
+    public function getIpsecStatus(): array
+    {
+        $p1 = $this->get('/api/ipsec/sessions/search_phase1');
+        $rows = $p1['rows'] ?? [];
+
+        $sas = [];
+        foreach ($rows as $row) {
+            $state = strtolower($row['state'] ?? 'established');
+            $sas[] = [
+                'descr' => $row['name'] ?? ($row['connection'] ?? 'IPsec SA'),
+                'localid' => $row['local-host'] ?? ($row['local_host'] ?? ''),
+                'remoteid' => $row['remote-host'] ?? ($row['remote_host'] ?? ''),
+                'status' => $state,
+                'connected' => $state === 'established' ? 'Yes' : 'No',
+            ];
+        }
+
+        return [
+            'status' => 200,
+            'data' => $sas,
+        ];
+    }
+
+    /**
+     * Get IPsec service status
+     */
+    public function getIpsecServiceStatus(): array
+    {
+        return $this->get('/api/ipsec/service/status');
+    }
+
+    /**
+     * Reconfigure IPsec service
+     */
+    public function reconfigureIpsecService(): array
+    {
+        return $this->post('/api/ipsec/service/reconfigure', []);
+    }
+
+    /**
+     * Restart IPsec service
+     */
+    public function restartIpsecService(): array
+    {
+        return $this->post('/api/ipsec/service/restart', []);
+    }
+
+    /**
+     * Get IPsec Phase 1s (Connections)
+     */
+    public function getIpsecPhase1s(): array
+    {
+        $res = $this->get('/api/ipsec/connections/searchConnection');
+        $rows = $res['rows'] ?? [];
+
+        $phase1s = [];
+        foreach ($rows as $row) {
+            $phase1s[] = [
+                'ikeid' => $row['uuid'] ?? ($row['id'] ?? ''),
+                'remote-gateway' => $row['remote_addrs'] ?? ($row['remote_host'] ?? ''),
+                'mode' => 'IKEv' . ($row['version'] ?? '2'),
+                'descr' => $row['description'] ?? ($row['name'] ?? ''),
+                'disabled' => empty($row['enabled']) || (string)$row['enabled'] === '0',
+            ];
+        }
+
+        return [
+            'status' => 200,
+            'data' => $phase1s,
+        ];
+    }
+
+    /**
+     * Create IPsec Phase 1 (Connection)
+     */
+    public function createIpsecPhase1(array $data): array
+    {
+        $payload = [
+            'description' => $data['descr'] ?? '',
+            'enabled' => !empty($data['disabled']) ? '0' : '1',
+            'remote_addrs' => $data['remote_gateway'] ?? ($data['remote-gateway'] ?? ''),
+            'version' => str_ends_with($data['iketype'] ?? 'v2', '1') ? '1' : '2',
+            'proposals' => 'default',
+        ];
+
+        $res = $this->post('/api/ipsec/connections/addConnection', ['connection' => $payload]);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to create IPsec Connection on OPNsense: {$validation}");
+        }
+
+        $this->reconfigureIpsecService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Delete IPsec Phase 1 (Connection)
+     */
+    public function deleteIpsecPhase1(string $id): array
+    {
+        $res = $this->post("/api/ipsec/connections/delConnection/{$id}", []);
+        $this->reconfigureIpsecService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Get IPsec Phase 2s (Children)
+     */
+    public function getIpsecPhase2s(): array
+    {
+        $res = $this->get('/api/ipsec/connections/searchChild');
+        $rows = $res['rows'] ?? [];
+
+        $phase2s = [];
+        foreach ($rows as $row) {
+            $phase2s[] = [
+                'uniqid' => $row['uuid'] ?? ($row['id'] ?? ''),
+                'ikeid' => $row['connection'] ?? '',
+                'mode' => $row['mode'] ?? 'tunnel',
+                'descr' => $row['description'] ?? '',
+                'localid' => [
+                    'type' => 'network',
+                    'address' => $row['local_ts'] ?? '',
+                    'netbits' => '',
+                ],
+                'remoteid' => [
+                    'type' => 'network',
+                    'address' => $row['remote_ts'] ?? '',
+                    'netbits' => '',
+                ],
+            ];
+        }
+
+        return [
+            'status' => 200,
+            'data' => $phase2s,
+        ];
+    }
+
+    /**
+     * Create IPsec Phase 2 (Child)
+     */
+    public function createIpsecPhase2(array $data): array
+    {
+        $payload = [
+            'connection' => $data['ikeid'] ?? '',
+            'description' => $data['descr'] ?? '',
+            'mode' => $data['mode'] ?? 'tunnel',
+            'local_ts' => $data['localid_address'] ?? ($data['local_ts'] ?? ''),
+            'remote_ts' => $data['remoteid_address'] ?? ($data['remote_ts'] ?? ''),
+            'enabled' => !empty($data['disabled']) ? '0' : '1',
+            'esp_proposals' => 'default',
+        ];
+
+        $res = $this->post('/api/ipsec/connections/addChild', ['child' => $payload]);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to create IPsec Child on OPNsense: {$validation}");
+        }
+
+        $this->reconfigureIpsecService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Delete IPsec Phase 2 (Child)
+     */
+    public function deleteIpsecPhase2(string $id): array
+    {
+        $res = $this->post("/api/ipsec/connections/delChild/{$id}", []);
+        $this->reconfigureIpsecService();
+        return ['status' => 200, 'data' => $res];
+    }
 }
 
 
