@@ -564,6 +564,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/package-manager', [App\Http\Controllers\PackageManagerController::class, 'index'])->name('package_manager.index');
         Route::post('/package-manager/install', [App\Http\Controllers\PackageManagerController::class, 'install'])->middleware('deny.readonly')->name('package_manager.install');
         Route::post('/package-manager/uninstall', [App\Http\Controllers\PackageManagerController::class, 'uninstall'])->middleware('deny.readonly')->name('package_manager.uninstall');
+        Route::post('/package-manager/reinstall', [App\Http\Controllers\PackageManagerController::class, 'reinstall'])->middleware('deny.readonly')->name('package_manager.reinstall');
+        Route::post('/package-manager/lock', [App\Http\Controllers\PackageManagerController::class, 'lock'])->middleware('deny.readonly')->name('package_manager.lock');
+        Route::post('/package-manager/unlock', [App\Http\Controllers\PackageManagerController::class, 'unlock'])->middleware('deny.readonly')->name('package_manager.unlock');
 
         Route::get('/notifications', [App\Http\Controllers\SystemController::class, 'notifications'])->name('notifications');
         Route::post('/notifications', [App\Http\Controllers\SystemController::class, 'updateNotifications'])->middleware('deny.readonly')->name('notifications.update');
@@ -573,6 +576,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/update', [App\Http\Controllers\SystemController::class, 'update'])->name('update');
         Route::post('/update/check', [App\Http\Controllers\SystemController::class, 'checkFirmware'])->middleware('deny.readonly')->name('update.check');
+        Route::post('/update/upgrade', [App\Http\Controllers\SystemController::class, 'upgradeFirmware'])->middleware('deny.readonly')->name('update.upgrade');
+        Route::post('/update/audit', [App\Http\Controllers\SystemController::class, 'auditFirmware'])->middleware('deny.readonly')->name('update.audit');
+        Route::get('/update/status-log', [App\Http\Controllers\SystemController::class, 'getFirmwareStatusJson'])->name('update.status-log');
 
         // User Manager
         Route::get('/user-manager', [App\Http\Controllers\UserManagerController::class, 'index'])->name('user_manager.index');

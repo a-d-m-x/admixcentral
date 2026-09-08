@@ -1766,6 +1766,41 @@ class OpnSenseApiService
         return $this->post('/api/core/firmware/update');
     }
 
+    public function getFirmwareUpgradeStatus(): array
+    {
+        return $this->get('/api/core/firmware/upgradestatus');
+    }
+
+    public function auditFirmware(): array
+    {
+        return $this->post('/api/core/firmware/audit', []);
+    }
+
+    public function installPackage(string $name): array
+    {
+        return $this->post("/api/core/firmware/install/{$name}", []);
+    }
+
+    public function removePackage(string $name): array
+    {
+        return $this->post("/api/core/firmware/remove/{$name}", []);
+    }
+
+    public function reinstallPackage(string $name): array
+    {
+        return $this->post("/api/core/firmware/reinstall/{$name}", []);
+    }
+
+    public function lockPackage(string $name): array
+    {
+        return $this->post("/api/core/firmware/lock/{$name}", []);
+    }
+
+    public function unlockPackage(string $name): array
+    {
+        return $this->post("/api/core/firmware/unlock/{$name}", []);
+    }
+
     public function getFirmwareChangelog(string $version): array
     {
         return $this->get("/api/core/firmware/changelog/{$version}");

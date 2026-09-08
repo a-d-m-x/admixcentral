@@ -82,11 +82,53 @@ class PackageManagerController extends Controller
         $name = $request->input('name', 'package');
 
         try {
-            $api->uninstallSystemPackage($id);
+            $api->uninstallSystemPackage($id, $name);
             return redirect()->route('system.package_manager.index', ['firewall' => $firewall, 'tab' => 'installed'])
                 ->with('success', "Package '$name' uninstallation started.");
         } catch (\Exception $e) {
             return back()->withErrors(['error' => "Failed to uninstall package '$name': " . $e->getMessage()]);
+        }
+    }
+
+    public function reinstall(Firewall $firewall, Request $request)
+    {
+        $api = new PfSenseApiService($firewall);
+        $name = $request->input('name');
+
+        try {
+            $api->reinstallSystemPackage($name);
+            return redirect()->route('system.package_manager.index', ['firewall' => $firewall, 'tab' => 'installed'])
+                ->with('success', "Package '$name' reinstallation started.");
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => "Failed to reinstall package '$name': " . $e->getMessage()]);
+        }
+    }
+
+    public function lock(Firewall $firewall, Request $request)
+    {
+        $api = new PfSenseApiService($firewall);
+        $name = $request->input('name');
+
+        try {
+            $api->lockSystemPackage($name);
+            return redirect()->route('system.package_manager.index', ['firewall' => $firewall, 'tab' => 'installed'])
+                ->with('success', "Package '$name' locked.");
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => "Failed to lock package '$name': " . $e->getMessage()]);
+        }
+    }
+
+    public function unlock(Firewall $firewall, Request $request)
+    {
+        $api = new PfSenseApiService($firewall);
+        $name = $request->input('name');
+
+        try {
+            $api->unlockSystemPackage($name);
+            return redirect()->route('system.package_manager.index', ['firewall' => $firewall, 'tab' => 'installed'])
+                ->with('success', "Package '$name' unlocked.");
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => "Failed to unlock package '$name': " . $e->getMessage()]);
         }
     }
 }
