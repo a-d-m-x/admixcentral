@@ -13,162 +13,166 @@
 
     <script>
         window._natKnownIfaceTypes = @json($knownIfaceTypes);
-    </script>
-    <div class="py-12" x-data="{
-        showModal: false,
-        showDeleteModal: false,
-        deleteId: null,
-        isEdit: false,
-        modalError: null,
-        saving: false,
-        selected: [],
-        allSelected: false,
-        form: {
-            id: '',
-            interface: '{{ $interfaces[0]["descr"] ?? "WAN" }}',
-            ipprotocol: 'inet',
-            protocol: 'tcp',
-            src_type: 'any',
-            src: '',
-            src_not: false,
-            srcport: '',
-            dst_type: '{{ $firewall->isOpnSense() ? "wanip" : "(self)" }}',
-            dst: '',
-            dst_not: false,
-            dstport: '',
-            target: '',
-            local_port: '',
-            descr: '',
-            disabled: false,
-            natreflection: 'system-default',
-            associated_rule_id: 'new'
-        },
-        resetForm() {
-            this.form = {
-                id: '',
-                interface: '{{ $interfaces[0]["descr"] ?? "WAN" }}',
-                ipprotocol: 'inet',
-                protocol: 'tcp',
-                src_type: 'any',
-                src: '',
-                src_not: false,
-                srcport: '',
-                dst_type: '{{ $firewall->isOpnSense() ? "wanip" : "(self)" }}',
-                dst: '',
-                dst_not: false,
-                dstport: '',
-                target: '',
-                local_port: '',
-                descr: '',
-                disabled: false,
-                natreflection: 'system-default',
-                associated_rule_id: 'new'
-            };
-            this.isEdit = false;
-            this.modalError = null;
-            this.saving = false;
-        },
-        editRule(rule, index) {
-            this.isEdit = true;
-            this.form.id = index;
-            this.form.interface = rule.interface || 'wan';
-            this.form.ipprotocol = rule.ipprotocol || 'inet';
-            this.form.protocol = rule.protocol || 'tcp';
 
-            // Parse source into type + address
-            const parseEndpoint = (val) => {
-                if (!val || val === 'any') return { type: 'any', address: '', invert: false };
-                let invert = false;
-                let addr = String(val);
-                if (addr.startsWith('!')) { invert = true; addr = addr.slice(1); }
-                const knownTypes = (window._natKnownIfaceTypes || []);
-                if (knownTypes.includes(addr)) return { type: addr, address: '', invert };
-                return { type: addr.includes('/') ? 'network' : 'address', address: addr, invert };
-            };
+        function natPortForwardHandler() {
+            return {
+                showModal: false,
+                showDeleteModal: false,
+                deleteId: null,
+                isEdit: false,
+                modalError: null,
+                saving: false,
+                selected: [],
+                allSelected: false,
+                form: {
+                    id: '',
+                    interface: '{{ $interfaces[0]["descr"] ?? "WAN" }}',
+                    ipprotocol: 'inet',
+                    protocol: 'tcp',
+                    src_type: 'any',
+                    src: '',
+                    src_not: false,
+                    srcport: '',
+                    dst_type: '{{ $firewall->isOpnSense() ? "wanip" : "(self)" }}',
+                    dst: '',
+                    dst_not: false,
+                    dstport: '',
+                    target: '',
+                    local_port: '',
+                    descr: '',
+                    disabled: false,
+                    natreflection: 'system-default',
+                    associated_rule_id: 'new'
+                },
+                resetForm() {
+                    this.form = {
+                        id: '',
+                        interface: '{{ $interfaces[0]["descr"] ?? "WAN" }}',
+                        ipprotocol: 'inet',
+                        protocol: 'tcp',
+                        src_type: 'any',
+                        src: '',
+                        src_not: false,
+                        srcport: '',
+                        dst_type: '{{ $firewall->isOpnSense() ? "wanip" : "(self)" }}',
+                        dst: '',
+                        dst_not: false,
+                        dstport: '',
+                        target: '',
+                        local_port: '',
+                        descr: '',
+                        disabled: false,
+                        natreflection: 'system-default',
+                        associated_rule_id: 'new'
+                    };
+                    this.isEdit = false;
+                    this.modalError = null;
+                    this.saving = false;
+                },
+                editRule(rule, index) {
+                    this.isEdit = true;
+                    this.form.id = index;
+                    this.form.interface = rule.interface || 'wan';
+                    this.form.ipprotocol = rule.ipprotocol || 'inet';
+                    this.form.protocol = rule.protocol || 'tcp';
 
-            const srcRaw = rule.source || 'any';
-            const srcStr = typeof srcRaw === 'string' ? srcRaw : (srcRaw.address || srcRaw.network || 'any');
-            const srcParsed = parseEndpoint(srcStr);
-            this.form.src_type = srcParsed.type;
-            this.form.src = srcParsed.address;
-            this.form.src_not = srcParsed.invert;
-            this.form.srcport = rule.source_port || '';
+                    // Parse source into type + address
+                    const parseEndpoint = (val) => {
+                        if (!val || val === 'any') return { type: 'any', address: '', invert: false };
+                        let invert = false;
+                        let addr = String(val);
+                        if (addr.startsWith('!')) { invert = true; addr = addr.slice(1); }
+                        const knownTypes = (window._natKnownIfaceTypes || []);
+                        if (knownTypes.includes(addr)) return { type: addr, address: '', invert };
+                        return { type: addr.includes('/') ? 'network' : 'address', address: addr, invert };
+                    };
 
-            const dstRaw = rule.destination || 'any';
-            const dstStr = typeof dstRaw === 'string' ? dstRaw : (dstRaw.address || dstRaw.network || 'any');
-            const dstParsed = parseEndpoint(dstStr);
-            this.form.dst_type = dstParsed.type;
-            this.form.dst = dstParsed.address;
-            this.form.dst_not = dstParsed.invert;
-            this.form.dstport = rule.destination_port || '';
+                    const srcRaw = rule.source || 'any';
+                    const srcStr = typeof srcRaw === 'string' ? srcRaw : (srcRaw.address || srcRaw.network || 'any');
+                    const srcParsed = parseEndpoint(srcStr);
+                    this.form.src_type = srcParsed.type;
+                    this.form.src = srcParsed.address;
+                    this.form.src_not = srcParsed.invert;
+                    this.form.srcport = rule.source_port || '';
 
-            this.form.target = rule.target || '';
-            this.form.local_port = rule.local_port || rule['local-port'] || '';
-            this.form.descr = rule.descr || '';
-            this.form.disabled = !!rule.disabled;
-            this.form.natreflection = rule.natreflection || 'system-default';
-            this.form.associated_rule_id = rule['associated-rule-id'] || rule['associated_rule_id'] || 'none';
+                    const dstRaw = rule.destination || 'any';
+                    const dstStr = typeof dstRaw === 'string' ? dstRaw : (dstRaw.address || dstRaw.network || 'any');
+                    const dstParsed = parseEndpoint(dstStr);
+                    this.form.dst_type = dstParsed.type;
+                    this.form.dst = dstParsed.address;
+                    this.form.dst_not = dstParsed.invert;
+                    this.form.dstport = rule.destination_port || '';
 
-            this.showModal = true;
-        },
-        confirmDelete(index) {
-            this.deleteId = index;
-            this.showDeleteModal = true;
-        },
-        toggleAll() {
-            if (this.allSelected) {
-                this.selected = [];
-                this.allSelected = false;
-            } else {
-                this.selected = @json(collect($rules)->filter(fn($r) => empty($r['is_automatic']))->map(fn($r, $i) => (string)($r['id'] ?? $i))->values());
-                this.allSelected = true;
-            }
-        },
-        submitBulk(action) {
-            if (this.selected.length === 0) return;
-            const form = document.getElementById('nat-bulk-form');
-            form.querySelectorAll('input[name=\'action\'], input[name=\'ids[]\']').forEach(el => el.remove());
-            const aInp = document.createElement('input');
-            aInp.type = 'hidden'; aInp.name = 'action'; aInp.value = action;
-            form.appendChild(aInp);
-            this.selected.forEach(id => {
-                const iInp = document.createElement('input');
-                iInp.type = 'hidden'; iInp.name = 'ids[]'; iInp.value = id;
-                form.appendChild(iInp);
-            });
-            form.submit();
-        },
-        async submitRule(form) {
-            this.saving = true;
-            this.modalError = null;
-            const url = form.action;
-            const formData = new FormData(form);
-            const method = (formData.get('_method') || 'POST').toUpperCase();
-            if (method !== 'POST') { formData.delete('_method'); }
-            try {
-                const resp = await fetch(url, {
-                    method: method,
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    body: formData
-                });
-                const data = await resp.json();
-                if (data.success) {
-                    window.location.href = data.redirect;
-                } else {
-                    const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : null;
-                    this.modalError = firstError || data.error || data.message || 'An error occurred. Please try again.';
+                    this.form.target = rule.target || '';
+                    this.form.local_port = rule.local_port || rule['local-port'] || '';
+                    this.form.descr = rule.descr || '';
+                    this.form.disabled = !!rule.disabled;
+                    this.form.natreflection = rule.natreflection || 'system-default';
+                    this.form.associated_rule_id = rule['associated-rule-id'] || rule['associated_rule_id'] || 'none';
+
+                    this.showModal = true;
+                },
+                confirmDelete(index) {
+                    this.deleteId = index;
+                    this.showDeleteModal = true;
+                },
+                toggleAll() {
+                    if (this.allSelected) {
+                        this.selected = [];
+                        this.allSelected = false;
+                    } else {
+                        this.selected = @json(collect($rules)->filter(fn($r) => empty($r['is_automatic']))->map(fn($r, $i) => (string)($r['id'] ?? $i))->values());
+                        this.allSelected = true;
+                    }
+                },
+                submitBulk(action) {
+                    if (this.selected.length === 0) return;
+                    const form = document.getElementById('nat-bulk-form');
+                    form.querySelectorAll('input[name=\'action\'], input[name=\'ids[]\']').forEach(el => el.remove());
+                    const aInp = document.createElement('input');
+                    aInp.type = 'hidden'; aInp.name = 'action'; aInp.value = action;
+                    form.appendChild(aInp);
+                    this.selected.forEach(id => {
+                        const iInp = document.createElement('input');
+                        iInp.type = 'hidden'; iInp.name = 'ids[]'; iInp.value = id;
+                        form.appendChild(iInp);
+                    });
+                    form.submit();
+                },
+                async submitRule(form) {
+                    this.saving = true;
+                    this.modalError = null;
+                    const url = form.action;
+                    const formData = new FormData(form);
+                    const method = (formData.get('_method') || 'POST').toUpperCase();
+                    if (method !== 'POST') { formData.delete('_method'); }
+                    try {
+                        const resp = await fetch(url, {
+                            method: method,
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: formData
+                        });
+                        const data = await resp.json();
+                        if (data.success) {
+                            window.location.href = data.redirect;
+                        } else {
+                            const firstError = data.errors ? Object.values(data.errors)[0]?.[0] : null;
+                            this.modalError = firstError || data.error || data.message || 'An error occurred. Please try again.';
+                        }
+                    } catch (e) {
+                        this.modalError = 'Network error. Please try again.';
+                    } finally {
+                        this.saving = false;
+                    }
                 }
-            } catch (e) {
-                this.modalError = 'Network error. Please try again.';
-            } finally {
-                this.saving = false;
-            }
+            };
         }
-    }" @open-create-modal.window="resetForm(); showModal = true">
+    </script>
+    <div class="py-12" x-data="natPortForwardHandler()" @open-create-modal.window="resetForm(); showModal = true">
 
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">

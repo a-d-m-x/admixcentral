@@ -689,13 +689,17 @@ class OpnSenseApiService
     // Firewall Rules
     // ─────────────────────────────────────────────────────────────────────────
 
-    public function getFirewallRules(): array
+    public function getFirewallRules(bool $includeAutomatic = false): array
     {
-        $res = $this->get('/api/firewall/filter/searchRule');
+        $res = $this->post('/api/firewall/filter/searchRule', ['rowCount' => -1, 'current' => 1]);
         $rows = $res['rows'] ?? [];
 
         $rules = [];
         foreach ($rows as $row) {
+            if (!$includeAutomatic && !empty($row['is_automatic'])) {
+                continue;
+            }
+
             $rules[] = [
                 'id' => $row['uuid'] ?? '',
                 'tracker' => $row['uuid'] ?? ($row['#priority'] ?? 0),
@@ -707,6 +711,7 @@ class OpnSenseApiService
                 'destination' => $row['destination_net'] ?? 'any',
                 'descr' => $row['description'] ?? '',
                 'disabled' => empty($row['enabled']) || $row['enabled'] === '0',
+                'is_automatic' => !empty($row['is_automatic']),
             ];
         }
 
@@ -953,13 +958,49 @@ class OpnSenseApiService
             throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to create port forward rule in OPNsense');
         }
 
+        $natUuid = $res['uuid'] ?? null;
+        $filterRuleUuid = null;
+
+        // If associated filter rule is requested ('new', 'rule', or 'linked')
+        $assoc = $data['associated_rule_id'] ?? '';
+        if (in_array($assoc, ['new', 'rule', 'linked'])) {
+            $tag = $natUuid ? ('nat_' . str_replace('-', '', $natUuid)) : '';
+            $filterPayload = [
+                'rule' => [
+                    'enabled' => empty($data['disabled']) ? '1' : '0',
+                    'action' => 'pass',
+                    'quick' => '1',
+                    'interface' => strtolower($data['interface'] ?? 'wan'),
+                    'direction' => 'in',
+                    'ipprotocol' => $data['ipprotocol'] ?? 'inet',
+                    'protocol' => strtoupper(($data['protocol'] ?? 'tcp') === 'any' ? '' : ($data['protocol'] ?? 'tcp')),
+                    'source_net' => $this->normalizeNetValue($data['source'] ?? 'any'),
+                    'source_port' => ($data['srcport'] ?? ($data['source_port'] ?? '')) === '*' ? '' : ($data['srcport'] ?? ($data['source_port'] ?? '')),
+                    'destination_net' => $data['target'] ?? '',
+                    'destination_port' => (string) ($data['local_port'] ?? ($data['local-port'] ?? '')),
+                    'description' => 'NAT: ' . ($data['descr'] ?? ''),
+                    'tag' => $tag,
+                ]
+            ];
+
+            try {
+                $filterRes = $this->post('/api/firewall/filter/addRule', $filterPayload);
+                if (!empty($filterRes['uuid'])) {
+                    $filterRuleUuid = $filterRes['uuid'];
+                }
+                $this->post('/api/firewall/filter/apply');
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed to create associated filter rule in OPNsense: ' . $e->getMessage());
+            }
+        }
+
         try { $this->post('/api/firewall/d_nat/apply'); } catch (\Throwable $e) {}
 
         return [
             'status' => 200,
             'data' => $res,
-            'uuid' => $res['uuid'] ?? null,
-            'associated_rule_id' => $res['uuid'] ?? null,
+            'uuid' => $natUuid,
+            'associated_rule_id' => $filterRuleUuid ?? $natUuid,
         ];
     }
 
@@ -972,6 +1013,8 @@ class OpnSenseApiService
                 $uuid = $rules[$id]['uuid'] ?? ($rules[$id]['id'] ?? $uuid);
             }
         }
+
+        $tag = 'nat_' . str_replace('-', '', $uuid);
 
         // Handle single-field toggle/update
         if (count($data) === 1 && isset($data['disabled'])) {
@@ -1001,6 +1044,20 @@ class OpnSenseApiService
             ];
             $res = $this->post("/api/firewall/d_nat/setRule/{$uuid}", $payload);
             try { $this->post('/api/firewall/d_nat/apply'); } catch (\Throwable $e) {}
+
+            // Synchronize associated filter rule if exists
+            try {
+                $associatedFilterRule = $this->findAssociatedFilterRule($tag, $existing['descr'] ?? '');
+                if ($associatedFilterRule) {
+                    $this->post("/api/firewall/filter/setRule/{$associatedFilterRule['uuid']}", [
+                        'rule' => [
+                            'enabled' => empty($data['disabled']) ? '1' : '0',
+                        ]
+                    ]);
+                    $this->post('/api/firewall/filter/apply');
+                }
+            } catch (\Throwable $e) {}
+
             return ['status' => 200, 'data' => $res];
         }
 
@@ -1012,6 +1069,40 @@ class OpnSenseApiService
                 $errs[] = "$f: $m";
             }
             throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to update port forward rule in OPNsense');
+        }
+
+        // Update or create associated filter rule
+        try {
+            $assoc = $data['associated_rule_id'] ?? '';
+            $existingFilter = $this->findAssociatedFilterRule($tag, $data['descr'] ?? '');
+            if (in_array($assoc, ['new', 'rule', 'linked']) || $existingFilter) {
+                $filterPayload = [
+                    'rule' => [
+                        'enabled' => empty($data['disabled']) ? '1' : '0',
+                        'action' => 'pass',
+                        'quick' => '1',
+                        'interface' => strtolower($data['interface'] ?? 'wan'),
+                        'direction' => 'in',
+                        'ipprotocol' => $data['ipprotocol'] ?? 'inet',
+                        'protocol' => strtoupper(($data['protocol'] ?? 'tcp') === 'any' ? '' : ($data['protocol'] ?? 'tcp')),
+                        'source_net' => $this->normalizeNetValue($data['source'] ?? 'any'),
+                        'source_port' => ($data['srcport'] ?? ($data['source_port'] ?? '')) === '*' ? '' : ($data['srcport'] ?? ($data['source_port'] ?? '')),
+                        'destination_net' => $data['target'] ?? '',
+                        'destination_port' => (string) ($data['local_port'] ?? ($data['local-port'] ?? '')),
+                        'description' => 'NAT: ' . ($data['descr'] ?? ''),
+                        'tag' => $tag,
+                    ]
+                ];
+
+                if ($existingFilter) {
+                    $this->post("/api/firewall/filter/setRule/{$existingFilter['uuid']}", $filterPayload);
+                } elseif (in_array($assoc, ['new', 'rule', 'linked'])) {
+                    $this->post('/api/firewall/filter/addRule', $filterPayload);
+                }
+                $this->post('/api/firewall/filter/apply');
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to sync associated filter rule in updateNatPortForward: ' . $e->getMessage());
         }
 
         try { $this->post('/api/firewall/d_nat/apply'); } catch (\Throwable $e) {}
@@ -1026,6 +1117,20 @@ class OpnSenseApiService
             if (isset($rules[$id])) {
                 $uuid = $rules[$id]['uuid'] ?? ($rules[$id]['id'] ?? $uuid);
             }
+        }
+
+        $tag = 'nat_' . str_replace('-', '', $uuid);
+
+        // Delete associated filter rule if found
+        try {
+            $existing = $this->get("/api/firewall/d_nat/getRule/{$uuid}")['rule'] ?? [];
+            $filterRule = $this->findAssociatedFilterRule($tag, $existing['descr'] ?? '');
+            if ($filterRule) {
+                $this->post("/api/firewall/filter/delRule/{$filterRule['uuid']}");
+                $this->post('/api/firewall/filter/apply');
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to delete associated filter rule: ' . $e->getMessage());
         }
 
         $res = $this->post("/api/firewall/d_nat/delRule/{$uuid}");
@@ -1043,9 +1148,47 @@ class OpnSenseApiService
             }
         }
 
+        $tag = 'nat_' . str_replace('-', '', $uuid);
+
+        // Toggle associated filter rule if found
+        try {
+            $existing = $this->get("/api/firewall/d_nat/getRule/{$uuid}")['rule'] ?? [];
+            $filterRule = $this->findAssociatedFilterRule($tag, $existing['descr'] ?? '');
+            if ($filterRule) {
+                $this->post("/api/firewall/filter/toggleRule/{$filterRule['uuid']}");
+                $this->post('/api/firewall/filter/apply');
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Failed to toggle associated filter rule: ' . $e->getMessage());
+        }
+
         $res = $this->post("/api/firewall/d_nat/toggleRule/{$uuid}");
         try { $this->post('/api/firewall/d_nat/apply'); } catch (\Throwable $e) {}
         return ['status' => 200, 'data' => $res];
+    }
+
+    protected function findAssociatedFilterRule(string $tag, string $descr = ''): ?array
+    {
+        try {
+            $res = $this->post('/api/firewall/filter/searchRule', ['searchPhrase' => $tag]);
+            foreach ($res['rows'] ?? [] as $row) {
+                if (($row['tag'] ?? '') === $tag) {
+                    return $row;
+                }
+            }
+
+            // Fallback: search by description "NAT: {$descr}" if descr is non-empty
+            if ($descr !== '') {
+                $resDesc = $this->post('/api/firewall/filter/searchRule', ['searchPhrase' => 'NAT: ' . $descr]);
+                foreach ($resDesc['rows'] ?? [] as $row) {
+                    if (($row['description'] ?? '') === 'NAT: ' . $descr) {
+                        return $row;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {}
+
+        return null;
     }
 
     protected function buildDnatPayload(array $data): array
