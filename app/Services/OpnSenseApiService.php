@@ -4233,6 +4233,154 @@ class OpnSenseApiService
     {
         return $this->post('/api/trafficshaper/service/reconfigure', []);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Syslog & Remote Logging Settings (/api/syslog/*)
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Get Syslog General Settings
+     */
+    public function getSyslogSettings(): array
+    {
+        $res = $this->get('/api/syslog/settings/get');
+        return [
+            'status' => 200,
+            'data' => $res['syslog'] ?? [],
+        ];
+    }
+
+    /**
+     * Update Syslog General Settings
+     */
+    public function updateSyslogSettings(array $data): array
+    {
+        $res = $this->post('/api/syslog/settings/set', ['syslog' => $data]);
+        $this->reconfigureSyslogService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Get Syslog Remote Destinations
+     */
+    public function getSyslogDestinations(): array
+    {
+        $res = $this->get('/api/syslog/settings/searchDestinations');
+        $rows = $res['rows'] ?? [];
+        $destinations = [];
+
+        foreach ($rows as $row) {
+            $destinations[] = [
+                'uuid' => $row['uuid'] ?? '',
+                'enabled' => $row['enabled'] ?? '1',
+                'transport' => $row['transport'] ?? 'udp4',
+                'hostname' => $row['hostname'] ?? '',
+                'port' => $row['port'] ?? '514',
+                'description' => $row['description'] ?? '',
+                'facility' => $row['facility'] ?? '',
+                'level' => $row['level'] ?? '',
+                'program' => $row['program'] ?? '',
+            ];
+        }
+
+        return ['status' => 200, 'data' => $destinations];
+    }
+
+    /**
+     * Get Syslog Destination
+     */
+    public function getSyslogDestination(string $uuid): array
+    {
+        $res = $this->get("/api/syslog/settings/getDestination/{$uuid}");
+        return ['status' => 200, 'data' => $res['destination'] ?? []];
+    }
+
+    /**
+     * Create Syslog Remote Destination
+     */
+    public function createSyslogDestination(array $data): array
+    {
+        $payload = [
+            'enabled' => !empty($data['enabled']) ? '1' : '0',
+            'transport' => $data['transport'] ?? 'udp4',
+            'hostname' => $data['hostname'] ?? '',
+            'port' => (string) ($data['port'] ?? '514'),
+            'description' => $data['description'] ?? ($data['descr'] ?? ''),
+        ];
+
+        if (!empty($data['facility'])) {
+            $payload['facility'] = $data['facility'];
+        }
+        if (!empty($data['level'])) {
+            $payload['level'] = $data['level'];
+        }
+        if (!empty($data['program'])) {
+            $payload['program'] = $data['program'];
+        }
+
+        $res = $this->post('/api/syslog/settings/addDestination', ['destination' => $payload]);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to create syslog destination on OPNsense: {$validation}");
+        }
+
+        $this->reconfigureSyslogService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Update Syslog Remote Destination
+     */
+    public function updateSyslogDestination(string $uuid, array $data): array
+    {
+        $payload = [
+            'enabled' => !empty($data['enabled']) ? '1' : '0',
+            'transport' => $data['transport'] ?? 'udp4',
+            'hostname' => $data['hostname'] ?? '',
+            'port' => (string) ($data['port'] ?? '514'),
+            'description' => $data['description'] ?? ($data['descr'] ?? ''),
+        ];
+
+        $res = $this->post("/api/syslog/settings/setDestination/{$uuid}", ['destination' => $payload]);
+        $this->reconfigureSyslogService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Delete Syslog Remote Destination
+     */
+    public function deleteSyslogDestination(string $uuid): array
+    {
+        $res = $this->post("/api/syslog/settings/delDestination/{$uuid}", []);
+        $this->reconfigureSyslogService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Get Syslog Service Status
+     */
+    public function getSyslogServiceStatus(): array
+    {
+        return $this->get('/api/syslog/service/status');
+    }
+
+    /**
+     * Get Syslog Stats
+     */
+    public function getSyslogStats(): array
+    {
+        return $this->get('/api/syslog/service/stats');
+    }
+
+    /**
+     * Reconfigure Syslog Service
+     */
+    public function reconfigureSyslogService(): array
+    {
+        return $this->post('/api/syslog/service/reconfigure', []);
+    }
 }
 
 

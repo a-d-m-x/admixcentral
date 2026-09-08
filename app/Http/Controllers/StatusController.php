@@ -238,6 +238,22 @@ class StatusController extends Controller
         $rawLogs = [];
         $logs = [];
         $type = request('type', 'system');
+        $syslogSettings = [];
+        $syslogDestinations = [];
+        $syslogServiceStatus = [];
+        $syslogStats = [];
+
+        if ($type === 'settings') {
+            try {
+                $syslogSettings = $api->getSyslogSettings()['data'] ?? [];
+                $syslogDestinations = $api->getSyslogDestinations()['data'] ?? [];
+                $syslogServiceStatus = $api->getSyslogServiceStatus();
+                $syslogStats = $api->getSyslogStats();
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Failed to fetch syslog settings: " . $e->getMessage());
+            }
+            return view('status.system-logs', compact('firewall', 'syslogSettings', 'syslogDestinations', 'syslogServiceStatus', 'syslogStats'));
+        }
 
         try {
             $rawLogs = $api->getSystemLogs($type)['data'] ?? [];
@@ -279,6 +295,40 @@ class StatusController extends Controller
             // Log error
         }
         return view('status.system-logs', compact('firewall', 'logs'));
+    }
+
+    public function storeSyslogDestination(Request $request, Firewall $firewall)
+    {
+        $validated = $request->validate([
+            'hostname' => 'required|string|max:255',
+            'port' => 'required|integer|min:1|max:65535',
+            'transport' => 'required|string|in:udp4,tcp4,udp6,tcp6,tls4,tls6',
+            'description' => 'nullable|string|max:255',
+            'enabled' => 'nullable|boolean',
+        ]);
+
+        try {
+            $api = new \App\Services\PfSenseApiService($firewall);
+            $api->createSyslogDestination($validated);
+
+            return redirect()->route('status.system-logs', [$firewall, 'type' => 'settings'])
+                ->with('success', 'Remote syslog destination added successfully.');
+        } catch (\Throwable $e) {
+            return back()->withInput()->with('error', 'Failed to add syslog destination: ' . $e->getMessage());
+        }
+    }
+
+    public function destroySyslogDestination(Firewall $firewall, string $uuid)
+    {
+        try {
+            $api = new \App\Services\PfSenseApiService($firewall);
+            $api->deleteSyslogDestination($uuid);
+
+            return redirect()->route('status.system-logs', [$firewall, 'type' => 'settings'])
+                ->with('success', 'Remote syslog destination deleted successfully.');
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Failed to delete syslog destination: ' . $e->getMessage());
+        }
     }
 
     public function trafficGraph(Firewall $firewall)

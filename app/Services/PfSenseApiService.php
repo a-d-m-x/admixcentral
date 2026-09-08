@@ -2969,4 +2969,57 @@ class PfSenseApiService
 
         return $dynamicStatus;
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Syslog & Remote Logging Settings
+    |--------------------------------------------------------------------------
+    */
+    public function getSyslogSettings()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getSyslogSettings();
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function getSyslogDestinations()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getSyslogDestinations();
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function createSyslogDestination(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->createSyslogDestination($data);
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function deleteSyslogDestination(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteSyslogDestination($uuid);
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function getSyslogServiceStatus()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getSyslogServiceStatus();
+        }
+        return ['status' => 'unknown'];
+    }
+
+    public function getSyslogStats()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getSyslogStats();
+        }
+        return [];
+    }
 }

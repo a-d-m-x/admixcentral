@@ -723,6 +723,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/services', [App\Http\Controllers\StatusController::class, 'services'])->name('services');
         Route::post('/services/{service}/{action}', [App\Http\Controllers\StatusController::class, 'serviceAction'])->middleware('deny.readonly')->name('services.action');
         Route::get('/system-logs', [App\Http\Controllers\StatusController::class, 'systemLogs'])->name('system-logs');
+        Route::post('/system-logs/destinations', [App\Http\Controllers\StatusController::class, 'storeSyslogDestination'])->middleware('deny.readonly')->name('system-logs.destinations.store');
+        Route::delete('/system-logs/destinations/{uuid}', [App\Http\Controllers\StatusController::class, 'destroySyslogDestination'])->middleware('deny.readonly')->name('system-logs.destinations.destroy');
         Route::get('/traffic-graph', [App\Http\Controllers\StatusController::class, 'trafficGraph'])->name('traffic-graph');
         Route::get('/upnp', [App\Http\Controllers\StatusController::class, 'upnp'])->name('upnp');
         Route::get('/dhcp', [App\Http\Controllers\StatusController::class, 'dhcp'])->name('dhcp');
