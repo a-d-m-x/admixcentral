@@ -46,7 +46,7 @@
                                             Process</th>
                                         <th
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                            PID</th>
+                                            {{ request('type') === 'firewall' ? 'Interface / PID' : 'PID' }}</th>
                                         <th
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Message</th>
@@ -59,7 +59,16 @@
                                                 {{ $log['time'] ?? '' }}</td>
                                             <td
                                                 class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                                                {{ $log['process'] ?? '' }}</td>
+                                                @if(str_contains($log['process'] ?? '', '[PASS]'))
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">PASS</span>
+                                                    <span class="text-xs text-gray-500 dark:text-gray-400 ml-1">filterlog</span>
+                                                @elseif(str_contains($log['process'] ?? '', '[BLOCK]'))
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200">BLOCK</span>
+                                                    <span class="text-xs text-gray-500 dark:text-gray-400 ml-1">filterlog</span>
+                                                @else
+                                                    {{ $log['process'] ?? '' }}
+                                                @endif
+                                            </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                                 {{ $log['pid'] ?? '' }}</td>
                                             <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 break-all">
