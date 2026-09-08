@@ -1626,6 +1626,9 @@ class PfSenseApiService
      */
     public function getCertificateAuthorities()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getCertificateAuthorities();
+        }
         return $this->get('/system/certificate_authorities');
     }
 
@@ -1634,6 +1637,9 @@ class PfSenseApiService
      */
     public function getCertificates()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getCertificates();
+        }
         return $this->get('/system/certificates');
     }
 
@@ -1642,6 +1648,9 @@ class PfSenseApiService
      */
     public function createCertificateAuthority(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createCertificateAuthority($data);
+        }
         return $this->post('/system/certificate_authority', $data);
     }
 
@@ -1650,6 +1659,9 @@ class PfSenseApiService
      */
     public function generateCertificateAuthority(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->generateCertificateAuthority($data);
+        }
         return $this->post('/system/certificate_authority/generate', $data);
     }
 
@@ -1658,6 +1670,9 @@ class PfSenseApiService
      */
     public function createCertificate(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createCertificate($data);
+        }
         return $this->post('/system/certificate', $data);
     }
 
@@ -1732,6 +1747,9 @@ class PfSenseApiService
      */
     public function generateCertificate(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->generateCertificate($data);
+        }
         return $this->post('/system/certificate/generate', $data);
     }
 
@@ -1740,6 +1758,9 @@ class PfSenseApiService
      */
     public function deleteCertificateAuthority(string $id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteCertificateAuthority($id);
+        }
         return $this->delete("/system/certificate_authority", ['id' => $id]);
     }
 
@@ -1748,6 +1769,9 @@ class PfSenseApiService
      */
     public function deleteCertificate(string $id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteCertificate($id);
+        }
         return $this->delete("/system/certificate", ['id' => $id]);
     }
 
@@ -2126,6 +2150,9 @@ class PfSenseApiService
      */
     public function getCRLs()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getCRLs();
+        }
         return $this->get('/system/crls');
     }
 
@@ -2134,6 +2161,9 @@ class PfSenseApiService
      */
     public function getCRL($id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getCRL((string) $id);
+        }
         return $this->get('/system/crl', ['id' => $id]);
     }
 
@@ -2142,6 +2172,9 @@ class PfSenseApiService
      */
     public function createCRL(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createCRL($data);
+        }
         return $this->post('/system/crl', $data);
     }
 
@@ -2150,6 +2183,9 @@ class PfSenseApiService
      */
     public function deleteCRL($id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteCRL((string) $id);
+        }
         return $this->delete('/system/crl', ['id' => $id]);
     }
 

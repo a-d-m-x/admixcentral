@@ -2519,14 +2519,9 @@ class OpnSenseApiService
     // Trust & Auth
     // ─────────────────────────────────────────────────────────────────────────
 
-    public function getCertificates(): array
-    {
-        return $this->get('/api/trust/cert/search');
-    }
-
     public function getCAs(): array
     {
-        return $this->get('/api/trust/ca/search');
+        return $this->getCertificateAuthorities();
     }
 
     public function getUsers(): array
@@ -3315,6 +3310,268 @@ class OpnSenseApiService
     public function getRoutingGatewayGroups(): array
     {
         return ['status' => 200, 'data' => []];
+    }
+
+    /**
+     * Get Certificate Authorities
+     */
+    public function getCertificateAuthorities(): array
+    {
+        $response = $this->get('/api/trust/ca/search');
+        return [
+            'status' => 200,
+            'data' => $response['rows'] ?? [],
+        ];
+    }
+
+    /**
+     * Get a specific Certificate Authority
+     */
+    public function getCertificateAuthority(string $id): array
+    {
+        $cas = $this->getCertificateAuthorities()['data'] ?? [];
+        foreach ($cas as $ca) {
+            if (($ca['refid'] ?? '') === $id || ($ca['uuid'] ?? '') === $id) {
+                return ['status' => 200, 'data' => $ca];
+            }
+        }
+        return ['status' => 404, 'data' => null];
+    }
+
+    /**
+     * Create Certificate Authority (Import)
+     */
+    public function createCertificateAuthority(array $data): array
+    {
+        $payload = [
+            'descr' => $data['descr'] ?? '',
+            'action' => 'existing',
+            'crt_payload' => $data['cert'] ?? $data['crt'] ?? $data['crt_payload'] ?? '',
+            'prv_payload' => $data['key'] ?? $data['prv'] ?? $data['prv_payload'] ?? '',
+            'serial' => (string) ($data['serial'] ?? ''),
+        ];
+
+        $res = $this->post('/api/trust/ca/add', ['ca' => $payload]);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to import Certificate Authority on OPNsense: {$validation}");
+        }
+
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Generate Certificate Authority (Internal)
+     */
+    public function generateCertificateAuthority(array $data): array
+    {
+        $payload = [
+            'descr' => $data['descr'] ?? '',
+            'action' => 'internal',
+            'key_type' => (string) ($data['keylen'] ?? $data['key_type'] ?? '2048'),
+            'digest' => strtolower($data['digest_alg'] ?? $data['digest'] ?? 'sha256'),
+            'lifetime' => (string) ($data['lifetime'] ?? '3650'),
+            'country' => $data['dn_country'] ?? $data['country'] ?? 'US',
+            'state' => $data['dn_state'] ?? $data['state'] ?? '',
+            'city' => $data['dn_city'] ?? $data['city'] ?? '',
+            'organization' => $data['dn_organization'] ?? $data['organization'] ?? '',
+            'email' => $data['dn_email'] ?? $data['email'] ?? '',
+            'commonname' => $data['dn_commonname'] ?? $data['commonname'] ?? $data['descr'] ?? '',
+        ];
+
+        $res = $this->post('/api/trust/ca/add', ['ca' => $payload]);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to generate Certificate Authority on OPNsense: {$validation}");
+        }
+
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Delete Certificate Authority
+     */
+    public function deleteCertificateAuthority(string $id): array
+    {
+        $uuid = $id;
+        $cas = $this->getCertificateAuthorities()['data'] ?? [];
+        foreach ($cas as $ca) {
+            if (($ca['refid'] ?? '') === $id || ($ca['uuid'] ?? '') === $id) {
+                $uuid = $ca['uuid'] ?? $id;
+                break;
+            }
+        }
+
+        $res = $this->post("/api/trust/ca/del/{$uuid}", []);
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Get Certificates
+     */
+    public function getCertificates(): array
+    {
+        $response = $this->get('/api/trust/cert/search');
+        return [
+            'status' => 200,
+            'data' => $response['rows'] ?? [],
+        ];
+    }
+
+    /**
+     * Get a specific Certificate
+     */
+    public function getCertificate(string $id): array
+    {
+        $certs = $this->getCertificates()['data'] ?? [];
+        foreach ($certs as $cert) {
+            if (($cert['refid'] ?? '') === $id || ($cert['uuid'] ?? '') === $id) {
+                return ['status' => 200, 'data' => $cert];
+            }
+        }
+        return ['status' => 404, 'data' => null];
+    }
+
+    /**
+     * Create Certificate (Import)
+     */
+    public function createCertificate(array $data): array
+    {
+        $payload = [
+            'descr' => $data['descr'] ?? '',
+            'action' => 'import',
+            'crt_payload' => $data['cert'] ?? $data['crt'] ?? $data['crt_payload'] ?? '',
+            'prv_payload' => $data['key'] ?? $data['prv'] ?? $data['prv_payload'] ?? '',
+        ];
+
+        $res = $this->post('/api/trust/cert/add', ['cert' => $payload]);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to import Certificate on OPNsense: {$validation}");
+        }
+
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Generate Certificate (Internal)
+     */
+    public function generateCertificate(array $data): array
+    {
+        $certType = $data['type'] ?? $data['cert_type'] ?? 'server';
+        if ($certType === 'user') {
+            $opnCertType = 'usr_cert';
+        } elseif ($certType === 'server') {
+            $opnCertType = 'server_cert';
+        } else {
+            $opnCertType = $certType;
+        }
+
+        $payload = [
+            'descr' => $data['descr'] ?? '',
+            'caref' => $data['caref'] ?? '',
+            'action' => 'internal',
+            'key_type' => (string) ($data['keylen'] ?? $data['key_type'] ?? '2048'),
+            'digest' => strtolower($data['digest_alg'] ?? $data['digest'] ?? 'sha256'),
+            'cert_type' => $opnCertType,
+            'lifetime' => (string) ($data['lifetime'] ?? '397'),
+            'country' => $data['dn_country'] ?? $data['country'] ?? 'US',
+            'state' => $data['dn_state'] ?? $data['state'] ?? '',
+            'city' => $data['dn_city'] ?? $data['city'] ?? '',
+            'organization' => $data['dn_organization'] ?? $data['organization'] ?? '',
+            'email' => $data['dn_email'] ?? $data['email'] ?? '',
+            'commonname' => $data['dn_commonname'] ?? $data['commonname'] ?? $data['descr'] ?? '',
+        ];
+
+        $res = $this->post('/api/trust/cert/add', ['cert' => $payload]);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to generate Certificate on OPNsense: {$validation}");
+        }
+
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Delete Certificate
+     */
+    public function deleteCertificate(string $id): array
+    {
+        $uuid = $id;
+        $certs = $this->getCertificates()['data'] ?? [];
+        foreach ($certs as $cert) {
+            if (($cert['refid'] ?? '') === $id || ($cert['uuid'] ?? '') === $id) {
+                $uuid = $cert['uuid'] ?? $id;
+                break;
+            }
+        }
+
+        $res = $this->post("/api/trust/cert/del/{$uuid}", []);
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Get Certificate Revocation Lists (CRLs)
+     */
+    public function getCRLs(): array
+    {
+        $response = $this->get('/api/trust/crl/search');
+        $rows = $response['rows'] ?? [];
+
+        $mapped = [];
+        foreach ($rows as $r) {
+            $mapped[] = [
+                'refid' => $r['refid'] ?? '',
+                'descr' => !empty($r['crl_descr']) ? $r['crl_descr'] : ($r['descr'] ?? 'CRL'),
+                'caref' => $r['descr'] ?? $r['caref'] ?? '',
+                'cert' => $r['cert'] ?? [],
+            ];
+        }
+
+        return [
+            'status' => 200,
+            'data' => $mapped,
+        ];
+    }
+
+    /**
+     * Get a specific CRL
+     */
+    public function getCRL(string $id): array
+    {
+        $res = $this->get("/api/trust/crl/get/{$id}");
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Create CRL
+     */
+    public function createCRL(array $data): array
+    {
+        $caref = $data['caref'] ?? '';
+        $payload = [
+            'descr' => $data['descr'] ?? 'CRL',
+            'crlmethod' => 'internal',
+            'caref' => $caref,
+            'lifetime' => (string) ($data['lifetime'] ?? '730'),
+        ];
+
+        $res = $this->post("/api/trust/crl/set/{$caref}", ['crl' => $payload]);
+        if (($res['status'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to create CRL on OPNsense: {$validation}");
+        }
+
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Delete CRL
+     */
+    public function deleteCRL(string $id): array
+    {
+        $res = $this->post("/api/trust/crl/del/{$id}", []);
+        return ['status' => 200, 'data' => $res];
     }
 }
 
