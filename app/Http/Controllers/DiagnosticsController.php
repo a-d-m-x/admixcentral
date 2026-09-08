@@ -184,7 +184,16 @@ class DiagnosticsController extends Controller
 
     public function routes(Firewall $firewall)
     {
-        return view('diagnostics.routes', compact('firewall'));
+        $routes = [];
+        try {
+            $api = new \App\Services\PfSenseApiService($firewall);
+            $res = $api->getKernelRoutes();
+            $routes = $res['data'] ?? [];
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to fetch kernel routes: " . $e->getMessage());
+        }
+
+        return view('diagnostics.routes', compact('firewall', 'routes'));
     }
 
     public function smartStatus(Firewall $firewall)

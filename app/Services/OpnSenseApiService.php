@@ -4381,6 +4381,24 @@ class OpnSenseApiService
     {
         return $this->post('/api/syslog/service/reconfigure', []);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Diagnostics: Kernel Routing Table (/api/diagnostics/interface/getRoutes)
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Get Kernel Routing Table
+     */
+    public function getKernelRoutes(): array
+    {
+        $res = $this->get('/api/diagnostics/interface/getRoutes');
+        return [
+            'status' => 200,
+            'data' => is_array($res) ? $res : [],
+        ];
+    }
 }
 
 
