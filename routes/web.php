@@ -498,6 +498,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/firewall/{firewall}/services/ids/service/{action}', [App\Http\Controllers\ServicesIdsController::class, 'serviceAction'])
         ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
         ->name('services.ids.action');
+    Route::post('/firewall/{firewall}/services/ids/settings', [App\Http\Controllers\ServicesIdsController::class, 'updateSettings'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.ids.settings.update');
+    Route::post('/firewall/{firewall}/services/ids/rulesets/{filename}/toggle', [App\Http\Controllers\ServicesIdsController::class, 'toggleRuleset'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.ids.rulesets.toggle');
+    Route::post('/firewall/{firewall}/services/ids/rules', [App\Http\Controllers\ServicesIdsController::class, 'storeUserRule'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.ids.rules.store');
+    Route::post('/firewall/{firewall}/services/ids/rules/{uuid}/toggle', [App\Http\Controllers\ServicesIdsController::class, 'toggleUserRule'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.ids.rules.toggle');
+    Route::delete('/firewall/{firewall}/services/ids/rules/{uuid}', [App\Http\Controllers\ServicesIdsController::class, 'destroyUserRule'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.ids.rules.destroy');
 
     // Services - Monit (OPNsense)
     Route::get('/firewall/{firewall}/services/monit', [App\Http\Controllers\ServicesMonitController::class, 'index'])

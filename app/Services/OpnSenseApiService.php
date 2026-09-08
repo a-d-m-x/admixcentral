@@ -2470,9 +2470,28 @@ class OpnSenseApiService
         return $this->get('/api/ids/service/status');
     }
 
+    public function getIdsServiceStatus(): array
+    {
+        return $this->getIdsStatus();
+    }
+
     public function getIdsSettings(): array
     {
         return $this->get('/api/ids/settings/get');
+    }
+
+    public function updateIdsSettings(array $data): array
+    {
+        $payload = isset($data['ids']) ? $data : ['ids' => ['general' => $data]];
+        $res = $this->post('/api/ids/settings/set', $payload);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = is_array($m) ? implode(', ', $m) : "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to update IDS settings');
+        }
+        return $res;
     }
 
     public function getIdsAlerts(): array
@@ -2498,6 +2517,84 @@ class OpnSenseApiService
     public function restartIdsService(): array
     {
         return $this->post('/api/ids/service/restart');
+    }
+
+    public function reconfigureIdsService(): array
+    {
+        return $this->post('/api/ids/service/reconfigure', []);
+    }
+
+    public function updateIdsRules(): array
+    {
+        return $this->post('/api/ids/service/updateRules', []);
+    }
+
+    public function getIdsRulesets(): array
+    {
+        $res = $this->get('/api/ids/settings/listRulesets');
+        return [
+            'status' => 200,
+            'data' => $res['rows'] ?? [],
+            'rows' => $res['rows'] ?? [],
+            'total' => $res['total'] ?? 0,
+        ];
+    }
+
+    public function toggleIdsRuleset(string $filename): array
+    {
+        return $this->post("/api/ids/settings/toggleRuleset/{$filename}", []);
+    }
+
+    public function getIdsUserRules(): array
+    {
+        $res = $this->get('/api/ids/settings/searchUserRule');
+        return [
+            'status' => 200,
+            'data' => $res['rows'] ?? [],
+            'rows' => $res['rows'] ?? [],
+            'total' => $res['total'] ?? 0,
+        ];
+    }
+
+    public function getIdsUserRule(string $uuid): array
+    {
+        return $this->get("/api/ids/settings/getUserRule/{$uuid}");
+    }
+
+    public function createIdsUserRule(array $data): array
+    {
+        $res = $this->post('/api/ids/settings/addUserRule', ['rule' => $data]);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = is_array($m) ? implode(', ', $m) : "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to create IDS user rule');
+        }
+        return $res;
+    }
+
+    public function updateIdsUserRule(string $uuid, array $data): array
+    {
+        $res = $this->post("/api/ids/settings/setUserRule/{$uuid}", ['rule' => $data]);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = is_array($m) ? implode(', ', $m) : "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to update IDS user rule');
+        }
+        return $res;
+    }
+
+    public function deleteIdsUserRule(string $uuid): array
+    {
+        return $this->post("/api/ids/settings/delUserRule/{$uuid}", []);
+    }
+
+    public function toggleIdsUserRule(string $uuid): array
+    {
+        return $this->post("/api/ids/settings/toggleUserRule/{$uuid}", []);
     }
 
     public function getMonitStatus(): array

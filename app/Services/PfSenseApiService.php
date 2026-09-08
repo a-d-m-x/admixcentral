@@ -3216,5 +3216,155 @@ class PfSenseApiService
         }
         return [];
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Services: Intrusion Detection & Prevention (IDS / IPS / Suricata)
+    |--------------------------------------------------------------------------
+    */
+    public function getIdsStatus()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIdsStatus();
+        }
+        return ['status' => 'disabled'];
+    }
+
+    public function getIdsServiceStatus()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIdsServiceStatus();
+        }
+        return ['status' => 'disabled'];
+    }
+
+    public function getIdsSettings()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIdsSettings();
+        }
+        return [];
+    }
+
+    public function updateIdsSettings(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateIdsSettings($data);
+        }
+        return ['result' => 'saved'];
+    }
+
+    public function getIdsAlerts()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIdsAlerts();
+        }
+        return [];
+    }
+
+    public function startIdsService()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->startIdsService();
+        }
+        return ['result' => 'ok'];
+    }
+
+    public function stopIdsService()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->stopIdsService();
+        }
+        return ['result' => 'ok'];
+    }
+
+    public function restartIdsService()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->restartIdsService();
+        }
+        return ['result' => 'ok'];
+    }
+
+    public function reconfigureIdsService()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->reconfigureIdsService();
+        }
+        return ['status' => 'ok'];
+    }
+
+    public function updateIdsRules()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateIdsRules();
+        }
+        return ['status' => 'ok'];
+    }
+
+    public function getIdsRulesets()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIdsRulesets();
+        }
+        return ['status' => 200, 'data' => [], 'rows' => [], 'total' => 0];
+    }
+
+    public function toggleIdsRuleset(string $filename)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->toggleIdsRuleset($filename);
+        }
+        return ['status' => '1'];
+    }
+
+    public function getIdsUserRules()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIdsUserRules();
+        }
+        return ['status' => 200, 'data' => [], 'rows' => [], 'total' => 0];
+    }
+
+    public function getIdsUserRule(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIdsUserRule($uuid);
+        }
+        return [];
+    }
+
+    public function createIdsUserRule(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->createIdsUserRule($data);
+        }
+        return ['result' => 'saved'];
+    }
+
+    public function updateIdsUserRule(string $uuid, array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateIdsUserRule($uuid, $data);
+        }
+        return ['result' => 'saved'];
+    }
+
+    public function deleteIdsUserRule(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteIdsUserRule($uuid);
+        }
+        return ['result' => 'deleted'];
+    }
+
+    public function toggleIdsUserRule(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->toggleIdsUserRule($uuid);
+        }
+        return ['result' => 'ok'];
+    }
 }
+
 
