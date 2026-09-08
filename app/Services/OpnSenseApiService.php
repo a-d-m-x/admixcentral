@@ -2965,5 +2965,229 @@ class OpnSenseApiService
             return [];
         }
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | System: User & Group Management
+    |--------------------------------------------------------------------------
+    */
+
+    public function getSystemUsers(): array
+    {
+        $res = $this->post('/api/auth/user/search', [
+            'current' => 1,
+            'rowCount' => -1,
+        ]);
+        $rows = $res['rows'] ?? [];
+        $users = [];
+        foreach ($rows as $row) {
+            $groupMemberships = !empty($row['%group_memberships'])
+                ? array_map('trim', explode(',', $row['%group_memberships']))
+                : [];
+
+            $users[] = [
+                'id' => $row['uuid'],
+                'uuid' => $row['uuid'],
+                'name' => $row['name'],
+                'descr' => $row['descr'] ?? $row['comment'] ?? '',
+                'disabled' => !empty($row['disabled']) && $row['disabled'] !== '0',
+                'groups' => $groupMemberships,
+                'uid' => $row['uid'] ?? '',
+                'scope' => $row['scope'] ?? 'user',
+            ];
+        }
+        return ['status' => 200, 'data' => $users];
+    }
+
+    public function getSystemUser(string $id): array
+    {
+        $res = $this->get("/api/auth/user/get/{$id}");
+        return ['status' => 200, 'data' => $res['user'] ?? []];
+    }
+
+    public function createSystemUser(array $data): array
+    {
+        $userPayload = [
+            'name' => $data['name'] ?? '',
+            'descr' => $data['descr'] ?? '',
+            'disabled' => !empty($data['disabled']) ? '1' : '0',
+        ];
+
+        if (!empty($data['password'])) {
+            $userPayload['password'] = $data['password'];
+        }
+
+        if (!empty($data['groups']) && is_array($data['groups'])) {
+            $groups = $this->getSystemGroups()['data'] ?? [];
+            $nameToGid = [];
+            foreach ($groups as $g) {
+                $nameToGid[$g['name']] = (string)($g['gid'] ?? $g['id']);
+            }
+            $gids = [];
+            foreach ($data['groups'] as $groupName) {
+                if (isset($nameToGid[$groupName])) {
+                    $gids[] = $nameToGid[$groupName];
+                } elseif (is_numeric($groupName)) {
+                    $gids[] = (string)$groupName;
+                }
+            }
+            $userPayload['group_memberships'] = implode(',', $gids);
+        }
+
+        $res = $this->post('/api/auth/user/add', ['user' => $userPayload]);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to create user on OPNsense: {$validation}");
+        }
+
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function updateSystemUser(array $data): array
+    {
+        $id = $data['id'] ?? $data['uuid'] ?? null;
+        if (!$id) {
+            throw new \Exception("User ID is required for update.");
+        }
+
+        $userPayload = [
+            'descr' => $data['descr'] ?? '',
+            'disabled' => !empty($data['disabled']) ? '1' : '0',
+        ];
+
+        if (!empty($data['password'])) {
+            $userPayload['password'] = $data['password'];
+        }
+
+        if (isset($data['groups']) && is_array($data['groups'])) {
+            $groups = $this->getSystemGroups()['data'] ?? [];
+            $nameToGid = [];
+            foreach ($groups as $g) {
+                $nameToGid[$g['name']] = (string)($g['gid'] ?? $g['id']);
+            }
+            $gids = [];
+            foreach ($data['groups'] as $groupName) {
+                if (isset($nameToGid[$groupName])) {
+                    $gids[] = $nameToGid[$groupName];
+                } elseif (is_numeric($groupName)) {
+                    $gids[] = (string)$groupName;
+                }
+            }
+            $userPayload['group_memberships'] = implode(',', $gids);
+        }
+
+        $res = $this->post("/api/auth/user/set/{$id}", ['user' => $userPayload]);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to update user on OPNsense: {$validation}");
+        }
+
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function deleteSystemUser(string $id): array
+    {
+        // Safety: verify user is not root or admin
+        try {
+            $user = $this->getSystemUser($id);
+            if (in_array($user['name'] ?? '', ['root', 'admin'])) {
+                throw new \Exception("Cannot delete primary administrator account ({$user['name']}).");
+            }
+        } catch (\Exception $e) {
+            if (str_contains($e->getMessage(), 'Cannot delete primary administrator account')) {
+                throw $e;
+            }
+        }
+
+        $res = $this->post("/api/auth/user/del/{$id}", []);
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function getSystemGroups(): array
+    {
+        $res = $this->post('/api/auth/group/search', [
+            'current' => 1,
+            'rowCount' => -1,
+        ]);
+        $rows = $res['rows'] ?? [];
+        $groups = [];
+        foreach ($rows as $row) {
+            $members = !empty($row['%member'])
+                ? array_map('trim', explode(',', $row['%member']))
+                : [];
+
+            $groups[] = [
+                'id' => $row['uuid'],
+                'uuid' => $row['uuid'],
+                'gid' => $row['gid'] ?? '',
+                'name' => $row['name'],
+                'description' => $row['description'] ?? '',
+                'scope' => $row['scope'] ?? 'user',
+                'member' => $members,
+            ];
+        }
+        return ['status' => 200, 'data' => $groups];
+    }
+
+    public function getSystemGroup(string $id): array
+    {
+        $res = $this->get("/api/auth/group/get/{$id}");
+        return ['status' => 200, 'data' => $res['group'] ?? []];
+    }
+
+    public function createSystemGroup(array $data): array
+    {
+        $groupPayload = [
+            'name' => $data['name'] ?? '',
+            'description' => $data['description'] ?? '',
+        ];
+
+        $res = $this->post('/api/auth/group/add', ['group' => $groupPayload]);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to create group on OPNsense: {$validation}");
+        }
+
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function updateSystemGroup(array $data): array
+    {
+        $id = $data['id'] ?? $data['uuid'] ?? null;
+        if (!$id) {
+            throw new \Exception("Group ID is required for update.");
+        }
+
+        $groupPayload = [
+            'description' => $data['description'] ?? '',
+        ];
+
+        $res = $this->post("/api/auth/group/set/{$id}", ['group' => $groupPayload]);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to update group on OPNsense: {$validation}");
+        }
+
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function deleteSystemGroup(string $id): array
+    {
+        // Safety: verify group is not admins or all
+        try {
+            $group = $this->getSystemGroup($id);
+            if (in_array($group['name'] ?? '', ['admins', 'all'])) {
+                throw new \Exception("Cannot delete core system group ({$group['name']}).");
+            }
+        } catch (\Exception $e) {
+            if (str_contains($e->getMessage(), 'Cannot delete core system group')) {
+                throw $e;
+            }
+        }
+
+        $res = $this->post("/api/auth/group/del/{$id}", []);
+        return ['status' => 200, 'data' => $res];
+    }
 }
+
 

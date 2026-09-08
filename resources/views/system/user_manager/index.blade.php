@@ -82,7 +82,7 @@
                                             @if(!auth()->user()->isReadOnly())
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <a href="{{ route('system.user_manager.users.edit', [$firewall->id, $user['id']]) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
-                                                @if($user['name'] !== 'admin')
+                                                @if(!in_array($user['name'], ['admin', 'root']))
                                                     <form action="{{ route('system.user_manager.users.destroy', [$firewall->id, $user['id']]) }}" method="POST" class="inline-block" onsubmit="return confirm('Are you sure you want to delete user {{ $user['name'] }}?');">
                                                         @csrf
                                                         @method('DELETE')
