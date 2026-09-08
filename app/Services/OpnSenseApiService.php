@@ -2826,4 +2826,15 @@ class OpnSenseApiService
     {
         return $this->post('/api/interfaces/vxlan_settings/reconfigure', []);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Diagnostics: Reverse DNS Lookup
+    |--------------------------------------------------------------------------
+    */
+
+    public function reverseDnsLookup(string $address): array
+    {
+        return $this->get('/api/diagnostics/dns/reverse_lookup', ['address' => $address]);
+    }
 }
