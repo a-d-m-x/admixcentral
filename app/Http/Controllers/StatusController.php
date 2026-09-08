@@ -81,6 +81,10 @@ class StatusController extends Controller
 
     public function monitoring(Firewall $firewall)
     {
+        if ($firewall->isOpnSense()) {
+            return redirect()->route('services.monit.index', $firewall);
+        }
+
         return view('status.monitoring', compact('firewall'));
     }
 

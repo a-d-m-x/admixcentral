@@ -2505,14 +2505,165 @@ class OpnSenseApiService
         return $this->get('/api/monit/service/status');
     }
 
+    public function getMonitServiceStatus(): array
+    {
+        return $this->getMonitStatus();
+    }
+
+    public function startMonitService(): array
+    {
+        return $this->post('/api/monit/service/start', []);
+    }
+
+    public function stopMonitService(): array
+    {
+        return $this->post('/api/monit/service/stop', []);
+    }
+
+    public function restartMonitService(): array
+    {
+        return $this->post('/api/monit/service/restart', []);
+    }
+
+    public function reconfigureMonitService(): array
+    {
+        return $this->post('/api/monit/service/reconfigure', []);
+    }
+
     public function getMonitSettings(): array
     {
         return $this->get('/api/monit/settings/get');
     }
 
-    public function restartMonitService(): array
+    public function updateMonitSettings(array $data): array
     {
-        return $this->post('/api/monit/service/restart');
+        $payload = isset($data['monit']) ? $data : ['monit' => ['general' => $data]];
+        $res = $this->post('/api/monit/settings/set', $payload);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = is_array($m) ? implode(', ', $m) : "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to update Monit settings');
+        }
+        return $res;
+    }
+
+    public function getMonitServices(): array
+    {
+        $res = $this->get('/api/monit/settings/searchService');
+        return [
+            'status' => 200,
+            'data' => $res['rows'] ?? [],
+            'total' => $res['total'] ?? 0,
+        ];
+    }
+
+    public function getMonitService(string $uuid): array
+    {
+        return $this->get("/api/monit/settings/getService/{$uuid}");
+    }
+
+    public function createMonitService(array $data): array
+    {
+        $res = $this->post('/api/monit/settings/addService', ['service' => $data]);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = is_array($m) ? implode(', ', $m) : "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to create Monit service');
+        }
+        return $res;
+    }
+
+    public function updateMonitService(string $uuid, array $data): array
+    {
+        $res = $this->post("/api/monit/settings/setService/{$uuid}", ['service' => $data]);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = is_array($m) ? implode(', ', $m) : "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to update Monit service');
+        }
+        return $res;
+    }
+
+    public function deleteMonitService(string $uuid): array
+    {
+        return $this->post("/api/monit/settings/delService/{$uuid}", []);
+    }
+
+    public function toggleMonitService(string $uuid): array
+    {
+        return $this->post("/api/monit/settings/toggleService/{$uuid}", []);
+    }
+
+    public function getMonitAlerts(): array
+    {
+        $res = $this->get('/api/monit/settings/searchAlert');
+        return [
+            'status' => 200,
+            'data' => $res['rows'] ?? [],
+            'total' => $res['total'] ?? 0,
+        ];
+    }
+
+    public function getMonitAlert(string $uuid): array
+    {
+        return $this->get("/api/monit/settings/getAlert/{$uuid}");
+    }
+
+    public function createMonitAlert(array $data): array
+    {
+        $res = $this->post('/api/monit/settings/addAlert', ['alert' => $data]);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = is_array($m) ? implode(', ', $m) : "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to create Monit alert');
+        }
+        return $res;
+    }
+
+    public function updateMonitAlert(string $uuid, array $data): array
+    {
+        $res = $this->post("/api/monit/settings/setAlert/{$uuid}", ['alert' => $data]);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = is_array($m) ? implode(', ', $m) : "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to update Monit alert');
+        }
+        return $res;
+    }
+
+    public function deleteMonitAlert(string $uuid): array
+    {
+        return $this->post("/api/monit/settings/delAlert/{$uuid}", []);
+    }
+
+    public function toggleMonitAlert(string $uuid): array
+    {
+        return $this->post("/api/monit/settings/toggleAlert/{$uuid}", []);
+    }
+
+    public function getMonitTests(): array
+    {
+        $res = $this->get('/api/monit/settings/searchTest');
+        return [
+            'status' => 200,
+            'data' => $res['rows'] ?? [],
+            'total' => $res['total'] ?? 0,
+        ];
+    }
+
+    public function getMonitTest(string $uuid): array
+    {
+        return $this->get("/api/monit/settings/getTest/{$uuid}");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
