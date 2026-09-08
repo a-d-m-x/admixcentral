@@ -2720,4 +2720,110 @@ class OpnSenseApiService
     {
         return $this->post('/api/interfaces/loopback_settings/reconfigure', []);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Interfaces: VXLAN
+    |--------------------------------------------------------------------------
+    */
+
+    public function getVxlans(): array
+    {
+        $response = $this->post('/api/interfaces/vxlan_settings/searchItem', [
+            'current' => 1,
+            'rowCount' => -1,
+        ]);
+        return ['status' => 200, 'data' => $response['rows'] ?? []];
+    }
+
+    public function getVxlan(string $uuid): array
+    {
+        $response = $this->get("/api/interfaces/vxlan_settings/getItem/{$uuid}");
+        $item = $response['vxlan'] ?? [];
+        return ['status' => 200, 'data' => $item];
+    }
+
+    public function createVxlan(array $data): array
+    {
+        $payload = [
+            'vxlan' => [
+                'deviceId' => (string) ($data['deviceId'] ?? $data['device_id'] ?? ''),
+                'vxlanid' => (string) ($data['vxlanid'] ?? ''),
+                'vxlanlocal' => $data['vxlanlocal'] ?? '',
+                'vxlanlocalport' => $data['vxlanlocalport'] ?? '',
+                'vxlanremote' => $data['vxlanremote'] ?? '',
+                'vxlanremoteport' => $data['vxlanremoteport'] ?? '',
+                'vxlangroup' => $data['vxlangroup'] ?? '',
+                'vxlandev' => !empty($data['vxlanremote']) ? '' : ($data['vxlandev'] ?? ''),
+            ],
+        ];
+
+        $res = $this->post('/api/interfaces/vxlan_settings/addItem', $payload);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to create VXLAN interface');
+        }
+
+        try {
+            $this->reconfigureVxlans();
+        } catch (\Throwable $e) {}
+
+        return [
+            'status' => 200,
+            'data' => $res,
+            'uuid' => $res['uuid'] ?? null,
+        ];
+    }
+
+    public function updateVxlan(string $uuid, array $data): array
+    {
+        $payload = [
+            'vxlan' => [
+                'deviceId' => (string) ($data['deviceId'] ?? $data['device_id'] ?? ''),
+                'vxlanid' => (string) ($data['vxlanid'] ?? ''),
+                'vxlanlocal' => $data['vxlanlocal'] ?? '',
+                'vxlanlocalport' => $data['vxlanlocalport'] ?? '',
+                'vxlanremote' => $data['vxlanremote'] ?? '',
+                'vxlanremoteport' => $data['vxlanremoteport'] ?? '',
+                'vxlangroup' => $data['vxlangroup'] ?? '',
+                'vxlandev' => !empty($data['vxlanremote']) ? '' : ($data['vxlandev'] ?? ''),
+            ],
+        ];
+
+        $res = $this->post("/api/interfaces/vxlan_settings/setItem/{$uuid}", $payload);
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errs = [];
+            foreach ($res['validations'] ?? [] as $f => $m) {
+                $errs[] = "$f: $m";
+            }
+            throw new \InvalidArgumentException(implode('; ', $errs) ?: 'Failed to update VXLAN interface');
+        }
+
+        try {
+            $this->reconfigureVxlans();
+        } catch (\Throwable $e) {}
+
+        return [
+            'status' => 200,
+            'data' => $res,
+        ];
+    }
+
+    public function deleteVxlan(string $uuid): array
+    {
+        $res = $this->post("/api/interfaces/vxlan_settings/delItem/{$uuid}", []);
+        try {
+            $this->reconfigureVxlans();
+        } catch (\Throwable $e) {}
+
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function reconfigureVxlans(): array
+    {
+        return $this->post('/api/interfaces/vxlan_settings/reconfigure', []);
+    }
 }

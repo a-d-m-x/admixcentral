@@ -239,6 +239,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/loopbacks/{id}/edit', [App\Http\Controllers\InterfacesLoopbackController::class, 'edit'])->name('loopbacks.edit');
             Route::patch('/loopbacks/{id}', [App\Http\Controllers\InterfacesLoopbackController::class, 'update'])->middleware('deny.readonly')->name('loopbacks.update');
             Route::delete('/loopbacks/{id}', [App\Http\Controllers\InterfacesLoopbackController::class, 'destroy'])->middleware('deny.readonly')->name('loopbacks.destroy');
+
+            // VXLAN
+            Route::get('/vxlans', [App\Http\Controllers\InterfacesVxlanController::class, 'index'])->name('vxlans.index');
+            Route::get('/vxlans/create', [App\Http\Controllers\InterfacesVxlanController::class, 'create'])->name('vxlans.create');
+            Route::post('/vxlans', [App\Http\Controllers\InterfacesVxlanController::class, 'store'])->middleware('deny.readonly')->name('vxlans.store');
+            Route::get('/vxlans/{id}/edit', [App\Http\Controllers\InterfacesVxlanController::class, 'edit'])->name('vxlans.edit');
+            Route::patch('/vxlans/{id}', [App\Http\Controllers\InterfacesVxlanController::class, 'update'])->middleware('deny.readonly')->name('vxlans.update');
+            Route::delete('/vxlans/{id}', [App\Http\Controllers\InterfacesVxlanController::class, 'destroy'])->middleware('deny.readonly')->name('vxlans.destroy');
         });
 
     // Interfaces management
