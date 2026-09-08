@@ -1389,6 +1389,9 @@ class PfSenseApiService
      */
     public function getOpenVpnServerStatus()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getOpenVpnServerStatus();
+        }
         return $this->get('/status/openvpn/servers');
     }
 
@@ -1471,6 +1474,9 @@ class PfSenseApiService
      */
     public function getOpenVpnServers()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getOpenVpnServers();
+        }
         return $this->get('/vpn/openvpn/servers');
     }
 
@@ -1479,6 +1485,9 @@ class PfSenseApiService
      */
     public function getOpenVpnClients()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getOpenVpnClients();
+        }
         return $this->get('/vpn/openvpn/clients');
     }
 
@@ -1501,9 +1510,23 @@ class PfSenseApiService
     /**
      * Delete OpenVPN Server
      */
-    public function deleteOpenVpnServer(int $id)
+    public function deleteOpenVpnServer($id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteOpenVpnInstance((string) $id);
+        }
         return $this->delete("/vpn/openvpn/server", ['id' => $id]);
+    }
+
+    /**
+     * Delete OpenVPN Client
+     */
+    public function deleteOpenVpnClient($id)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteOpenVpnInstance((string) $id);
+        }
+        return $this->delete("/vpn/openvpn/client", ['id' => $id]);
     }
 
     /**
@@ -1520,14 +1543,6 @@ class PfSenseApiService
     public function updateCarpStatus(array $data)
     {
         return $this->patch('/status/carp', $data);
-    }
-
-    /**
-     * Delete OpenVPN Client
-     */
-    public function deleteOpenVpnClient(int $id)
-    {
-        return $this->delete("/vpn/openvpn/client", ['id' => $id]);
     }
 
     /**

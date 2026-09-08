@@ -2825,4 +2825,90 @@ class OpnSenseApiService
     {
         return $this->get('/api/diagnostics/dns/reverse_lookup', ['address' => $address]);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | VPN: OpenVPN
+    |--------------------------------------------------------------------------
+    */
+
+    public function getOpenVpnInstances(): array
+    {
+        $res = $this->post('/api/openvpn/instances/search', [
+            'current' => 1,
+            'rowCount' => -1,
+        ]);
+        return ['status' => 200, 'data' => $res['rows'] ?? []];
+    }
+
+    public function getOpenVpnServers(): array
+    {
+        $instances = $this->getOpenVpnInstances();
+        $servers = [];
+        foreach ($instances['data'] ?? [] as $row) {
+            if (($row['role'] ?? '') === 'server' || empty($row['role'])) {
+                $servers[] = [
+                    'vpnid' => $row['uuid'] ?? ($row['vpnid'] ?? ''),
+                    'description' => $row['description'] ?? '',
+                    'protocol' => $row['proto'] ?? ($row['protocol'] ?? 'UDP'),
+                    'local_port' => $row['port'] ?? '1194',
+                    'interface' => $row['dev_type'] ?? 'WAN',
+                    'tunnel_network' => $row['server'] ?? '',
+                    'enabled' => !empty($row['enabled']) && $row['enabled'] !== '0',
+                    'uuid' => $row['uuid'] ?? '',
+                ];
+            }
+        }
+        return ['status' => 200, 'data' => $servers];
+    }
+
+    public function getOpenVpnClients(): array
+    {
+        $instances = $this->getOpenVpnInstances();
+        $clients = [];
+        foreach ($instances['data'] ?? [] as $row) {
+            if (($row['role'] ?? '') === 'client') {
+                $clients[] = [
+                    'vpnid' => $row['uuid'] ?? ($row['vpnid'] ?? ''),
+                    'description' => $row['description'] ?? '',
+                    'protocol' => $row['proto'] ?? ($row['protocol'] ?? 'UDP'),
+                    'local_port' => $row['port'] ?? '1194',
+                    'interface' => $row['dev_type'] ?? 'WAN',
+                    'server_addr' => $row['remote'] ?? '',
+                    'enabled' => !empty($row['enabled']) && $row['enabled'] !== '0',
+                    'uuid' => $row['uuid'] ?? '',
+                ];
+            }
+        }
+        return ['status' => 200, 'data' => $clients];
+    }
+
+    public function getOpenVpnInstance(string $uuid): array
+    {
+        $res = $this->get("/api/openvpn/instances/get/{$uuid}");
+        return ['status' => 200, 'data' => $res['instance'] ?? []];
+    }
+
+    public function deleteOpenVpnInstance(string $uuid): array
+    {
+        $res = $this->post("/api/openvpn/instances/del/{$uuid}", []);
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function getOpenVpnServerStatus(): array
+    {
+        $instances = $this->getOpenVpnServers();
+        $statusList = [];
+        foreach ($instances['data'] ?? [] as $server) {
+            $statusList[] = [
+                'name' => $server['description'] ?: ('OpenVPN Server ' . ($server['local_port'] ?? '1194')),
+                'status' => !empty($server['enabled']) ? 'up' : 'down',
+                'remote_host' => $server['protocol'] . ':' . $server['local_port'],
+                'virtual_addr' => $server['tunnel_network'] ?: '-',
+                'bytes_sent' => 0,
+                'bytes_recv' => 0,
+            ];
+        }
+        return ['status' => 200, 'data' => $statusList];
+    }
 }
