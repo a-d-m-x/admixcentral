@@ -3865,6 +3865,109 @@ class OpnSenseApiService
     {
         return $this->post('/api/captiveportal/service/reconfigure', []);
     }
+
+    /**
+     * Get DNS Forwarder (Dnsmasq) Settings
+     */
+    public function getDnsForwarderSettings(): array
+    {
+        $res = $this->get('/api/dnsmasq/settings/get');
+        return [
+            'status' => 200,
+            'data' => $res['dnsmasq'] ?? [],
+        ];
+    }
+
+    /**
+     * Update DNS Forwarder (Dnsmasq) Settings
+     */
+    public function updateDnsForwarderSettings(array $data): array
+    {
+        $res = $this->post('/api/dnsmasq/settings/set', ['dnsmasq' => $data]);
+        $this->reconfigureDnsForwarderService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Get DNS Forwarder Service Status
+     */
+    public function getDnsForwarderServiceStatus(): array
+    {
+        return $this->get('/api/dnsmasq/service/status');
+    }
+
+    /**
+     * Reconfigure DNS Forwarder Service
+     */
+    public function reconfigureDnsForwarderService(): array
+    {
+        return $this->post('/api/dnsmasq/service/reconfigure', []);
+    }
+
+    /**
+     * Restart DNS Forwarder Service
+     */
+    public function restartDnsForwarderService(): array
+    {
+        return $this->post('/api/dnsmasq/service/restart', []);
+    }
+
+    /**
+     * Get DNS Forwarder Host Overrides
+     */
+    public function getDnsForwarderHostOverrides(): array
+    {
+        $res = $this->get('/api/dnsmasq/settings/searchHost');
+        $rows = $res['rows'] ?? [];
+
+        $hosts = [];
+        foreach ($rows as $row) {
+            $hosts[] = [
+                'uuid' => $row['uuid'] ?? '',
+                'host' => $row['host'] ?? '',
+                'domain' => $row['domain'] ?? '',
+                'ip' => $row['ip'] ?? '',
+                'descr' => $row['descr'] ?? ($row['comments'] ?? ''),
+            ];
+        }
+
+        return [
+            'status' => 200,
+            'data' => $hosts,
+        ];
+    }
+
+    /**
+     * Create DNS Forwarder Host Override
+     */
+    public function createDnsForwarderHostOverride(array $data): array
+    {
+        $payload = [
+            'host' => $data['host'] ?? '',
+            'domain' => $data['domain'] ?? '',
+            'ip' => $data['ip'] ?? '',
+            'descr' => $data['descr'] ?? ($data['description'] ?? ''),
+        ];
+
+        $res = $this->post('/api/dnsmasq/settings/addHost', ['host' => $payload]);
+        if (($res['result'] ?? '') === 'failed') {
+            $validation = json_encode($res['validations'] ?? $res);
+            throw new \Exception("Failed to create DNS Forwarder host override on OPNsense: {$validation}");
+        }
+
+        $this->reconfigureDnsForwarderService();
+        return ['status' => 200, 'data' => $res];
+    }
+
+    /**
+     * Delete DNS Forwarder Host Override
+     */
+    public function deleteDnsForwarderHostOverride(string $uuid): array
+    {
+        $res = $this->post("/api/dnsmasq/settings/delHost/{$uuid}", []);
+        $this->reconfigureDnsForwarderService();
+        return ['status' => 200, 'data' => $res];
+    }
 }
 
 

@@ -653,6 +653,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/dhcpv6-relay', [App\Http\Controllers\ServicesController::class, 'dhcpv6Relay'])->name('dhcpv6-relay');
         Route::get('/dhcpv6-server', [App\Http\Controllers\ServicesController::class, 'dhcpv6Server'])->name('dhcpv6-server');
         Route::get('/dns-forwarder', [App\Http\Controllers\ServicesController::class, 'dnsForwarder'])->name('dns-forwarder');
+        Route::post('/dns-forwarder/hosts', [App\Http\Controllers\ServicesController::class, 'storeDnsForwarderHost'])->middleware('deny.readonly')->name('dns-forwarder.hosts.store');
+        Route::delete('/dns-forwarder/hosts/{uuid}', [App\Http\Controllers\ServicesController::class, 'destroyDnsForwarderHost'])->middleware('deny.readonly')->name('dns-forwarder.hosts.destroy');
         Route::get('/dynamic-dns', [App\Http\Controllers\ServicesController::class, 'dynamicDns'])->name('dynamic-dns');
         Route::get('/igmp-proxy', [App\Http\Controllers\ServicesController::class, 'igmpProxy'])->name('igmp-proxy');
         Route::get('/ntp', [App\Http\Controllers\ServicesNtpController::class, 'index'])->name('ntp');
