@@ -303,7 +303,7 @@
                                         {{-- Source Address --}}
                                         <td class="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">
                                             @php
-                                                $val = is_array($rule['source']) ? ($rule['source']['any'] ? '*' : ($rule['source']['address'] ?? ($rule['source']['network'] ?? ''))) : $rule['source'];
+                                                $val = is_array($rule['source']) ? (!empty($rule['source']['any']) ? '*' : ($rule['source']['address'] ?? ($rule['source']['network'] ?? ''))) : $rule['source'];
                                                 $val = ($val === 'any' || $val === '') ? '*' : $val;
                                                 $isAlias = isset($aliasMap[$val]);
                                             @endphp
@@ -311,7 +311,7 @@
                                                 <a href="{{ route('firewall.aliases.edit', [$firewall, $aliasMap[$val]['id']]) }}"
                                                    class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium inline-flex items-center">
                                                     {{ $val }}
-                                                    <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide {{ match ($aliasMap[$val]['type']) { 'host' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200', 'network' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', 'port' => 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200', default => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' } }}">{{ $aliasMap[$val]['type'] }}</span>
+                                                    <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide {{ match ($aliasMap[$val]['type'] ?? '') { 'host' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200', 'network' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', 'port' => 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200', default => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' } }}">{{ $aliasMap[$val]['type'] ?? '' }}</span>
                                                 </a>
                                             @else
                                                 {{ $val }}
@@ -327,7 +327,7 @@
                                         {{-- Dest Address --}}
                                         <td class="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">
                                             @php
-                                                $val = is_array($rule['destination']) ? ($rule['destination']['any'] ? '*' : ($rule['destination']['address'] ?? ($rule['destination']['network'] ?? ''))) : $rule['destination'];
+                                                $val = is_array($rule['destination']) ? (!empty($rule['destination']['any']) ? '*' : ($rule['destination']['address'] ?? ($rule['destination']['network'] ?? ''))) : $rule['destination'];
                                                 $val = ($val === 'any' || $val === '') ? '*' : $val;
                                                 $isAlias = isset($aliasMap[$val]);
                                             @endphp
@@ -335,7 +335,7 @@
                                                 <a href="{{ route('firewall.aliases.edit', [$firewall, $aliasMap[$val]['id']]) }}"
                                                    class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium inline-flex items-center">
                                                     {{ $val }}
-                                                    <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide {{ match ($aliasMap[$val]['type']) { 'host' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200', 'network' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', 'port' => 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200', default => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' } }}">{{ $aliasMap[$val]['type'] }}</span>
+                                                    <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide {{ match ($aliasMap[$val]['type'] ?? '') { 'host' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200', 'network' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', 'port' => 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200', default => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' } }}">{{ $aliasMap[$val]['type'] ?? '' }}</span>
                                                 </a>
                                             @else
                                                 {{ $val }}
@@ -355,7 +355,7 @@
                                                 <a href="{{ route('firewall.aliases.edit', [$firewall, $aliasMap[$val]['id']]) }}"
                                                    class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium inline-flex items-center">
                                                     {{ $val }}
-                                                    <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide {{ match ($aliasMap[$val]['type']) { 'host' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200', 'network' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', default => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' } }}">{{ $aliasMap[$val]['type'] }}</span>
+                                                    <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide {{ match ($aliasMap[$val]['type'] ?? '') { 'host' => 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200', 'network' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', default => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' } }}">{{ $aliasMap[$val]['type'] ?? '' }}</span>
                                                 </a>
                                             @else
                                                 {{ $val }}
