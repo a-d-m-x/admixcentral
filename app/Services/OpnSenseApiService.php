@@ -859,13 +859,564 @@ class OpnSenseApiService
     {
         $alias = $this->applyFirewallAliases();
         $rules = $this->applyFirewallRules();
+        $dnat = [];
+        $snat = [];
+        $o2o = [];
+        try { $dnat = $this->post('/api/firewall/d_nat/apply'); } catch (\Throwable $e) {}
+        try { $snat = $this->post('/api/firewall/source_nat/apply'); } catch (\Throwable $e) {}
+        try { $o2o = $this->post('/api/firewall/one_to_one/apply'); } catch (\Throwable $e) {}
+
         return [
             'status' => 200,
             'data' => [
                 'aliases' => $alias,
                 'rules' => $rules,
+                'dnat' => $dnat,
+                'snat' => $snat,
+                'one_to_one' => $o2o,
             ],
         ];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // NAT (Port Forward / Destination NAT, Outbound / Source NAT, 1:1 NAT)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function getNatPortForwards(): array
+    {
+        $res = $this->post('/api/firewall/d_nat/searchRule', ['rowCount' => -1, 'current' => 1]);
+        $rows = $res['rows'] ?? [];
+
+        $rules = [];
+        foreach ($rows as $row) {
+            $rules[] = [
+                'id' => $row['uuid'] ?? '',
+                'uuid' => $row['uuid'] ?? '',
+                'interface' => $row['interface'] ?? 'wan',
+                'protocol' => $row['protocol'] ?? 'tcp',
+                'ipprotocol' => $row['ipprotocol'] ?? 'inet',
+                'source' => [
+                    'network' => $row['source.network'] ?? 'any',
+                    'address' => $row['source.network'] ?? 'any',
+                    'port' => $row['source.port'] ?? '',
+                    'not' => $row['source.not'] ?? '0',
+                ],
+                'source_port' => $row['source.port'] ?? '',
+                'destination' => [
+                    'network' => $row['destination.network'] ?? 'wanip',
+                    'address' => $row['destination.network'] ?? 'wanip',
+                    'port' => $row['destination.port'] ?? '',
+                    'not' => $row['destination.not'] ?? '0',
+                ],
+                'destination_port' => $row['destination.port'] ?? '',
+                'dstport' => $row['destination.port'] ?? '',
+                'target' => $row['target'] ?? '',
+                'local_port' => $row['local-port'] ?? '',
+                'local-port' => $row['local-port'] ?? '',
+                'descr' => $row['descr'] ?? ($row['description'] ?? ''),
+                'disabled' => !empty($row['disabled']) && (string) $row['disabled'] !== '0',
+                'natreflection' => $row['natreflection'] ?? '',
+                'associated_rule_id' => $row['pass'] ?? '',
+                'is_automatic' => !empty($row['is_automatic']),
+            ];
+        }
+
+        return [
+            'status' => 200,
+            'data' => $rules,
+        ];
+    }
+
+    public function getNatPortForward($id): array
+    {
+        $uuid = (string) $id;
+        if (is_numeric($id)) {
+            $rules = $this->getNatPortForwards()['data'] ?? [];
+            if (isset($rules[$id])) {
+                $uuid = $rules[$id]['uuid'] ?? ($rules[$id]['id'] ?? $uuid);
+            }
+        }
+
+        $res = $this->get("/api/firewall/d_nat/getRule/{$uuid}");
+        return ['status' => 200, 'data' => $res['rule'] ?? []];
+    }
+
+    public function createNatPortForward(array $data): array
+    {
+        $payload = $this->buildDnatPayload($data);
+        $res = $this->post('/api/firewall/d_nat/addRule', $payload);
+        return [
+            'status' => 200,
+            'data' => $res,
+            'uuid' => $res['uuid'] ?? null,
+            'associated_rule_id' => $res['uuid'] ?? null,
+        ];
+    }
+
+    public function updateNatPortForward($id, array $data): array
+    {
+        $uuid = (string) $id;
+        if (is_numeric($id)) {
+            $rules = $this->getNatPortForwards()['data'] ?? [];
+            if (isset($rules[$id])) {
+                $uuid = $rules[$id]['uuid'] ?? ($rules[$id]['id'] ?? $uuid);
+            }
+        }
+
+        // Handle single-field toggle/update
+        if (count($data) === 1 && isset($data['disabled'])) {
+            $existing = $this->get("/api/firewall/d_nat/getRule/{$uuid}")['rule'] ?? [];
+            $payload = [
+                'rule' => [
+                    'disabled' => !empty($data['disabled']) ? '1' : '0',
+                    'interface' => is_array($existing['interface'] ?? null) ? ($this->getSelectedOption($existing['interface']) ?: 'wan') : ($existing['interface'] ?? 'wan'),
+                    'ipprotocol' => is_array($existing['ipprotocol'] ?? null) ? ($this->getSelectedOption($existing['ipprotocol']) ?: 'inet') : ($existing['ipprotocol'] ?? 'inet'),
+                    'protocol' => is_array($existing['protocol'] ?? null) ? ($this->getSelectedOption($existing['protocol']) ?: 'tcp') : ($existing['protocol'] ?? 'tcp'),
+                    'source' => [
+                        'network' => $existing['source']['network'] ?? 'any',
+                        'port' => $existing['source']['port'] ?? '',
+                        'not' => $existing['source']['not'] ?? '0',
+                    ],
+                    'destination' => [
+                        'network' => $existing['destination']['network'] ?? 'wanip',
+                        'port' => $existing['destination']['port'] ?? '',
+                        'not' => $existing['destination']['not'] ?? '0',
+                    ],
+                    'target' => $existing['target'] ?? '',
+                    'local-port' => $existing['local-port'] ?? '',
+                    'descr' => $existing['descr'] ?? '',
+                    'natreflection' => is_array($existing['natreflection'] ?? null) ? ($this->getSelectedOption($existing['natreflection']) ?: '') : ($existing['natreflection'] ?? ''),
+                    'pass' => is_array($existing['pass'] ?? null) ? ($this->getSelectedOption($existing['pass']) ?: '') : ($existing['pass'] ?? ''),
+                ]
+            ];
+            $res = $this->post("/api/firewall/d_nat/setRule/{$uuid}", $payload);
+            return ['status' => 200, 'data' => $res];
+        }
+
+        $payload = $this->buildDnatPayload($data);
+        $res = $this->post("/api/firewall/d_nat/setRule/{$uuid}", $payload);
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function deleteNatPortForward($id): array
+    {
+        $uuid = (string) $id;
+        if (is_numeric($id)) {
+            $rules = $this->getNatPortForwards()['data'] ?? [];
+            if (isset($rules[$id])) {
+                $uuid = $rules[$id]['uuid'] ?? ($rules[$id]['id'] ?? $uuid);
+            }
+        }
+
+        $res = $this->post("/api/firewall/d_nat/delRule/{$uuid}");
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function toggleNatPortForward($id): array
+    {
+        $uuid = (string) $id;
+        if (is_numeric($id)) {
+            $rules = $this->getNatPortForwards()['data'] ?? [];
+            if (isset($rules[$id])) {
+                $uuid = $rules[$id]['uuid'] ?? ($rules[$id]['id'] ?? $uuid);
+            }
+        }
+
+        $res = $this->post("/api/firewall/d_nat/toggleRule/{$uuid}");
+        return ['status' => 200, 'data' => $res];
+    }
+
+    protected function buildDnatPayload(array $data): array
+    {
+        $src = $data['source'] ?? 'any';
+        $srcNot = '0';
+        if (is_string($src) && str_starts_with($src, '!')) {
+            $srcNot = '1';
+            $src = substr($src, 1);
+        }
+        $srcNet = is_array($src) ? ($src['network'] ?? ($src['address'] ?? 'any')) : $src;
+        $srcPort = is_array($src) ? ($src['port'] ?? '') : ($data['srcport'] ?? ($data['source_port'] ?? ''));
+        if ($srcPort === 'any') $srcPort = '';
+
+        $iface = strtolower($data['interface'] ?? 'wan');
+        $dst = $data['destination'] ?? 'wanip';
+        $dstNot = '0';
+        if (is_string($dst) && str_starts_with($dst, '!')) {
+            $dstNot = '1';
+            $dst = substr($dst, 1);
+        }
+        $dstNet = is_array($dst) ? ($dst['network'] ?? ($dst['address'] ?? 'wanip')) : $dst;
+        if ($dstNet === '(self)' || $dstNet === $iface) {
+            $dstNet = $iface . 'ip';
+        } elseif ($dstNet === 'wan') {
+            $dstNet = 'wanip';
+        } elseif ($dstNet === 'lan') {
+            $dstNet = 'lanip';
+        }
+        $dstPort = is_array($dst) ? ($dst['port'] ?? '') : ($data['dstport'] ?? ($data['destination_port'] ?? ''));
+
+        $natref = $data['natreflection'] ?? '';
+        if ($natref === 'enable' || $natref === 'purenat') {
+            $natref = 'purenat';
+        } elseif ($natref === 'disable') {
+            $natref = 'disable';
+        } else {
+            $natref = '';
+        }
+
+        $pass = '';
+        $assoc = $data['associated_rule_id'] ?? '';
+        if ($assoc === 'pass') {
+            $pass = 'pass';
+        } elseif ($assoc === 'new' || $assoc === 'linked' || $assoc === 'rule') {
+            $pass = 'rule';
+        }
+
+        return [
+            'rule' => [
+                'disabled' => !empty($data['disabled']) ? '1' : '0',
+                'interface' => $iface,
+                'ipprotocol' => $data['ipprotocol'] ?? 'inet',
+                'protocol' => ($data['protocol'] ?? 'tcp') === 'any' ? '' : $data['protocol'],
+                'source' => [
+                    'network' => $srcNet ?: 'any',
+                    'port' => (string) $srcPort,
+                    'not' => $srcNot,
+                ],
+                'destination' => [
+                    'network' => $dstNet ?: 'wanip',
+                    'port' => (string) $dstPort,
+                    'not' => $dstNot,
+                ],
+                'target' => $data['target'] ?? '',
+                'local-port' => (string) ($data['local_port'] ?? ($data['local-port'] ?? '')),
+                'descr' => $data['descr'] ?? '',
+                'natreflection' => $natref,
+                'pass' => $pass,
+            ]
+        ];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Outbound NAT (Source NAT)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function getNatOutboundRules(): array
+    {
+        $res = $this->post('/api/firewall/source_nat/searchRule', ['rowCount' => -1, 'current' => 1]);
+        $rows = $res['rows'] ?? [];
+
+        $rules = [];
+        foreach ($rows as $row) {
+            $rules[] = [
+                'id' => $row['uuid'] ?? '',
+                'uuid' => $row['uuid'] ?? '',
+                'interface' => $row['interface'] ?? 'wan',
+                'protocol' => $row['protocol'] ?? 'any',
+                'source' => $row['source_net'] ?? 'any',
+                'source_port' => $row['source_port'] ?? '',
+                'destination' => $row['destination_net'] ?? 'any',
+                'destination_port' => $row['destination_port'] ?? '',
+                'target' => $row['target'] ?? '',
+                'target_port' => $row['target_port'] ?? '',
+                'staticnatport' => !empty($row['staticnatport']) && (string) $row['staticnatport'] !== '0',
+                'nonat' => !empty($row['nonat']) && (string) $row['nonat'] !== '0',
+                'descr' => $row['description'] ?? '',
+                'disabled' => empty($row['enabled']) || (string) $row['enabled'] === '0',
+                'is_automatic' => !empty($row['is_automatic']),
+            ];
+        }
+
+        return [
+            'status' => 200,
+            'data' => $rules,
+        ];
+    }
+
+    public function getNatOutboundMode(): array
+    {
+        $res = $this->get('/api/firewall/source_nat/get');
+        $modes = $res['filter']['general']['snat_mode'] ?? [];
+
+        $selectedMode = 'automatic';
+        foreach ($modes as $key => $item) {
+            if (!empty($item['selected'])) {
+                $selectedMode = (string) $key;
+                break;
+            }
+        }
+
+        return [
+            'status' => 200,
+            'data' => [
+                'mode' => $selectedMode,
+            ],
+        ];
+    }
+
+    public function updateNatOutboundMode(string $mode): array
+    {
+        $payload = [
+            'filter' => [
+                'general' => [
+                    'snat_mode' => $mode,
+                ],
+            ],
+        ];
+        $res = $this->post('/api/firewall/source_nat/set', $payload);
+        $this->post('/api/firewall/source_nat/apply');
+        return [
+            'status' => 200,
+            'data' => [
+                'mode' => $mode,
+                'result' => $res,
+            ],
+        ];
+    }
+
+    public function createNatOutboundRule(array $data): array
+    {
+        $payload = [
+            'rule' => [
+                'enabled' => empty($data['disabled']) ? '1' : '0',
+                'nonat' => !empty($data['nonat']) ? '1' : '0',
+                'interface' => strtolower($data['interface'] ?? 'wan'),
+                'ipprotocol' => $data['ipprotocol'] ?? 'inet',
+                'protocol' => ($data['protocol'] ?? 'any') === 'any' ? '' : $data['protocol'],
+                'source_net' => $data['source'] ?? 'any',
+                'source_port' => $data['source_port'] ?? '',
+                'destination_net' => $data['destination'] ?? 'any',
+                'destination_port' => $data['destination_port'] ?? '',
+                'target' => $data['target'] ?? 'wanip',
+                'target_port' => $data['target_port'] ?? '',
+                'staticnatport' => !empty($data['staticnatport']) ? '1' : '0',
+                'description' => $data['descr'] ?? '',
+            ]
+        ];
+        $res = $this->post('/api/firewall/source_nat/addRule', $payload);
+        return [
+            'status' => 200,
+            'data' => $res,
+            'uuid' => $res['uuid'] ?? null,
+        ];
+    }
+
+    public function updateNatOutboundRule($id, array $data): array
+    {
+        $uuid = (string) $id;
+        if (is_numeric($id)) {
+            $rules = $this->getNatOutboundRules()['data'] ?? [];
+            if (isset($rules[$id])) {
+                $uuid = $rules[$id]['uuid'] ?? ($rules[$id]['id'] ?? $uuid);
+            }
+        }
+
+        if (count($data) === 1 && isset($data['disabled'])) {
+            $existing = $this->get("/api/firewall/source_nat/getRule/{$uuid}")['rule'] ?? [];
+            $payload = [
+                'rule' => [
+                    'enabled' => !empty($data['disabled']) ? '0' : '1',
+                    'nonat' => $existing['nonat'] ?? '0',
+                    'interface' => is_array($existing['interface'] ?? null) ? ($this->getSelectedOption($existing['interface']) ?: 'wan') : ($existing['interface'] ?? 'wan'),
+                    'ipprotocol' => is_array($existing['ipprotocol'] ?? null) ? ($this->getSelectedOption($existing['ipprotocol']) ?: 'inet') : ($existing['ipprotocol'] ?? 'inet'),
+                    'protocol' => is_array($existing['protocol'] ?? null) ? ($this->getSelectedOption($existing['protocol']) ?: '') : ($existing['protocol'] ?? ''),
+                    'source_net' => $existing['source_net'] ?? 'any',
+                    'source_port' => $existing['source_port'] ?? '',
+                    'destination_net' => $existing['destination_net'] ?? 'any',
+                    'destination_port' => $existing['destination_port'] ?? '',
+                    'target' => $existing['target'] ?? '',
+                    'target_port' => $existing['target_port'] ?? '',
+                    'staticnatport' => $existing['staticnatport'] ?? '0',
+                    'description' => $existing['description'] ?? '',
+                ]
+            ];
+            $res = $this->post("/api/firewall/source_nat/setRule/{$uuid}", $payload);
+            return ['status' => 200, 'data' => $res];
+        }
+
+        $payload = [
+            'rule' => [
+                'enabled' => empty($data['disabled']) ? '1' : '0',
+                'nonat' => !empty($data['nonat']) ? '1' : '0',
+                'interface' => strtolower($data['interface'] ?? 'wan'),
+                'ipprotocol' => $data['ipprotocol'] ?? 'inet',
+                'protocol' => ($data['protocol'] ?? 'any') === 'any' ? '' : $data['protocol'],
+                'source_net' => $data['source'] ?? 'any',
+                'source_port' => $data['source_port'] ?? '',
+                'destination_net' => $data['destination'] ?? 'any',
+                'destination_port' => $data['destination_port'] ?? '',
+                'target' => $data['target'] ?? '',
+                'target_port' => $data['target_port'] ?? '',
+                'staticnatport' => !empty($data['staticnatport']) ? '1' : '0',
+                'description' => $data['descr'] ?? '',
+            ]
+        ];
+        $res = $this->post("/api/firewall/source_nat/setRule/{$uuid}", $payload);
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function deleteNatOutboundRule($id): array
+    {
+        $uuid = (string) $id;
+        if (is_numeric($id)) {
+            $rules = $this->getNatOutboundRules()['data'] ?? [];
+            if (isset($rules[$id])) {
+                $uuid = $rules[$id]['uuid'] ?? ($rules[$id]['id'] ?? $uuid);
+            }
+        }
+
+        $res = $this->post("/api/firewall/source_nat/delRule/{$uuid}");
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function toggleNatOutboundRule($id): array
+    {
+        $uuid = (string) $id;
+        if (is_numeric($id)) {
+            $rules = $this->getNatOutboundRules()['data'] ?? [];
+            if (isset($rules[$id])) {
+                $uuid = $rules[$id]['uuid'] ?? ($rules[$id]['id'] ?? $uuid);
+            }
+        }
+
+        $res = $this->post("/api/firewall/source_nat/toggleRule/{$uuid}");
+        return ['status' => 200, 'data' => $res];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 1:1 NAT (One-to-One / BINAT)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function getNatOneToOneRules(): array
+    {
+        $res = $this->post('/api/firewall/one_to_one/searchRule', ['rowCount' => -1, 'current' => 1]);
+        $rows = $res['rows'] ?? [];
+
+        $rules = [];
+        foreach ($rows as $row) {
+            $rules[] = [
+                'id' => $row['uuid'] ?? '',
+                'uuid' => $row['uuid'] ?? '',
+                'interface' => $row['interface'] ?? 'wan',
+                'external' => $row['external'] ?? '',
+                'source' => $row['source_net'] ?? 'any',
+                'destination' => $row['destination_net'] ?? 'any',
+                'descr' => $row['description'] ?? '',
+                'disabled' => empty($row['enabled']) || (string) $row['enabled'] === '0',
+            ];
+        }
+
+        return [
+            'status' => 200,
+            'data' => $rules,
+        ];
+    }
+
+    public function createNatOneToOneRule(array $data): array
+    {
+        $payload = [
+            'rule' => [
+                'enabled' => empty($data['disabled']) ? '1' : '0',
+                'interface' => strtolower($data['interface'] ?? 'wan'),
+                'type' => 'binat',
+                'external' => $data['external'] ?? '',
+                'source_net' => $data['source'] ?? 'any',
+                'destination_net' => $data['destination'] ?? 'any',
+                'description' => $data['descr'] ?? '',
+                'natreflection' => $data['natreflection'] ?? '',
+            ]
+        ];
+        $res = $this->post('/api/firewall/one_to_one/addRule', $payload);
+        return [
+            'status' => 200,
+            'data' => $res,
+            'uuid' => $res['uuid'] ?? null,
+        ];
+    }
+
+    public function updateNatOneToOneRule($id, array $data): array
+    {
+        $uuid = (string) $id;
+        if (is_numeric($id)) {
+            $rules = $this->getNatOneToOneRules()['data'] ?? [];
+            if (isset($rules[$id])) {
+                $uuid = $rules[$id]['uuid'] ?? ($rules[$id]['id'] ?? $uuid);
+            }
+        }
+
+        if (count($data) === 1 && isset($data['disabled'])) {
+            $existing = $this->get("/api/firewall/one_to_one/getRule/{$uuid}")['rule'] ?? [];
+            $payload = [
+                'rule' => [
+                    'enabled' => !empty($data['disabled']) ? '0' : '1',
+                    'interface' => is_array($existing['interface'] ?? null) ? ($this->getSelectedOption($existing['interface']) ?: 'wan') : ($existing['interface'] ?? 'wan'),
+                    'type' => is_array($existing['type'] ?? null) ? ($this->getSelectedOption($existing['type']) ?: 'binat') : ($existing['type'] ?? 'binat'),
+                    'external' => $existing['external'] ?? '',
+                    'source_net' => $existing['source_net'] ?? 'any',
+                    'destination_net' => $existing['destination_net'] ?? 'any',
+                    'description' => $existing['description'] ?? '',
+                    'natreflection' => is_array($existing['natreflection'] ?? null) ? ($this->getSelectedOption($existing['natreflection']) ?: '') : ($existing['natreflection'] ?? ''),
+                ]
+            ];
+            $res = $this->post("/api/firewall/one_to_one/setRule/{$uuid}", $payload);
+            return ['status' => 200, 'data' => $res];
+        }
+
+        $payload = [
+            'rule' => [
+                'enabled' => empty($data['disabled']) ? '1' : '0',
+                'interface' => strtolower($data['interface'] ?? 'wan'),
+                'type' => 'binat',
+                'external' => $data['external'] ?? '',
+                'source_net' => $data['source'] ?? 'any',
+                'destination_net' => $data['destination'] ?? 'any',
+                'description' => $data['descr'] ?? '',
+                'natreflection' => $data['natreflection'] ?? '',
+            ]
+        ];
+        $res = $this->post("/api/firewall/one_to_one/setRule/{$uuid}", $payload);
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function deleteNatOneToOneRule($id): array
+    {
+        $uuid = (string) $id;
+        if (is_numeric($id)) {
+            $rules = $this->getNatOneToOneRules()['data'] ?? [];
+            if (isset($rules[$id])) {
+                $uuid = $rules[$id]['uuid'] ?? ($rules[$id]['id'] ?? $uuid);
+            }
+        }
+
+        $res = $this->post("/api/firewall/one_to_one/delRule/{$uuid}");
+        return ['status' => 200, 'data' => $res];
+    }
+
+    public function toggleNatOneToOneRule($id): array
+    {
+        $uuid = (string) $id;
+        if (is_numeric($id)) {
+            $rules = $this->getNatOneToOneRules()['data'] ?? [];
+            if (isset($rules[$id])) {
+                $uuid = $rules[$id]['uuid'] ?? ($rules[$id]['id'] ?? $uuid);
+            }
+        }
+
+        $res = $this->post("/api/firewall/one_to_one/toggleRule/{$uuid}");
+        return ['status' => 200, 'data' => $res];
+    }
+
+    protected function getSelectedOption($field, string $default = ''): string
+    {
+        if (!is_array($field)) {
+            return (string) $field;
+        }
+        foreach ($field as $key => $item) {
+            if (is_array($item) && !empty($item['selected'])) {
+                return (string) $key;
+            }
+        }
+        return $default;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
