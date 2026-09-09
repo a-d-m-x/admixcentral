@@ -223,6 +223,17 @@ class DashboardController extends Controller
         try {
             $api = new PfSenseApiService($firewall);
 
+            // Apply the same fast-fail logic as CheckFirewallStatusJob:
+            // If the firewall is already cached as offline, use a 5s timeout per call
+            // (~10s total) instead of the default 20s×2=40s. This lets fetchStatus()
+            // on the dashboard card resolve quickly, cancel the 30s safety timeout,
+            // and show the offline overlay cleanly — rather than the timeout being the
+            // first thing to resolve the card after 30s.
+            $cachedForTimeout = \Illuminate\Support\Facades\Cache::get('firewall_status_' . $firewall->id);
+            if ($cachedForTimeout && ($cachedForTimeout['online'] ?? true) === false) {
+                $api->setApiTimeout(5);
+            }
+
             // Use the shared service method (Same as Job)
             $dynamicStatus = $api->refreshSystemStatus();
 

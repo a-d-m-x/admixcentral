@@ -879,10 +879,13 @@
                                                         class="font-medium text-indigo-600 hover:text-indigo-900 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
                                                         x-text="firewall.name">
                                                     </a>
-                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
-                                                          :class="firewall.os_type === 'opnsense' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'"
-                                                          x-text="firewall.os_display_name || (firewall.os_type === 'opnsense' ? 'OPNsense' : 'pfSense')">
-                                                    </span>
+                                                    <img
+                                                        :src="firewall.os_type === 'opnsense' ? 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/opnsense.svg' : 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/pfsense.svg'"
+                                                        :alt="firewall.os_display_name || (firewall.os_type === 'opnsense' ? 'OPNsense' : 'pfSense')"
+                                                        :title="firewall.os_display_name || (firewall.os_type === 'opnsense' ? 'OPNsense' : 'pfSense')"
+                                                        class="w-4 h-4 shrink-0 rounded"
+                                                        loading="lazy"
+                                                    >
                                                 </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">

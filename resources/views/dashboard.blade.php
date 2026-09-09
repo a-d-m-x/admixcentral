@@ -479,9 +479,13 @@
                                             </div>
                                             <a href="{{ route('firewall.dashboard', $firewall) }}"
                                                class="font-semibold text-sm text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline underline-offset-2 truncate shrink-0 max-w-[130px] sm:max-w-[180px]">{{ $firewall->name }}</a>
-                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider shrink-0 {{ $firewall->isOpnSense() ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300' }}">
-                                                {{ $firewall->os_display_name }}
-                                            </span>
+                                            <img
+                                                src="{{ $firewall->isOpnSense() ? 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/opnsense.svg' : 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/pfsense.svg' }}"
+                                                alt="{{ $firewall->os_display_name }}"
+                                                title="{{ $firewall->os_display_name }}"
+                                                class="w-4 h-4 shrink-0 rounded"
+                                                loading="lazy"
+                                            >
                                             @if(auth()->user()->role === 'admin')
                                                 <a href="{{ route('companies.show', $firewall->company) }}"
                                                    class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 truncate shrink hidden md:block max-w-[110px]">{{ $firewall->company->name }}</a>
@@ -619,18 +623,23 @@
                                                 <a href="{{ route('firewall.dashboard', $firewall) }}" class="hover:underline decoration-indigo-500 underline-offset-2 transition-colors hover:text-indigo-600 dark:hover:text-indigo-400">{{ $firewall->name }}</a>
                                             </h4>
 
-                                            <template x-if="loading">
-                                                <span
-                                                    class="bg-gray-200 dark:bg-gray-700 w-14 h-5 rounded-full animate-pulse block"></span>
-                                            </template>
-                                            <template x-if="!loading && online">
-                                                <span
-                                                    class="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">Online</span>
-                                            </template>
-                                            <template x-if="!loading && !online">
-                                                <span
-                                                    class="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded-full dark:bg-red-900 dark:text-red-300">Offline</span>
-                                            </template>
+                                            {{-- OS icon — pfSense or OPNsense --}}
+                                            <img
+                                                src="{{ $firewall->isOpnSense() ? 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/opnsense.svg' : 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/pfsense.svg' }}"
+                                                alt="{{ $firewall->os_display_name }}"
+                                                title="{{ $firewall->os_display_name }}"
+                                                :class="$store.dashLayout.layout === 'compact' ? 'w-4 h-4' : 'w-5 h-5'"
+                                                class="shrink-0 rounded"
+                                                loading="lazy"
+                                            >
+
+
+                                            <span x-show="loading"
+                                                class="bg-gray-200 dark:bg-gray-700 w-14 h-5 rounded-full animate-pulse block"></span>
+                                            <span x-show="!loading && online"
+                                                class="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">Online</span>
+                                            <span x-show="!loading && !online"
+                                                class="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded-full dark:bg-red-900 dark:text-red-300">Offline</span>
 
                                         </div>
 
@@ -685,16 +694,12 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
-                                            <template x-if="loading">
-                                                <div class="h-3 w-12 bg-blue-200 dark:bg-blue-800 rounded animate-pulse"></div>
-                                            </template>
-                                            <template x-if="!loading">
-                                                <span>
-                                                    <span class="font-mono" x-show="!online">Offline</span>
-                                                    <span class="font-mono" x-show="online"
-                                                        x-text="formatUptime(status?.data?.uptime || status?.data?.uptime_text || status?.data?.uptime_string)"></span>
-                                                </span>
-                                            </template>
+                                            <div x-show="loading" class="h-3 w-12 bg-blue-200 dark:bg-blue-800 rounded animate-pulse"></div>
+                                            <span x-show="!loading">
+                                                <span class="font-mono" x-show="!online">Offline</span>
+                                                <span class="font-mono" x-show="online"
+                                                    x-text="formatUptime(status?.data?.uptime || status?.data?.uptime_text || status?.data?.uptime_string)"></span>
+                                            </span>
                                         </div>
                                     </div>
 
@@ -749,16 +754,14 @@
 
                                         {{-- Content Grid --}}
                                         <div>
-                                            <template x-if="loading">
-                                                <div class="animate-pulse space-y-4">
-                                                    <div class="h-4 bg-gray-200 rounded w-3/4"></div>
-                                                    <div class="space-y-2">
-                                                        <div class="h-4 bg-gray-200 rounded w-full"></div>
-                                                        <div class="h-4 bg-gray-200 rounded w-full"></div>
-                                                        <div class="h-4 bg-gray-200 rounded w-full"></div>
-                                                    </div>
+                                            <div x-show="loading" class="animate-pulse space-y-4">
+                                                <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+                                                <div class="space-y-2">
+                                                    <div class="h-4 bg-gray-200 rounded w-full"></div>
+                                                    <div class="h-4 bg-gray-200 rounded w-full"></div>
+                                                    <div class="h-4 bg-gray-200 rounded w-full"></div>
                                                 </div>
-                                            </template>
+                                            </div>
 
                                             <template x-if="!loading">
                                                 <div :class="$store.dashLayout.layout === 'cards' ? 'grid grid-cols-1 md:grid-cols-2 items-start' : 'block'" :style="$store.dashLayout.layout === 'cards' ? 'column-gap: 2rem; align-content: start;' : ''">
@@ -1047,7 +1050,7 @@
                                                                 <polyline :points="getGraphPoints('out')" fill="none" stroke="#3b82f6" stroke-width="1.5" vector-effect="non-scaling-stroke" style="opacity: 0.7" />
                                                             </svg>
                                                         </div>
-                                                    </div>
+                                                     </div>
 
 
                                             </template>
@@ -1083,30 +1086,6 @@
                 loading: true,
 
                 init() {
-                    // Initial poll — waits for WS to connect first if still connecting,
-                    // falls back after 3s if it hasn't connected yet.
-                    const checkAndTrigger = () => {
-                        if (window.wsConnected) {
-                            // Already connected — trigger immediately
-                            this.triggerBatchUpdate();
-                            return;
-                        }
-
-                        // Not yet connected — wait up to 3s for connection
-                        const onConnect = () => {
-                            this.triggerBatchUpdate();
-                            window.Echo?.connector?.pusher?.connection?.unbind('connected', onConnect);
-                        };
-                        window.Echo?.connector?.pusher?.connection?.bind('connected', onConnect);
-
-                        // Fallback: if WS hasn't connected in 3s, poll anyway
-                        setTimeout(() => {
-                            if (this.loading) this.triggerBatchUpdate();
-                        }, 3000);
-                    };
-
-                    checkAndTrigger();
-
                     // Dynamic Intervals from Settings
                     this.realtimeMs = {{ ($settings['realtime_interval'] ?? 10) * 1000 }};
                     this.fallbackMs = {{ ($settings['fallback_interval'] ?? 30) * 1000 }};
@@ -1117,39 +1096,61 @@
                     });
                     this.timer = null;
 
+                    // startIntervalManager handles first-poll kickoff (with WS-wait logic)
+                    // and sequential scheduling. No separate checkAndTrigger needed.
                     this.startIntervalManager();
                 },
 
                 startIntervalManager() {
-                    if (this.timer) clearInterval(this.timer);
+                    if (this.timer) clearTimeout(this.timer);
+                    this.timer = null;
+                    this._pollRunning = false;
 
-                    // Monitor WebSocket state to adjust interval speed.
-                    // Uses window.wsConnected (set by echo.js) for reliable state detection.
-                    const getDelay = () => {
-                        // WS connected → fast interval (job dispatch + WS events handle delivery)
-                        // WS down → slower interval (cards depend on poll results for status)
-                        return window.wsConnected ? this.realtimeMs : this.fallbackMs;
-                    };
+                    const getDelay = () => window.wsConnected ? this.realtimeMs : this.fallbackMs;
+                    let lastState = null;
 
-                    let lastState = (window.Echo?.connector?.pusher?.connection?.state === 'connected');
-
-                    const run = () => {
-                        this.triggerBatchUpdate();
-
-                        // Recursive timeout allows us to adjust speed based on connection state in real-time
-                        const delay = getDelay();
-                        this.timer = setTimeout(run, delay);
-
-                        // If state changed, log it
-                        let currentState = (delay === this.realtimeMs);
-                        if (currentState !== lastState) {
-                            console.log(`Switching dashboard refresh speed: ${currentState ? 'Real-time' : 'Fallback'} (${delay / 1000}s)`);
-                            lastState = currentState;
+                    const logSpeedChange = (delay) => {
+                        const isRealtime = (delay === this.realtimeMs);
+                        if (isRealtime !== lastState) {
+                            console.log(`Switching dashboard refresh speed: ${isRealtime ? 'Real-time' : 'Fallback'} (${delay / 1000}s)`);
+                            lastState = isRealtime;
                         }
                     };
 
-                    // Initial kick-off (after the immediate checkAndTrigger)
-                    this.timer = setTimeout(run, getDelay());
+                    // Sequential async loop. _pollRunning is set BEFORE the await so that
+                    // any concurrent kickoff() (from the 3s fallback or a WS reconnect) sees
+                    // it immediately and exits — preventing the overlapping requests that
+                    // caused repeated 429s.
+                    const run = async () => {
+                        if (this._pollRunning) return;
+                        this._pollRunning = true;
+                        try {
+                            await this.triggerBatchUpdate();
+                        } finally {
+                            this._pollRunning = false;
+                            const delay = getDelay();
+                            logSpeedChange(delay);
+                            this.timer = setTimeout(run, delay);
+                        }
+                    };
+
+                    // Kick off the first poll. Guards against both paths (onConnect and
+                    // the 3s fallback) firing at the same time.
+                    const kickoff = () => {
+                        if (this._pollRunning || this.timer) return;
+                        run();
+                    };
+
+                    if (window.wsConnected) {
+                        kickoff();
+                    } else {
+                        const onConnect = () => {
+                            kickoff();
+                            window.Echo?.connector?.pusher?.connection?.unbind('connected', onConnect);
+                        };
+                        window.Echo?.connector?.pusher?.connection?.bind('connected', onConnect);
+                        setTimeout(kickoff, 3000); // Fallback if WS never connects
+                    }
                 },
 
                 async triggerBatchUpdate() {
@@ -1183,11 +1184,12 @@
                                 if (!status) return;
 
                                 // Tag as 'poll_cache' — not authoritative, but carries freshness metadata.
-                                // firewallCard.updateFromStatus() will apply Source Discrimination:
-                                //   - poll_cache + offline + fresh  → keep skeleton (job in-flight)
-                                //   - poll_cache + offline + stale  → show stale warning
-                                //   - poll_cache + online           → show optimistically
-                                // WebSocket events (no _source tag) are the definitive final state.
+                                // firewallCard.updateFromStatus() applies source discrimination:
+                                //   - poll_cache + online           → show optimistically (loading=false)
+                                //   - poll_cache + offline + stale  → show stale warning (loading=false)
+                                //   - poll_cache + offline + fresh  → stay resolved if hasResolved=true,
+                                //                                      else keep skeleton (first-load only)
+                                // WebSocket live events (no _source) are the definitive final state.
                                 status._source = 'poll_cache';
 
                                 window.dispatchEvent(new CustomEvent('firewall-updated-' + id, {
@@ -1229,9 +1231,10 @@
             }));
             Alpine.data('firewallCard', (initialStatus, staticInfo, checkUrl, firewallId, companyName) => ({
                 // SOURCE DISCRIMINATION — initial state:
-                // Start in skeleton if no cache OR if cached as offline (pending verification).
-                // Cached-online can show immediately (optimistic display).
-                loading: !initialStatus || (initialStatus && !initialStatus.online),
+                // Skeleton ONLY when there is no cached state at all (status completely unknown).
+                // Cached-online AND cached-offline both show their state immediately.
+                // This mirrors how online firewalls work and eliminates the skeleton→offline→skeleton loop.
+                loading: !initialStatus,
 
                 online: initialStatus ? (initialStatus.online === true || initialStatus.online === 'true' || initialStatus.online === 1) : null,
                 reportedOffline: false,
@@ -1245,11 +1248,16 @@
                 // Verification state drives the badge label.
                 // States: 'cached' | 'pending_verification' | 'verified_online' | 'verified_offline' | 'stale' | 'timeout_stale'
                 verificationState: initialStatus
-                    ? (initialStatus.online ? 'cached' : 'pending_verification')
+                    ? (initialStatus.online ? 'cached' : 'cached')
                     : 'pending_verification',
 
                 // Safety timeout handle — cleared when a live WebSocket event arrives
                 _safetyTimer: null,
+
+                // Tracks whether the card has ever exited skeleton state.
+                // Pre-set to true for any firewall with a cached status — we already know
+                // the state so the card starts resolved. Only false for no-cache (skeleton).
+                hasResolved: !!initialStatus,
 
                 // Manual refresh state (for a future Force Refresh button)
                 refreshing: false,
@@ -1427,17 +1435,20 @@
                         this.updateFromStatus(this.status);
                     }
 
-                    // If starting in skeleton state (no cache, or cached-offline),
-                    // arm the 30s safety timeout to prevent eternal skeletons.
-                    // Also immediately attempt a live verification — don't wait for
-                    // WebSocket (which may be unavailable) or a poll cycle (which is
-                    // debounced up to 45s). This mirrors what the individual firewall
-                    // management page does on load and resolves cached-offline cards
-                    // within ~5–20 seconds rather than 30–45 seconds.
                     if (this.loading) {
+                        // No cache at all — status completely unknown.
+                        // Arm safety timeout so the skeleton doesn't stay forever if the
+                        // live check never returns (e.g. network failure).
                         this._startSafetyTimeout();
                         this.fetchStatus();
+                    } else if (!this.online) {
+                        // Cached-offline — show overlay immediately (loading is already false).
+                        // Do a silent background check so we detect quickly if the firewall
+                        // came back online. No safety timeout needed since we're not in skeleton.
+                        this.fetchStatus();
                     }
+                    // Cached-online: nothing to do — card shows data immediately and the
+                    // coordinator's background job handles periodic re-verification.
 
                     // Listen for coordinator poll results (_source: 'poll_cache')
                     window.addEventListener('firewall-updated-' + this.firewallId, (e) => {
@@ -1446,6 +1457,21 @@
 
                     // WebSocket delivers the authoritative live state (_source not set = live)
                     this.setupWebSocket();
+
+                    // ── Absolute invariant watcher ──────────────────────────────────────────
+                    // If loading is EVER set to true after hasResolved=true, correct it
+                    // immediately and log a stack trace so the source can be identified.
+                    // This is the final backstop — if this fires, there is a bug elsewhere.
+                    // ────────────────────────────────────────────────────────────────────────
+                    this.$watch('loading', (val) => {
+                        if (val && this.hasResolved) {
+                            console.error(
+                                `[Firewall ${this.firewallId}] BUG: loading=true set after hasResolved=true. Correcting.`,
+                                new Error('loading=true after resolved').stack
+                            );
+                            this.loading = false;
+                        }
+                    });
                 },
 
                 _startSafetyTimeout() {
@@ -1514,28 +1540,58 @@
                     const isStale = (status.freshness === 'stale' || source === 'timeout_stale');
 
                     if (isLive) {
-                        // Live WebSocket event — definitive, always resolve skeleton
+                        // Live event (WebSocket or fetchStatus() HTTP response) — always resolve immediately.
+                        // Never re-enter skeleton here; the new state is already known and the card
+                        // should flip directly to online/offline without a loading interstitial.
                         this.loading = false;
-                        this.verificationState = this.online ? 'verified_online' : 'verified_offline';
+                        this.hasResolved = true;
                         this._clearSafetyTimeout();
+                        this.verificationState = this.online ? 'verified_online' : 'verified_offline';
                     } else if (isPollCache && this.online) {
                         // Cached/polled online — show optimistically
                         this.loading = false;
+                        this.hasResolved = true;
+                        this._clearSafetyTimeout();
                         this.verificationState = isStale ? 'stale' : 'cached';
                     } else if (isPollCache && !this.online && isStale) {
                         // Cached offline AND stale — reveal with stale warning rather than skeleton forever
                         this.loading = false;
+                        this.hasResolved = true;
+                        this._clearSafetyTimeout();
                         this.verificationState = 'stale';
                     } else {
-                        // Cached offline, still fresh — keep skeleton (job in-flight, WS event expected)
-                        this.loading = true;
-                        this.verificationState = 'pending_verification';
+                        // Cached offline, still fresh.
+                        // Only hold the skeleton if the card has never resolved before (initial load).
+                        // If already resolved (hasResolved=true), keep it resolved — don't bounce back
+                        // to skeleton. Without this guard, every 10–30s poll_cache+offline+fresh update
+                        // resets loading=true, causing an infinite skeleton→offline→skeleton loop.
+                        if (!this.hasResolved) {
+                            this.loading = true;
+                            this.verificationState = 'pending_verification';
+                        } else {
+                            this.loading = false;
+                            this._clearSafetyTimeout();
+                            this.verificationState = 'cached';
+                        }
                     }
 
                     // Safety timeout guard: if source is timeout_stale, always exit skeleton
+                    // and cancel any lingering timer (shouldn't be running, but defensive).
                     if (source === 'timeout_stale') {
                         this.loading = false;
+                        this.hasResolved = true;
+                        this._clearSafetyTimeout();
                         this.verificationState = 'timeout_stale';
+                    }
+
+                    // ── Hard sentinel ─────────────────────────────────────────────────────────
+                    // Invariant: once hasResolved=true, loading CANNOT go back to true.
+                    // This guards against any race condition between the safety timeout, poll
+                    // batches, and concurrent fetchStatus() calls that might slip through the
+                    // guards above (e.g. poll_cache+pending arriving just after a timeout resolve).
+                    // ─────────────────────────────────────────────────────────────────────────
+                    if (this.hasResolved && this.loading) {
+                        this.loading = false;
                     }
 
                     // Status Change Logging
@@ -1585,7 +1641,7 @@
                         // Allow 35 seconds here so we don't abort before the server-side
                         // call can complete — the previous 5s timeout was causing all
                         // dashboard card live checks to fail prematurely.
-                        const timeoutId = setTimeout(() => controller.abort(), 35000);
+                    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
                         let response = await fetch(this.checkUrl + '?t=' + new Date().getTime(), {
                             signal: controller.signal
@@ -1614,162 +1670,9 @@
                     }
                 },
 
-                _startSafetyTimeout() {
-                    if (this._safetyTimer) return;
-                    this._safetyTimer = setTimeout(() => {
-                        if (this.loading) {
-                            console.warn(`[Firewall ${this.firewallId}] Safety timeout (30s) — forcing stale state`);
-                            this.updateFromStatus({
-                                ...(this.status || {}),
-                                online: false,
-                                _source: 'timeout_stale',
-                                freshness: 'stale',
-                                error: `Verification timed out. Last check: ${this.status?.updated_at ?? 'unknown'}`,
-                            });
-                        }
-                    }, 30000);
-                },
 
-                _clearSafetyTimeout() {
-                    if (this._safetyTimer) {
-                        clearTimeout(this._safetyTimer);
-                        this._safetyTimer = null;
-                    }
-                },
 
-                updateFromStatus(status) {
-                    if (!status) return;
 
-                    // Normalize to the cache wrapper shape { online, api_version, data: {...} }
-                    // which the template reads as status.data.product_version etc.
-                    //
-                    // Two possible incoming shapes:
-                    // 1. Cache wrapper (from init or fetchStatus): { online, api_version, data: { product_version, ... } }
-                    // 2. WS broadcast (flat): { online, api_version, product_version, gateways, cpu_usage, ... }
-                    //
-                    // Detect flat broadcast: has top-level pfSense fields but no .data object.
-                    if (!status.data || typeof status.data !== 'object') {
-                        // Flat broadcast — promote all non-wrapper fields into .data
-                        const wrapperKeys = new Set(['online','error','api_version','updated_at','_source','firewall_id','timestamp']);
-                        const data = {};
-                        Object.keys(status).forEach(k => { if (!wrapperKeys.has(k)) data[k] = status[k]; });
-                        status = Object.assign({}, status, { data });
-                    }
-
-                    // Legacy: flatten status.data.data if it exists (defensive)
-                    if (status.data && status.data.data && typeof status.data.data === 'object') {
-                        Object.assign(status.data, status.data.data);
-                        delete status.data.data;
-                    }
-
-                    // Merge into existing status to preserve last-known values for null fields
-                    if (this.status && this.status.data) {
-                        status.data = Object.assign({}, this.status.data, status.data);
-                    }
-
-                    this.status = status;
-
-                    // Explicitly check for boolean/string truthiness
-                    const prevOnline = this.online;
-                    this.online = (status.online === true || status.online === 'true' || status.online === 1);
-
-                    // SOURCE DISCRIMINATION — loading state and verificationState
-                    const source = status._source || 'live';
-                    const isPollCache = (source === 'cache' || source === 'poll_cache');
-                    const isLive = !isPollCache; // WebSocket events have no _source tag
-                    const isStale = (status.freshness === 'stale' || source === 'timeout_stale');
-
-                    if (isLive) {
-                        // Live WebSocket event — definitive, always resolve skeleton
-                        this.loading = false;
-                        this.verificationState = this.online ? 'verified_online' : 'verified_offline';
-                        this._clearSafetyTimeout();
-                    } else if (isPollCache && this.online) {
-                        // Cached/polled online — show optimistically
-                        this.loading = false;
-                        this.verificationState = isStale ? 'stale' : 'cached';
-                    } else if (isPollCache && !this.online && isStale) {
-                        // Cached offline AND stale — reveal with stale warning rather than skeleton forever
-                        this.loading = false;
-                        this.verificationState = 'stale';
-                    } else {
-                        // Cached offline, still fresh — keep skeleton (job in-flight, WS event expected)
-                        this.loading = true;
-                        this.verificationState = 'pending_verification';
-                    }
-
-                    // Safety timeout guard: if source is timeout_stale, always exit skeleton
-                    if (source === 'timeout_stale') {
-                        this.loading = false;
-                        this.verificationState = 'timeout_stale';
-                    }
-
-                    // Status Change Logging
-                    if (prevOnline !== this.online) {
-                        console.log(`[Firewall ${this.firewallId}] Status changed: ${prevOnline ? 'Online' : 'Offline'} -> ${this.online ? 'Online' : 'Offline'}`, status);
-                    }
-
-                    this.error = status.error || null;
-
-                    // Update reported state & Dispatch events
-                    // Skip offline/online events for 'timeout_stale' — that source means we
-                    // timed out waiting for a result, not that the device is confirmed offline.
-                    // Dispatching device-offline here would incorrectly inflate the badge count
-                    // and mark accessible devices as offline.
-                    const isTimeoutStale = (source === 'timeout_stale');
-                    if (!isTimeoutStale) {
-                        if (this.online && this.reportedOffline) {
-                            this.reportedOffline = false;
-                            this.$dispatch('device-online', { id: this.firewallId });
-                        }
-                        if (!this.online && !this.reportedOffline) {
-                            this.reportedOffline = true;
-                            this.$dispatch('device-offline', { id: this.firewallId });
-                        }
-                    }
-
-                    // Update bandwidth if interface data is present
-                    if (this.online && this.status.data && this.status.data.interfaces) {
-                        this.updateBandwidthFromInterfaces(this.status.data.interfaces);
-                    }
-
-                    // Update Load History
-                    if (this.status && this.status.data && this.status.data.cpu_load_avg && this.status.data.cpu_load_avg.length > 0) {
-                        const oneMinLoad = parseFloat(this.status.data.cpu_load_avg[0]) || 0;
-                        this.loadHistory.shift();
-                        this.loadHistory.push(oneMinLoad);
-                    }
-
-                    // Notify global listeners
-                    this.$dispatch('device-updated', { id: this.firewallId, online: this.online });
-                },
-
-                async fetchStatus() {
-                    try {
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s Timeout
-
-                        let response = await fetch(this.checkUrl + '?t=' + new Date().getTime(), {
-                            signal: controller.signal
-                        });
-                        clearTimeout(timeoutId);
-
-                        let data = await response.json();
-
-                        // Use standardized update logic
-                        this.updateFromStatus(data.status);
-                    } catch (e) {
-                        console.error(e);
-                        this.loading = false;
-                        this.online = false;
-                        if (!this.reportedOffline) {
-                            this.reportedOffline = true;
-                            this.$dispatch('device-offline', { id: this.firewallId });
-                            this.$dispatch('device-updated', { id: this.firewallId, online: this.online }); // Update widgets even if offline
-                        }
-                        this.error = 'Unreachable';
-                    }
-                },
 
                 setupWebSocket() {
                     if (this.wsListener) return; // Prevent double binding

@@ -204,14 +204,22 @@ class FirewallController extends Controller implements HasMiddleware
             $debounceKey = 'firewall_dispatch_debounce_' . $firewall->id;
 
             // Only dispatch if no debounce lock is held for this firewall.
-            // All three dedup layers prevent actual duplicate API calls,
-            // but this stops even the Redis enqueue attempt from repeating.
+            // Known-offline firewalls still get checked — CheckFirewallStatusJob uses
+            // a 5s fast-fail timeout for them so the response stays snappy (~10s max
+            // per offline firewall instead of the previous ~40s).
             if (!\Illuminate\Support\Facades\Cache::has($debounceKey)) {
                 \App\Jobs\CheckFirewallStatusJob::dispatch($firewall);
                 \Illuminate\Support\Facades\Cache::put($debounceKey, 1, now()->addSeconds($dispatchDebounceSeconds));
             }
 
             $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+
+            $updatedAt  = $cached['updated_at'] ?? null;
+            $ageSeconds = $updatedAt
+                ? max(0, now()->timestamp - \Carbon\Carbon::parse($updatedAt)->timestamp)
+                : PHP_INT_MAX;
+
+
 
             if (!$cached) {
                 $results[$firewall->id] = [

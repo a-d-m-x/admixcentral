@@ -18,6 +18,22 @@ class PfSenseApiService
     protected ?OpnSenseApiService $opnSense = null;
     protected bool $isOpnSense = false;
 
+    /**
+     * Per-request HTTP timeout in seconds.
+     * Default 20s for normal checks. Set to a lower value (e.g. 5s) for
+     * known-offline firewalls so they fail fast instead of blocking for ~40s.
+     */
+    protected int $apiTimeout = 20;
+
+    public function setApiTimeout(int $seconds): static
+    {
+        $this->apiTimeout = $seconds;
+        if ($this->opnSense) {
+            $this->opnSense->setApiTimeout($seconds);
+        }
+        return $this;
+    }
+
     public function __construct(Firewall $firewall)
     {
         $this->firewall = $firewall;
@@ -428,7 +444,7 @@ class PfSenseApiService
 
         $client = Http::withOptions(['verify' => false])
             ->acceptJson()
-            ->timeout(20);
+            ->timeout($this->apiTimeout);
 
         if ($this->authMethod === 'token') {
             $client->withToken($this->apiToken);

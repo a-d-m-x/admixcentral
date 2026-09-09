@@ -93,6 +93,18 @@ class OpnSenseApiService
     }
 
     /**
+     * Per-request HTTP timeout in seconds. Matches PfSenseApiService.
+     * Can be lowered (e.g. 5s) for known-offline firewalls to fail fast.
+     */
+    protected int $apiTimeout = 20;
+
+    public function setApiTimeout(int $seconds): static
+    {
+        $this->apiTimeout = $seconds;
+        return $this;
+    }
+
+    /**
      * Core HTTP request handler using HTTP Basic Auth (key:secret)
      */
     public function request(string $method, string $endpoint, array $data = [])
@@ -101,7 +113,7 @@ class OpnSenseApiService
 
         $client = Http::withOptions(['verify' => false])
             ->acceptJson()
-            ->timeout(20);
+            ->timeout($this->apiTimeout);
 
         if ($this->apiKey && $this->apiSecret) {
             $client->withBasicAuth($this->apiKey, $this->apiSecret);
@@ -232,7 +244,7 @@ class OpnSenseApiService
                 'gateway' => $addr,
                 'monitorip' => $addr,
                 'srcip' => $addr,
-                'status' => $item['status_translated'] ?? ($item['status'] === 'none' ? 'Online' : 'Offline'),
+                'status' => strtolower($item['status_translated'] ?? ($item['status'] === 'none' ? 'Online' : 'Offline')),
                 'loss' => $lossNum,
                 'delay' => $item['delay'] === '~' ? '0.0ms' : ($item['delay'] ?? '0.0ms'),
                 'stddev' => $item['stddev'] === '~' ? '0.0ms' : ($item['stddev'] ?? '0.0ms'),
@@ -447,7 +459,7 @@ class OpnSenseApiService
                 'gateway' => $addr,
                 'monitorip' => $addr,
                 'srcip' => $addr,
-                'status' => $item['status_translated'] ?? ($item['status'] === 'none' ? 'Online' : 'Offline'),
+                'status' => strtolower($item['status_translated'] ?? ($item['status'] === 'none' ? 'Online' : 'Offline')),
                 'loss' => $lossNum,
                 'delay' => $item['delay'] === '~' ? '0.0ms' : ($item['delay'] ?? '0.0ms'),
                 'stddev' => $item['stddev'] === '~' ? '0.0ms' : ($item['stddev'] ?? '0.0ms'),
