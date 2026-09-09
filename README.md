@@ -410,6 +410,12 @@ Restart Nginx and PHP-FPM after configuration.
 
 ---
 
+## Host environment preparation
+
+For an existing deployment, run `sudo bash upgrade_admixcentral.sh --check` to assess PHP, Redis/Valkey, workers, Reverb and the scheduler. Run without `--check` for the guided host-preparation wizard. Use `--install-dir` if the deployment is outside `/var/www/admixcentral`.
+
+The wizard supports Ubuntu, Fedora and Arch families with systemd, explains each host change, and backs up edited configuration. It preserves the built-in GitHub application updater. See the [host-readiness guide](docs/HOST_READINESS.md) for distribution details, maintenance precautions and recovery.
+
 ## Updating AdmixCentral
 
 To update an existing installation:
