@@ -119,6 +119,12 @@
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Groups</a>
                                     <a href="{{ route('interfaces.laggs.index', [request()->route('firewall')]) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">LAGGs</a>
+                                    @if($isOpnSense)
+                                    <a href="{{ route('interfaces.loopbacks.index', [request()->route('firewall')]) }}"
+                                        class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Loopback</a>
+                                    <a href="{{ route('interfaces.vxlans.index', [request()->route('firewall')]) }}"
+                                        class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">VXLAN</a>
+                                    @endif
                                     <a href="{{ route('interfaces.vlans.index', [request()->route('firewall')]) }}"
                                         class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">VLANs</a>
                                     <a href="{{ route('interfaces.wireless.index', [request()->route('firewall')]) }}"
@@ -535,6 +541,12 @@
                         :active="request()->routeIs('interfaces.groups.*')">{{ __('Groups') }}</x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('interfaces.laggs.index', request()->route('firewall'))"
                         :active="request()->routeIs('interfaces.laggs.*')">{{ __('LAGGs') }}</x-responsive-nav-link>
+                    @if($isOpnSense)
+                    <x-responsive-nav-link :href="route('interfaces.loopbacks.index', request()->route('firewall'))"
+                        :active="request()->routeIs('interfaces.loopbacks.*')">{{ __('Loopback') }}</x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('interfaces.vxlans.index', request()->route('firewall'))"
+                        :active="request()->routeIs('interfaces.vxlans.*')">{{ __('VXLAN') }}</x-responsive-nav-link>
+                    @endif
                     <x-responsive-nav-link :href="route('interfaces.vlans.index', request()->route('firewall'))"
                         :active="request()->routeIs('interfaces.vlans.*')">{{ __('VLANs') }}</x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('interfaces.wireless.index', request()->route('firewall'))"

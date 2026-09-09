@@ -1,13 +1,18 @@
 # AdmixCentral
 
-AdmixCentral is a centralized firewall management dashboard tailored for managing multiple **pfSense** instances. It leverages the [pfRest API](https://pfrest.org/) to provide a unified interface for system administrators to manage firewalls, companies, and users from a single pane of glass.
+AdmixCentral is a centralized firewall management dashboard engineered for managing multiple **pfSense®** and **OPNsense®** instances from a single pane of glass. It provides a unified, mobile-first interface for system administrators and MSPs to manage firewalls, companies, and users across hybrid firewall deployments.
 
 ## Features
+
+### 🌐 Multi-Platform Firewall Support
+- **Dual Engine Architecture**: Full compatibility with both **pfSense** (via [pfRest / pfSense-pkg-RESTAPI](https://pfrest.org/)) and **OPNsense** (via native modular REST API with API Key & Secret authentication).
+- **Intelligent Platform Adaptation**: Automatic detection of firewall OS type (`pfSense` vs `OPNsense`) with tailored workflows, interface normalization, and feature guards.
+- **Visual Platform Badges**: Color-coded badges (`PFSENSE` and `OPNSENSE`) across cards, headers, and tables for instant fleet identification.
 
 ### 🛡️ Enterprise Security
 - **Two-Factor Authentication (2FA)**: TOTP-based 2FA (Google Authenticator, Authy) with recovery codes and password confirmation for sensitive actions.
 - **Secure Architecture**: Isolated multi-tenancy scopes, secure session management, and CSRF protection.
-- **Role-Based Access**: Granular control over company and user permissions.
+- **Role-Based Access**: Granular control over company and user permissions (Superadmin, Company Admin, Read-Only).
 
 ### 📱 Mobile-First Experience
 - **Progressive Web App (PWA)**: Installable on iOS/Android for a native app-like experience.
@@ -19,21 +24,28 @@ AdmixCentral is a centralized firewall management dashboard tailored for managin
 - **Live Diagnostics**: Real-time ping, traceroute, and system activity logs.
 
 ### 🔧 Core Management
-- **Unified Dashboard**: centralized view of health status, resource usage, and alerts across all managed instances.
+- **Unified Dashboard**: Centralized view of health status, resource usage, and alerts across all managed instances.
 - **Automated SSL/Hostname**: Built-in lifecycle management for Let's Encrypt SSL certificates and dynamic hostname handling.
 - **System Customization**:
     - **Branding**: Dynamic Logo and Favicon uploading.
     - **Theming**: "Indigo Standard" unified design system.
 
 ### 🔥 Firewall Management
-- **Tunables**: Full management of system tunables (sysctls) with reliable "Apply Changes" behavior.
-- **Aliases & Rules**: Bulk management of aliases, NAT rules, and firewall rules with drag-and-drop ordering.
+- **Rules & Aliases**: Full CRUD management of firewall rules (interface-specific and floating), IP/port aliases, and NAT rules (Port Forward, 1:1, Outbound / SNAT) with drag-and-drop rule reordering.
+- **Tunables (sysctl)**: Full management of system tunables with reliable "Apply Changes" orchestration.
+- **Virtual IPs**: IP Alias, CARP, and Proxy ARP management across physical interfaces and VLANs.
+- **High Availability & CARP**: Real-time CARP status monitoring, demotion levels, and XMLRPC/pfsync High Availability synchronization.
 - **VPN Management**:
-    - **OpenVPN**: Server/Client configuration.
-    - **IPSec**: Full IKEv1/v2 tunnel management.
-    - **WireGuard**: Modern, high-performance tunnel and peer management.
-- **Services**: DHCP, DNS Resolver/Forwarder, HAProxy, and ACME integration.
-- **Backup & Restore**: Automated config backups and one-click restore points.
+    - **OpenVPN**: Server/client instances, cryptographic settings, and exportable client configurations.
+    - **IPSec**: Phase 1 / Phase 2 tunnels, mobile clients, Security Policy Database (SPD), and Security Association Database (SAD).
+    - **WireGuard**: Modern, high-performance tunnel and peer management with QR code generation and instant client config downloads.
+- **Services**: DHCP Server & Leases, Unbound DNS Resolver, Dnsmasq DNS Forwarder, NTP, Syslog, HAProxy, and ACME certificate integration.
+- **Security & Traffic Management**:
+    - **Intrusion Detection (IDS/IPS)**: Suricata rule category inspection and alert logging.
+    - **Traffic Shaper**: Pipe and queue bandwidth management.
+    - **Captive Portal**: Zone administration and active session monitoring.
+    - **Monit**: Service monitoring and process health oversight.
+- **Backup & Restore**: Automated and on-demand configuration backups with AES-256-GCM encryption, SSH credentials preservation, and one-click restore points.
 
 ## Screenshots
 <p align="center">
@@ -91,11 +103,13 @@ AdmixCentral is a centralized firewall management dashboard tailored for managin
 ## Tech Stack
 
 - **Framework**: [Laravel 11.x](https://laravel.com) (PHP 8.2+)
-- **Security**: Laravel Fortify (2FA, Authentication)
+- **Security**: Laravel Fortify (2FA, Authentication), Argon2id password hashing, encrypted credential storage
 - **Frontend**: Blade, Tailwind CSS (Custom Utility Framework), Alpine.js
 - **Real-Time**: Laravel Reverb / WebSockets
-- **Database**: MySQL 8.0+ (Primary), PostgreSQL supported
-- **API Integration**: Custom service layer interacting with [pfRest (pfSense REST API)](https://pfrest.org/) - [GitHub](https://github.com/pfrest/pfSense-pkg-RESTAPI)
+- **Database**: MySQL 8.0+ (Primary), MariaDB, PostgreSQL supported
+- **API Integrations**:
+    - **pfSense**: Custom service layer interacting with [pfRest (pfSense REST API)](https://pfrest.org/) - [GitHub](https://github.com/pfrest/pfSense-pkg-RESTAPI)
+    - **OPNsense**: Native modular REST API integration across 30+ core & plugin endpoints (`/api/*`) using key/secret token authentication
 
 ---
 
@@ -420,12 +434,32 @@ systemctl reload nginx
 
 ## Adding Your First Firewall
 
+AdmixCentral supports both pfSense and OPNsense firewalls with platform-native workflows.
+
+### Adding a pfSense Firewall
+
 To manage a pfSense firewall, ensure the [pfSense REST API (pfRest)](https://github.com/pfrest/pfSense-pkg-RESTAPI) package is installed on the target pfSense machine.
 
-1. Log in to AdmixCentral.
+1. Log in to AdmixCentral as an administrator.
 2. Navigate to **Firewalls > Add Firewall**.
-3. Enter the **pfSense URL** and **API Credentials** (Username/Password).
-4. Click **Connect**. AdmixCentral will automatically verify the connection and retrieve system details.
+3. Select **pfSense** as the firewall type.
+4. Enter the **Firewall Name**, **URL** (e.g. `https://192.168.1.1`), and **API Credentials** (Username/Password or API Token).
+5. Click **Connect**. AdmixCentral will verify connectivity, fetch system info and interfaces, and register the firewall.
+
+### Adding an OPNsense Firewall
+
+OPNsense includes a built-in REST API out of the box — no third-party packages are required.
+
+1. In your OPNsense Web GUI:
+   - Navigate to **System > Access > Users**.
+   - Edit an administrative user (or create a dedicated API user with appropriate permissions).
+   - Under the **API keys** section, click the `+` icon.
+   - Your browser will automatically download an `apikey.txt` file containing your `key` and `secret`.
+2. In AdmixCentral:
+   - Navigate to **Firewalls > Add Firewall**.
+   - Select **OPNsense** as the firewall type.
+   - Enter the **Firewall Name**, **URL** (e.g. `https://192.168.240.11`), **API Key**, and **API Secret**.
+3. Click **Connect**. AdmixCentral will verify connectivity via `/api/core/firmware/status`, retrieve interface configurations, and register the firewall.
 
 ---
 
@@ -452,4 +486,4 @@ If the file is missing there but you have a URL, the upload process likely faile
 ## Disclaimers
 
 > [!CAUTION]
-> This package is not affiliated or supported by Netgate or the pfSense team.
+> This project is an independent open-source tool and is not affiliated with, sponsored by, or endorsed by Netgate, Electric Sheep Fencing LLC (pfSense®), or Deciso B.V. (OPNsense®). pfSense is a registered trademark of Electric Sheep Fencing LLC. OPNsense is a registered trademark of Deciso B.V.

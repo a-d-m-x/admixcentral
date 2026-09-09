@@ -357,7 +357,53 @@ class SystemController extends Controller
 
     public function highAvailSync(Firewall $firewall)
     {
-        return view('system.high-avail-sync', compact('firewall'));
+        $api = new \App\Services\PfSenseApiService($firewall);
+        $haData = [];
+        $interfaces = [];
+
+        try {
+            if ($firewall->isOpnSense()) {
+                $haData = $api->getHighAvailabilitySync();
+            }
+            $interfaces = $api->getInterfaces()['data'] ?? [];
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('HighAvailSync fetch error: ' . $e->getMessage());
+        }
+
+        return view('system.high-avail-sync', compact('firewall', 'haData', 'interfaces'));
+    }
+
+    public function updateHighAvailSync(Request $request, Firewall $firewall)
+    {
+        try {
+            $api = new \App\Services\PfSenseApiService($firewall);
+            if ($firewall->isOpnSense()) {
+                $syncItems = $request->input('syncitems', []);
+                $syncItemsStr = is_array($syncItems) ? implode(',', $syncItems) : (string)$syncItems;
+
+                $data = [
+                    'disablepreempt' => $request->has('disablepreempt') ? '1' : '0',
+                    'disconnectppps' => $request->has('disconnectppps') ? '1' : '0',
+                    'pfsyncinterface' => $request->input('pfsyncinterface', ''),
+                    'pfsyncpeerip' => $request->input('pfsyncpeerip', ''),
+                    'pfsyncversion' => $request->input('pfsyncversion', '1400'),
+                    'pfsyncdefer' => $request->has('pfsyncdefer') ? '1' : '0',
+                    'synchronizetoip' => $request->input('synchronizetoip', ''),
+                    'verifypeer' => $request->has('verifypeer') ? '1' : '0',
+                    'username' => $request->input('username', ''),
+                    'password' => $request->input('password', ''),
+                    'syncitems' => $syncItemsStr,
+                ];
+
+                $api->updateHighAvailabilitySync($data);
+                $firewall->update(['is_dirty' => true]);
+                return back()->with('success', 'High Availability settings saved successfully.');
+            }
+
+            return back()->with('error', 'High Availability sync update not supported on this firewall.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to update High Availability settings: ' . $e->getMessage());
+        }
     }
 
     public function packageManager(Firewall $firewall)
@@ -375,17 +421,19 @@ class SystemController extends Controller
         $api = new \App\Services\PfSenseApiService($firewall);
         $version = [];
         $firmwareStatus = [];
+        $upgradeStatus = [];
 
         try {
             $version = $api->getSystemVersion()['data'] ?? [];
             if ($firewall->isOpnSense()) {
                 $firmwareStatus = $api->getFirmwareStatus();
+                $upgradeStatus = $api->getFirmwareUpgradeStatus();
             }
         } catch (\Exception $e) {
             // Log error
         }
 
-        return view('system.update', compact('firewall', 'version', 'firmwareStatus'));
+        return view('system.update', compact('firewall', 'version', 'firmwareStatus', 'upgradeStatus'));
     }
 
     public function checkFirmware(Firewall $firewall)
@@ -396,6 +444,39 @@ class SystemController extends Controller
             return back()->with('success', 'Firmware update check initiated: ' . ($res['status'] ?? 'ok'));
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to check firmware updates: ' . $e->getMessage());
+        }
+    }
+
+    public function auditFirmware(Firewall $firewall)
+    {
+        try {
+            $api = new \App\Services\PfSenseApiService($firewall);
+            $res = $api->auditFirmware();
+            return back()->with('success', 'Security audit initiated: ' . ($res['status'] ?? 'ok'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to initiate security audit: ' . $e->getMessage());
+        }
+    }
+
+    public function upgradeFirmware(Firewall $firewall)
+    {
+        try {
+            $api = new \App\Services\PfSenseApiService($firewall);
+            $res = $api->upgradeFirmware();
+            return back()->with('success', 'Firmware upgrade initiated: ' . ($res['status'] ?? 'ok'));
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to initiate firmware upgrade: ' . $e->getMessage());
+        }
+    }
+
+    public function getFirmwareStatusJson(Firewall $firewall)
+    {
+        try {
+            $api = new \App\Services\PfSenseApiService($firewall);
+            $status = $api->getFirmwareUpgradeStatus();
+            return response()->json($status);
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'log' => $e->getMessage()], 500);
         }
     }
 

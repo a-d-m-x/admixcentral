@@ -231,6 +231,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/groups/{id}/edit', [App\Http\Controllers\InterfacesGroupController::class, 'edit'])->name('groups.edit');
             Route::patch('/groups/{id}', [App\Http\Controllers\InterfacesGroupController::class, 'update'])->middleware('deny.readonly')->name('groups.update');
             Route::delete('/groups/{id}', [App\Http\Controllers\InterfacesGroupController::class, 'destroy'])->middleware('deny.readonly')->name('groups.destroy');
+
+            // Loopback
+            Route::get('/loopbacks', [App\Http\Controllers\InterfacesLoopbackController::class, 'index'])->name('loopbacks.index');
+            Route::get('/loopbacks/create', [App\Http\Controllers\InterfacesLoopbackController::class, 'create'])->name('loopbacks.create');
+            Route::post('/loopbacks', [App\Http\Controllers\InterfacesLoopbackController::class, 'store'])->middleware('deny.readonly')->name('loopbacks.store');
+            Route::get('/loopbacks/{id}/edit', [App\Http\Controllers\InterfacesLoopbackController::class, 'edit'])->name('loopbacks.edit');
+            Route::patch('/loopbacks/{id}', [App\Http\Controllers\InterfacesLoopbackController::class, 'update'])->middleware('deny.readonly')->name('loopbacks.update');
+            Route::delete('/loopbacks/{id}', [App\Http\Controllers\InterfacesLoopbackController::class, 'destroy'])->middleware('deny.readonly')->name('loopbacks.destroy');
+
+            // VXLAN
+            Route::get('/vxlans', [App\Http\Controllers\InterfacesVxlanController::class, 'index'])->name('vxlans.index');
+            Route::get('/vxlans/create', [App\Http\Controllers\InterfacesVxlanController::class, 'create'])->name('vxlans.create');
+            Route::post('/vxlans', [App\Http\Controllers\InterfacesVxlanController::class, 'store'])->middleware('deny.readonly')->name('vxlans.store');
+            Route::get('/vxlans/{id}/edit', [App\Http\Controllers\InterfacesVxlanController::class, 'edit'])->name('vxlans.edit');
+            Route::patch('/vxlans/{id}', [App\Http\Controllers\InterfacesVxlanController::class, 'update'])->middleware('deny.readonly')->name('vxlans.update');
+            Route::delete('/vxlans/{id}', [App\Http\Controllers\InterfacesVxlanController::class, 'destroy'])->middleware('deny.readonly')->name('vxlans.destroy');
         });
 
     // Interfaces management
@@ -471,6 +487,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/firewall/{firewall}/services/dns-resolver/host-overrides', [App\Http\Controllers\ServicesDnsResolverController::class, 'storeHostOverride'])
         ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
         ->name('services.dns.host-overrides.store');
+    Route::delete('/firewall/{firewall}/services/dns-resolver/host-overrides/{id}', [App\Http\Controllers\ServicesDnsResolverController::class, 'destroyHostOverride'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.dns.host-overrides.destroy');
 
     // Services - Intrusion Detection (IDS / Suricata - OPNsense)
     Route::get('/firewall/{firewall}/services/ids', [App\Http\Controllers\ServicesIdsController::class, 'index'])
@@ -479,6 +498,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/firewall/{firewall}/services/ids/service/{action}', [App\Http\Controllers\ServicesIdsController::class, 'serviceAction'])
         ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
         ->name('services.ids.action');
+    Route::post('/firewall/{firewall}/services/ids/settings', [App\Http\Controllers\ServicesIdsController::class, 'updateSettings'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.ids.settings.update');
+    Route::post('/firewall/{firewall}/services/ids/rulesets/{filename}/toggle', [App\Http\Controllers\ServicesIdsController::class, 'toggleRuleset'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.ids.rulesets.toggle');
+    Route::post('/firewall/{firewall}/services/ids/rules', [App\Http\Controllers\ServicesIdsController::class, 'storeUserRule'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.ids.rules.store');
+    Route::post('/firewall/{firewall}/services/ids/rules/{uuid}/toggle', [App\Http\Controllers\ServicesIdsController::class, 'toggleUserRule'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.ids.rules.toggle');
+    Route::delete('/firewall/{firewall}/services/ids/rules/{uuid}', [App\Http\Controllers\ServicesIdsController::class, 'destroyUserRule'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.ids.rules.destroy');
 
     // Services - Monit (OPNsense)
     Route::get('/firewall/{firewall}/services/monit', [App\Http\Controllers\ServicesMonitController::class, 'index'])
@@ -487,6 +521,27 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/firewall/{firewall}/services/monit/service/{action}', [App\Http\Controllers\ServicesMonitController::class, 'serviceAction'])
         ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
         ->name('services.monit.action');
+    Route::post('/firewall/{firewall}/services/monit/settings', [App\Http\Controllers\ServicesMonitController::class, 'updateSettings'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.monit.settings.update');
+    Route::post('/firewall/{firewall}/services/monit/services', [App\Http\Controllers\ServicesMonitController::class, 'storeService'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.monit.services.store');
+    Route::post('/firewall/{firewall}/services/monit/services/{uuid}/toggle', [App\Http\Controllers\ServicesMonitController::class, 'toggleService'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.monit.services.toggle');
+    Route::delete('/firewall/{firewall}/services/monit/services/{uuid}', [App\Http\Controllers\ServicesMonitController::class, 'destroyService'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.monit.services.destroy');
+    Route::post('/firewall/{firewall}/services/monit/alerts', [App\Http\Controllers\ServicesMonitController::class, 'storeAlert'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.monit.alerts.store');
+    Route::post('/firewall/{firewall}/services/monit/alerts/{uuid}/toggle', [App\Http\Controllers\ServicesMonitController::class, 'toggleAlert'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.monit.alerts.toggle');
+    Route::delete('/firewall/{firewall}/services/monit/alerts/{uuid}', [App\Http\Controllers\ServicesMonitController::class, 'destroyAlert'])
+        ->middleware([App\Http\Middleware\EnsureTenantScope::class, 'deny.readonly'])
+        ->name('services.monit.alerts.destroy');
 
 
 
@@ -504,11 +559,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/general-setup', [App\Http\Controllers\SystemController::class, 'generalSetup'])->name('general-setup');
         Route::post('/general-setup', [App\Http\Controllers\SystemController::class, 'updateGeneralSetup'])->middleware('deny.readonly')->name('general-setup.update');
         Route::get('/high-avail-sync', [App\Http\Controllers\SystemController::class, 'highAvailSync'])->name('high-avail-sync');
+        Route::post('/high-avail-sync', [App\Http\Controllers\SystemController::class, 'updateHighAvailSync'])->middleware('deny.readonly')->name('high-avail-sync.update');
 
         // Package Manager
         Route::get('/package-manager', [App\Http\Controllers\PackageManagerController::class, 'index'])->name('package_manager.index');
         Route::post('/package-manager/install', [App\Http\Controllers\PackageManagerController::class, 'install'])->middleware('deny.readonly')->name('package_manager.install');
         Route::post('/package-manager/uninstall', [App\Http\Controllers\PackageManagerController::class, 'uninstall'])->middleware('deny.readonly')->name('package_manager.uninstall');
+        Route::post('/package-manager/reinstall', [App\Http\Controllers\PackageManagerController::class, 'reinstall'])->middleware('deny.readonly')->name('package_manager.reinstall');
+        Route::post('/package-manager/lock', [App\Http\Controllers\PackageManagerController::class, 'lock'])->middleware('deny.readonly')->name('package_manager.lock');
+        Route::post('/package-manager/unlock', [App\Http\Controllers\PackageManagerController::class, 'unlock'])->middleware('deny.readonly')->name('package_manager.unlock');
 
         Route::get('/notifications', [App\Http\Controllers\SystemController::class, 'notifications'])->name('notifications');
         Route::post('/notifications', [App\Http\Controllers\SystemController::class, 'updateNotifications'])->middleware('deny.readonly')->name('notifications.update');
@@ -518,6 +577,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/update', [App\Http\Controllers\SystemController::class, 'update'])->name('update');
         Route::post('/update/check', [App\Http\Controllers\SystemController::class, 'checkFirmware'])->middleware('deny.readonly')->name('update.check');
+        Route::post('/update/upgrade', [App\Http\Controllers\SystemController::class, 'upgradeFirmware'])->middleware('deny.readonly')->name('update.upgrade');
+        Route::post('/update/audit', [App\Http\Controllers\SystemController::class, 'auditFirmware'])->middleware('deny.readonly')->name('update.audit');
+        Route::get('/update/status-log', [App\Http\Controllers\SystemController::class, 'getFirmwareStatusJson'])->name('update.status-log');
 
         // User Manager
         Route::get('/user-manager', [App\Http\Controllers\UserManagerController::class, 'index'])->name('user_manager.index');
@@ -634,6 +696,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/dhcpv6-relay', [App\Http\Controllers\ServicesController::class, 'dhcpv6Relay'])->name('dhcpv6-relay');
         Route::get('/dhcpv6-server', [App\Http\Controllers\ServicesController::class, 'dhcpv6Server'])->name('dhcpv6-server');
         Route::get('/dns-forwarder', [App\Http\Controllers\ServicesController::class, 'dnsForwarder'])->name('dns-forwarder');
+        Route::post('/dns-forwarder/hosts', [App\Http\Controllers\ServicesController::class, 'storeDnsForwarderHost'])->middleware('deny.readonly')->name('dns-forwarder.hosts.store');
+        Route::delete('/dns-forwarder/hosts/{uuid}', [App\Http\Controllers\ServicesController::class, 'destroyDnsForwarderHost'])->middleware('deny.readonly')->name('dns-forwarder.hosts.destroy');
         Route::get('/dynamic-dns', [App\Http\Controllers\ServicesController::class, 'dynamicDns'])->name('dynamic-dns');
         Route::get('/igmp-proxy', [App\Http\Controllers\ServicesController::class, 'igmpProxy'])->name('igmp-proxy');
         Route::get('/ntp', [App\Http\Controllers\ServicesNtpController::class, 'index'])->name('ntp');
@@ -695,6 +759,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/gateways', [App\Http\Controllers\StatusController::class, 'gateways'])->name('gateways');
         Route::get('/interfaces', [App\Http\Controllers\StatusController::class, 'interfaces'])->name('interfaces.index');
         Route::get('/ipsec', [App\Http\Controllers\StatusController::class, 'ipsec'])->name('ipsec');
+        Route::post('/ipsec/disconnect', [App\Http\Controllers\StatusController::class, 'disconnectIpsec'])->middleware('deny.readonly')->name('ipsec.disconnect');
+        Route::post('/ipsec/connect', [App\Http\Controllers\StatusController::class, 'connectIpsec'])->middleware('deny.readonly')->name('ipsec.connect');
+        Route::post('/ipsec/sad/delete', [App\Http\Controllers\StatusController::class, 'destroyIpsecSad'])->middleware('deny.readonly')->name('ipsec.sad.destroy');
         Route::get('/monitoring', [App\Http\Controllers\StatusController::class, 'monitoring'])->name('monitoring');
         Route::get('/ntp', [App\Http\Controllers\StatusController::class, 'ntp'])->name('ntp');
         Route::get('/openvpn', [App\Http\Controllers\StatusController::class, 'openvpn'])->name('openvpn');
@@ -702,6 +769,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/services', [App\Http\Controllers\StatusController::class, 'services'])->name('services');
         Route::post('/services/{service}/{action}', [App\Http\Controllers\StatusController::class, 'serviceAction'])->middleware('deny.readonly')->name('services.action');
         Route::get('/system-logs', [App\Http\Controllers\StatusController::class, 'systemLogs'])->name('system-logs');
+        Route::post('/system-logs/destinations', [App\Http\Controllers\StatusController::class, 'storeSyslogDestination'])->middleware('deny.readonly')->name('system-logs.destinations.store');
+        Route::delete('/system-logs/destinations/{uuid}', [App\Http\Controllers\StatusController::class, 'destroySyslogDestination'])->middleware('deny.readonly')->name('system-logs.destinations.destroy');
         Route::get('/traffic-graph', [App\Http\Controllers\StatusController::class, 'trafficGraph'])->name('traffic-graph');
         Route::get('/upnp', [App\Http\Controllers\StatusController::class, 'upnp'])->name('upnp');
         Route::get('/dhcp', [App\Http\Controllers\StatusController::class, 'dhcp'])->name('dhcp');

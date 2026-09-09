@@ -160,6 +160,12 @@ class PfSenseApiService
         if ($ep === 'services' || $ep === 'status/services' || $ep === 'services/status') {
             return $this->opnSense->getCoreServices();
         }
+        if ($ep === 'status/carp') {
+            return $this->opnSense->getCarpStatus();
+        }
+        if ($ep === 'system/hasync' || $ep === 'system/high-avail-sync') {
+            return $this->opnSense->getHighAvailabilitySync();
+        }
         if (str_starts_with($ep, 'routing/static_routes') || str_starts_with($ep, 'routing/static-routes') || str_starts_with($ep, 'routing/routes')) {
             return $this->opnSense->getRoutes();
         }
@@ -207,6 +213,23 @@ class PfSenseApiService
                 return ['status' => 200, 'data' => []];
             }
         }
+        if ($ep === 'system/package/available') {
+            $info = $this->opnSense->getFirmwareInfo();
+            $available = [];
+            foreach (array_merge($info['plugin'] ?? [], $info['package'] ?? []) as $pkg) {
+                if (empty($pkg['installed']) || (string)$pkg['installed'] === '0') {
+                    $available[] = [
+                        'name' => $pkg['name'] ?? '',
+                        'version' => $pkg['version'] ?? '',
+                        'descr' => $pkg['comment'] ?? ($pkg['descr'] ?? ''),
+                        'installed' => false,
+                        'locked' => !empty($pkg['locked']) && (string)$pkg['locked'] === '1',
+                        'repository' => $pkg['repository'] ?? '',
+                    ];
+                }
+            }
+            return ['status' => 200, 'data' => $available];
+        }
         if (str_starts_with($ep, 'system/packages') || str_starts_with($ep, 'system/package')) {
             $info = $this->opnSense->getFirmwareInfo();
             $installed = [];
@@ -217,6 +240,8 @@ class PfSenseApiService
                         'version' => $pkg['version'] ?? '',
                         'descr' => $pkg['comment'] ?? ($pkg['descr'] ?? ''),
                         'installed' => true,
+                        'locked' => !empty($pkg['locked']) && (string)$pkg['locked'] === '1',
+                        'repository' => $pkg['repository'] ?? '',
                     ];
                 }
             }
@@ -261,6 +286,18 @@ class PfSenseApiService
         if (str_starts_with($ep, 'firewall/virtual_ips')) {
             return $this->opnSense->getVirtualIps();
         }
+        if (str_starts_with($ep, 'firewall/nat/port_forwards') || str_starts_with($ep, 'firewall/nat/port_forward')) {
+            return $this->opnSense->getNatPortForwards();
+        }
+        if (str_starts_with($ep, 'firewall/nat/outbound/mappings') || str_starts_with($ep, 'firewall/nat/outbound/mapping')) {
+            return $this->opnSense->getNatOutboundRules();
+        }
+        if (str_starts_with($ep, 'firewall/nat/outbound/mode')) {
+            return $this->opnSense->getNatOutboundMode();
+        }
+        if (str_starts_with($ep, 'firewall/nat/one_to_one/mappings') || str_starts_with($ep, 'firewall/nat/one_to_one/mapping')) {
+            return $this->opnSense->getNatOneToOneRules();
+        }
         if (str_starts_with($ep, 'status/dhcp_server/leases')) {
             return $this->opnSense->getDhcpLeases();
         }
@@ -288,8 +325,11 @@ class PfSenseApiService
         if ($ep === 'firewall/rule') {
             return $this->opnSense->createFirewallRule($data);
         }
-        if ($ep === 'firewall/apply') {
+        if ($ep === 'firewall/apply' || $ep === 'apply') {
             return $this->opnSense->applyChanges();
+        }
+        if (str_starts_with($ep, 'diagnostics/command_prompt')) {
+            return ['status' => 200, 'data' => ['output' => 'Command prompt not supported on OPNsense via API.']];
         }
         if ($ep === 'firewall/category') {
             return $this->opnSense->createCategory($data);
@@ -320,6 +360,15 @@ class PfSenseApiService
         }
         if (str_starts_with($ep, 'firewall/virtual_ip')) {
             return $this->opnSense->createVirtualIp($data);
+        }
+        if (str_starts_with($ep, 'firewall/nat/port_forward')) {
+            return $this->opnSense->createNatPortForward($data);
+        }
+        if (str_starts_with($ep, 'firewall/nat/outbound/mapping')) {
+            return $this->opnSense->createNatOutboundRule($data);
+        }
+        if (str_starts_with($ep, 'firewall/nat/one_to_one/mapping')) {
+            return $this->opnSense->createNatOneToOneRule($data);
         }
         if (str_starts_with($ep, 'diagnostics/halt') || $ep === 'system/halt') {
             return $this->opnSense->haltSystem();
@@ -354,6 +403,21 @@ class PfSenseApiService
         if ($ep === 'firewall/category') {
             $uuid = $data['uuid'] ?? $data['id'] ?? '';
             return $this->opnSense->updateCategory($uuid, $data);
+        }
+        if (str_starts_with($ep, 'firewall/nat/port_forward')) {
+            $id = $data['id'] ?? ($data['uuid'] ?? '');
+            return $this->opnSense->updateNatPortForward($id, $data);
+        }
+        if (str_starts_with($ep, 'firewall/nat/outbound/mode')) {
+            return $this->opnSense->updateNatOutboundMode($data['mode'] ?? 'automatic');
+        }
+        if (str_starts_with($ep, 'firewall/nat/outbound/mapping')) {
+            $id = $data['id'] ?? ($data['uuid'] ?? '');
+            return $this->opnSense->updateNatOutboundRule($id, $data);
+        }
+        if (str_starts_with($ep, 'firewall/nat/one_to_one/mapping')) {
+            $id = $data['id'] ?? ($data['uuid'] ?? '');
+            return $this->opnSense->updateNatOneToOneRule($id, $data);
         }
         if (str_starts_with($ep, 'services/dns_resolver/settings')) {
             try {
@@ -403,6 +467,15 @@ class PfSenseApiService
         }
         if ($ep === 'firewall/category') {
             return $this->opnSense->deleteCategory($data['id'] ?? $data['uuid'] ?? '');
+        }
+        if (str_starts_with($ep, 'firewall/nat/port_forward')) {
+            return $this->opnSense->deleteNatPortForward($data['id'] ?? ($data['uuid'] ?? ''));
+        }
+        if (str_starts_with($ep, 'firewall/nat/outbound/mapping')) {
+            return $this->opnSense->deleteNatOutboundRule($data['id'] ?? ($data['uuid'] ?? ''));
+        }
+        if (str_starts_with($ep, 'firewall/nat/one_to_one/mapping')) {
+            return $this->opnSense->deleteNatOneToOneRule($data['id'] ?? ($data['uuid'] ?? ''));
         }
         if ($ep === 'cron/job' || $ep === 'system/cron/job') {
             return $this->opnSense->deleteCronJob($data['id'] ?? $data['uuid'] ?? '');
@@ -655,6 +728,10 @@ class PfSenseApiService
 
     public function getDirtyState()
     {
+        if ($this->opnSense) {
+            return false;
+        }
+
         // List all files in /tmp and check for known dirty markers
         // List all files in /tmp and /var/run (pfSense uses /var/run for most dirty flags)
         $response = $this->diagnosticsCommandPrompt('ls -1 /tmp /var/run');
@@ -690,6 +767,10 @@ class PfSenseApiService
 
     public function markSubsystemDirty(string $subsystem)
     {
+        if ($this->opnSense) {
+            return ['status' => 200, 'message' => 'Subsystem marked dirty'];
+        }
+
         // H01: Allowlist validation — prevent shell injection via $subsystem interpolation
         $allowed = ['filter', 'sysctl', 'interfaces', 'vip', 'config'];
         if (!in_array($subsystem, $allowed, true)) {
@@ -707,6 +788,10 @@ class PfSenseApiService
      */
     public function applySubsystemChanges(string $subsystem)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->applyChanges();
+        }
+
         $command = "";
 
         switch ($subsystem) {
@@ -755,63 +840,99 @@ class PfSenseApiService
     // Routing - Gateways
     public function getRoutingGateways()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getRoutingGateways();
+        }
         return $this->get('/routing/gateways');
     }
 
     public function createRoutingGateway(array $data)
     {
+        if ($this->opnSense) {
+            throw new \Exception("Creating gateways via API is not supported on OPNsense; gateways are managed via interfaces.");
+        }
         return $this->post('/routing/gateway', $data);
     }
 
     public function updateRoutingGateway(array $data)
     {
+        if ($this->opnSense) {
+            throw new \Exception("Updating gateways via API is not supported on OPNsense.");
+        }
         return $this->patch('/routing/gateway', $data);
     }
 
     public function deleteRoutingGateway(string $id)
     {
+        if ($this->opnSense) {
+            throw new \Exception("Deleting gateways via API is not supported on OPNsense.");
+        }
         return $this->delete('/routing/gateway', ['id' => $id]);
     }
 
     // Routing - Static Routes
     public function getRoutingStaticRoutes()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getRoutingStaticRoutes();
+        }
         return $this->get('/routing/static_routes');
     }
 
     public function createRoutingStaticRoute(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createRoutingStaticRoute($data);
+        }
         return $this->post('/routing/static_route', $data);
     }
 
     public function updateRoutingStaticRoute(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateRoutingStaticRoute($data);
+        }
         return $this->patch('/routing/static_route', $data);
     }
 
     public function deleteRoutingStaticRoute(string $id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteRoutingStaticRoute($id);
+        }
         return $this->delete('/routing/static_route', ['id' => $id]);
     }
 
     // Routing - Gateway Groups
     public function getRoutingGatewayGroups()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getRoutingGatewayGroups();
+        }
         return $this->get('/routing/gateway/groups');
     }
 
     public function createRoutingGatewayGroup(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createRoutingGatewayGroup($data);
+        }
         return $this->post('/routing/gateway/group', $data);
     }
 
     public function updateRoutingGatewayGroup(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateRoutingGatewayGroup($data);
+        }
         return $this->patch('/routing/gateway/group', $data);
     }
 
     public function deleteRoutingGatewayGroup(string $id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteRoutingGatewayGroup($id);
+        }
         return $this->delete('/routing/gateway/group', ['id' => $id]);
     }
 
@@ -828,59 +949,174 @@ class PfSenseApiService
 
     public function installSystemPackage(string $name)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->installPackage($name);
+        }
         return $this->post('/system/package', ['name' => $name]);
     }
 
-    public function uninstallSystemPackage(int $id)
+    public function uninstallSystemPackage($id, ?string $name = null)
     {
+        if ($this->opnSense) {
+            $pkgName = $name ?: (string)$id;
+            return $this->opnSense->removePackage($pkgName);
+        }
         return $this->delete('/system/package', ['id' => $id]);
+    }
+
+    public function reinstallSystemPackage(string $name)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->reinstallPackage($name);
+        }
+        return ['status' => 400, 'message' => 'Not supported on pfSense'];
+    }
+
+    public function lockSystemPackage(string $name)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->lockPackage($name);
+        }
+        return ['status' => 400, 'message' => 'Not supported on pfSense'];
+    }
+
+    public function unlockSystemPackage(string $name)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->unlockPackage($name);
+        }
+        return ['status' => 400, 'message' => 'Not supported on pfSense'];
+    }
+
+    // System - Firmware & Updates
+    public function getFirmwareStatus(): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getFirmwareStatus();
+        }
+        return [];
+    }
+
+    public function getFirmwareInfo(): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getFirmwareInfo();
+        }
+        return [];
+    }
+
+    public function getFirmwareUpgradeStatus(): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getFirmwareUpgradeStatus();
+        }
+        return ['status' => 'done', 'log' => ''];
+    }
+
+    public function checkFirmwareUpdates(): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->checkFirmwareUpdates();
+        }
+        return ['status' => 'error', 'message' => 'Not supported on pfSense'];
+    }
+
+    public function upgradeFirmware(): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->upgradeFirmware();
+        }
+        return ['status' => 'error', 'message' => 'Not supported on pfSense'];
+    }
+
+    public function auditFirmware(): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->auditFirmware();
+        }
+        return ['status' => 'error', 'message' => 'Not supported on pfSense'];
+    }
+
+    public function getFirmwareChangelog(string $version): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getFirmwareChangelog($version);
+        }
+        return [];
     }
 
     // System - User Manager - Users
     public function getSystemUsers()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getSystemUsers();
+        }
         return $this->get('/users');
     }
 
     public function createSystemUser(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createSystemUser($data);
+        }
         return $this->post('/user', $data);
     }
 
     public function updateSystemUser(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateSystemUser($data);
+        }
         return $this->patch('/user', $data);
     }
 
     public function deleteSystemUser(string $id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteSystemUser($id);
+        }
         return $this->delete('/user', ['id' => $id]);
     }
 
     // System - User Manager - Groups
     public function getSystemGroups()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getSystemGroups();
+        }
         return $this->get('/user/groups');
     }
 
     public function createSystemGroup(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createSystemGroup($data);
+        }
         return $this->post('/user/group', $data);
     }
 
     public function updateSystemGroup(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateSystemGroup($data);
+        }
         return $this->patch('/user/group', $data);
     }
 
     public function deleteSystemGroup(string $id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteSystemGroup($id);
+        }
         return $this->delete('/user/group', ['id' => $id]);
     }
 
     // System - User Manager - Auth Servers
     public function getSystemAuthServers()
     {
+        if ($this->opnSense) {
+            return ['status' => 200, 'data' => []];
+        }
         return $this->get('/user/auth_servers');
     }
 
@@ -1016,6 +1252,9 @@ class PfSenseApiService
 
     public function applyChanges()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->applyChanges();
+        }
         return $this->applySubsystemChanges('filter');
     }
 
@@ -1032,6 +1271,9 @@ class PfSenseApiService
      */
     public function getNatPortForwards()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getNatPortForwards();
+        }
         return $this->get('/firewall/nat/port_forwards');
     }
 
@@ -1040,6 +1282,9 @@ class PfSenseApiService
      */
     public function createNatPortForward(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createNatPortForward($data);
+        }
         $response = $this->post('/firewall/nat/port_forward', $data);
         $this->markSubsystemDirty('filter');
         return $response;
@@ -1048,8 +1293,11 @@ class PfSenseApiService
     /**
      * Update NAT Port Forward
      */
-    public function updateNatPortForward(int $id, array $data)
+    public function updateNatPortForward($id, array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateNatPortForward($id, $data);
+        }
         $data['id'] = $id;
         $response = $this->patch("/firewall/nat/port_forward", $data);
         $this->markSubsystemDirty('filter');
@@ -1059,8 +1307,11 @@ class PfSenseApiService
     /**
      * Delete NAT Port Forward
      */
-    public function deleteNatPortForward(int $id)
+    public function deleteNatPortForward($id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteNatPortForward($id);
+        }
         $response = $this->delete('/firewall/nat/port_forward', ['id' => $id]);
         $this->markSubsystemDirty('filter');
         return $response;
@@ -1071,6 +1322,9 @@ class PfSenseApiService
      */
     public function getNatOutboundRules()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getNatOutboundRules();
+        }
         return $this->get('/firewall/nat/outbound/mappings');
     }
 
@@ -1079,6 +1333,9 @@ class PfSenseApiService
      */
     public function getNatOutboundMode()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getNatOutboundMode();
+        }
         return $this->get('/firewall/nat/outbound/mode');
     }
 
@@ -1087,6 +1344,9 @@ class PfSenseApiService
      */
     public function updateNatOutboundMode(string $mode)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateNatOutboundMode($mode);
+        }
         $response = $this->patch('/firewall/nat/outbound/mode', ['mode' => $mode]);
         $this->markSubsystemDirty('filter');
         return $response;
@@ -1097,6 +1357,9 @@ class PfSenseApiService
      */
     public function createNatOutboundRule(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createNatOutboundRule($data);
+        }
         $response = $this->post('/firewall/nat/outbound/mapping', $data);
         $this->markSubsystemDirty('filter');
         return $response;
@@ -1105,8 +1368,11 @@ class PfSenseApiService
     /**
      * Update NAT Outbound Rule
      */
-    public function updateNatOutboundRule(int $id, array $data)
+    public function updateNatOutboundRule($id, array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateNatOutboundRule($id, $data);
+        }
         $data['id'] = $id;
         $response = $this->patch("/firewall/nat/outbound/mapping", $data);
         $this->markSubsystemDirty('filter');
@@ -1116,8 +1382,11 @@ class PfSenseApiService
     /**
      * Delete NAT Outbound Rule
      */
-    public function deleteNatOutboundRule(int $id)
+    public function deleteNatOutboundRule($id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteNatOutboundRule($id);
+        }
         $response = $this->delete("/firewall/nat/outbound/mapping?id={$id}");
         $this->markSubsystemDirty('filter');
         return $response;
@@ -1128,6 +1397,9 @@ class PfSenseApiService
      */
     public function getNatOneToOneRules()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getNatOneToOneRules();
+        }
         return $this->get('/firewall/nat/one_to_one/mappings');
     }
 
@@ -1136,6 +1408,9 @@ class PfSenseApiService
      */
     public function createNatOneToOneRule(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createNatOneToOneRule($data);
+        }
         $response = $this->post('/firewall/nat/one_to_one/mapping', $data);
         $this->markSubsystemDirty('filter');
         return $response;
@@ -1144,8 +1419,11 @@ class PfSenseApiService
     /**
      * Update NAT 1:1 Rule
      */
-    public function updateNatOneToOneRule(int $id, array $data)
+    public function updateNatOneToOneRule($id, array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateNatOneToOneRule($id, $data);
+        }
         $data['id'] = $id;
         $response = $this->patch("/firewall/nat/one_to_one/mapping", $data);
         $this->markSubsystemDirty('filter');
@@ -1155,8 +1433,11 @@ class PfSenseApiService
     /**
      * Delete NAT 1:1 Rule
      */
-    public function deleteNatOneToOneRule(int $id)
+    public function deleteNatOneToOneRule($id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteNatOneToOneRule($id);
+        }
         $response = $this->delete("/firewall/nat/one_to_one/mapping?id={$id}");
         $this->markSubsystemDirty('filter');
         return $response;
@@ -1218,6 +1499,9 @@ class PfSenseApiService
      */
     public function getSchedules()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getSchedules();
+        }
         return $this->get('/firewall/schedules');
     }
 
@@ -1226,14 +1510,20 @@ class PfSenseApiService
      */
     public function createSchedule(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createSchedule($data);
+        }
         return $this->post('/firewall/schedule', $data);
     }
 
     /**
      * Update Firewall Schedule
      */
-    public function updateSchedule(int $id, array $data)
+    public function updateSchedule(int|string $id, array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateSchedule($id, $data);
+        }
         $data['id'] = $id;
         return $this->patch("/firewall/schedule?id={$id}", $data);
     }
@@ -1241,8 +1531,11 @@ class PfSenseApiService
     /**
      * Delete Firewall Schedule
      */
-    public function deleteSchedule(int $id)
+    public function deleteSchedule(int|string $id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteSchedule($id);
+        }
         return $this->delete("/firewall/schedule", ['id' => $id]);
     }
 
@@ -1251,6 +1544,9 @@ class PfSenseApiService
      */
     public function getLimiters()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getLimiters();
+        }
         return $this->get('/firewall/traffic_shaper/limiters');
     }
 
@@ -1259,24 +1555,33 @@ class PfSenseApiService
      */
     public function createLimiter(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createLimiter($data);
+        }
         return $this->post('/firewall/traffic_shaper/limiter', $data);
     }
 
     /**
      * Update Traffic Shaper Limiter
      */
-    public function updateLimiter(int $id, array $data)
+    public function updateLimiter(int|string $id, array $data)
     {
-        $data['id'] = $id;
+        if ($this->opnSense) {
+            return $this->opnSense->updateLimiter((string) $id, $data);
+        }
+        $data['id'] = (int) $id;
         return $this->patch("/firewall/traffic_shaper/limiter", $data);
     }
 
     /**
      * Delete Traffic Shaper Limiter
      */
-    public function deleteLimiter(int $id)
+    public function deleteLimiter(int|string $id)
     {
-        return $this->delete("/firewall/traffic_shaper/limiter", ['id' => $id]);
+        if ($this->opnSense) {
+            return $this->opnSense->deleteLimiter((string) $id);
+        }
+        return $this->delete("/firewall/traffic_shaper/limiter", ['id' => (int) $id]);
     }
 
     /**
@@ -1292,7 +1597,150 @@ class PfSenseApiService
      */
     public function getIpsecStatus()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getIpsecStatus();
+        }
         return $this->get('/status/ipsec/sas');
+    }
+
+    /**
+     * Get IPsec SADs (Security Association Database)
+     */
+    public function getIpsecSads()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIpsecSads();
+        }
+        try {
+            $cmd = 'php -r "require_once(\'ipsec.inc\'); echo json_encode(ipsec_dump_sad());"';
+            $res = $this->diagnosticsCommandPrompt($cmd);
+            $raw = $res['data']['output'] ?? '[]';
+            $data = json_decode($raw, true) ?: [];
+            return ['status' => 200, 'data' => $data];
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to fetch pfSense IPsec SADs: " . $e->getMessage());
+            return ['status' => 200, 'data' => []];
+        }
+    }
+
+    /**
+     * Get IPsec SPDs (Security Policy Database)
+     */
+    public function getIpsecSpds()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIpsecSpds();
+        }
+        try {
+            $cmd = 'php -r "require_once(\'ipsec.inc\'); echo json_encode(ipsec_dump_spd());"';
+            $res = $this->diagnosticsCommandPrompt($cmd);
+            $raw = $res['data']['output'] ?? '[]';
+            $data = json_decode($raw, true) ?: [];
+            return ['status' => 200, 'data' => $data];
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to fetch pfSense IPsec SPDs: " . $e->getMessage());
+            return ['status' => 200, 'data' => []];
+        }
+    }
+
+    /**
+     * Get IPsec Mobile Client Leases and Pools
+     */
+    public function getIpsecLeases()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIpsecLeases();
+        }
+        try {
+            $cmd = 'php -r "require_once(\'ipsec.inc\'); echo json_encode(ipsec_dump_mobile());"';
+            $res = $this->diagnosticsCommandPrompt($cmd);
+            $raw = $res['data']['output'] ?? '[]';
+            $data = json_decode($raw, true) ?: [];
+            return ['status' => 200, 'data' => $data];
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to fetch pfSense IPsec Leases: " . $e->getMessage());
+            return ['status' => 200, 'data' => []];
+        }
+    }
+
+    /**
+     * Disconnect IPsec Phase 1
+     */
+    public function disconnectIpsecP1($conid = null, $uniqueid = null)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->disconnectIpsecP1($conid, $uniqueid);
+        }
+        $cmd = sprintf(
+            'php -r "require_once(\'ipsec.inc\'); ipsec_terminate_by_conid(\'ike\', %s, %s);"',
+            $conid !== null ? var_export((string) $conid, true) : 'null',
+            $uniqueid !== null ? var_export((string) $uniqueid, true) : 'null'
+        );
+        return $this->diagnosticsCommandPrompt($cmd);
+    }
+
+    /**
+     * Disconnect IPsec Phase 2
+     */
+    public function disconnectIpsecP2($name = null, $uniqueid = null)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->disconnectIpsecP2($name, $uniqueid);
+        }
+        $cmd = sprintf(
+            'php -r "require_once(\'ipsec.inc\'); ipsec_terminate_by_conid(\'child\', %s, %s);"',
+            $name !== null ? var_export((string) $name, true) : 'null',
+            $uniqueid !== null ? var_export((string) $uniqueid, true) : 'null'
+        );
+        return $this->diagnosticsCommandPrompt($cmd);
+    }
+
+    /**
+     * Connect IPsec Phase 1
+     */
+    public function connectIpsecP1($conid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->connectIpsecP1($conid);
+        }
+        $cmd = sprintf(
+            'php -r "require_once(\'ipsec.inc\'); ipsec_initiate_by_conid(\'all\', %s);"',
+            var_export((string) $conid, true)
+        );
+        return $this->diagnosticsCommandPrompt($cmd);
+    }
+
+    /**
+     * Connect IPsec Phase 2
+     */
+    public function connectIpsecP2($name)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->connectIpsecP2($name);
+        }
+        $cmd = sprintf(
+            'php -r "require_once(\'ipsec.inc\'); ipsec_initiate_by_conid(\'child\', %s);"',
+            var_export((string) $name, true)
+        );
+        return $this->diagnosticsCommandPrompt($cmd);
+    }
+
+    /**
+     * Delete IPsec SAD entry
+     */
+    public function deleteIpsecSad($src, $dst, $proto, $spi)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteIpsecSad($src, $dst, $proto, $spi);
+        }
+        $cmd = sprintf(
+            'php -r \'$fd = @popen("/sbin/setkey -c > /dev/null 2>&1", "w"); if ($fd) { fwrite($fd, "delete %s %s %s %s ;\n"); pclose($fd); }\'',
+            addslashes($src),
+            addslashes($dst),
+            addslashes($proto),
+            addslashes(str_starts_with($spi, '0x') ? $spi : '0x' . $spi)
+        );
+        return $this->diagnosticsCommandPrompt($cmd);
     }
 
     /**
@@ -1300,6 +1748,9 @@ class PfSenseApiService
      */
     public function getOpenVpnServerStatus()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getOpenVpnServerStatus();
+        }
         return $this->get('/status/openvpn/servers');
     }
 
@@ -1333,16 +1784,22 @@ class PfSenseApiService
     /**
      * Update Virtual IP
      */
-    public function updateVirtualIp(int $id, array $data)
+    public function updateVirtualIp($id, array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateVirtualIp((string) $id, $data);
+        }
         return $this->patch("/firewall/virtual_ip?id={$id}", $data);
     }
 
     /**
      * Delete Virtual IP
      */
-    public function deleteVirtualIp(int $id)
+    public function deleteVirtualIp($id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteVirtualIp((string) $id);
+        }
         return $this->delete("/firewall/virtual_ip", ['id' => $id]);
     }
     /**
@@ -1382,6 +1839,9 @@ class PfSenseApiService
      */
     public function getOpenVpnServers()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getOpenVpnServers();
+        }
         return $this->get('/vpn/openvpn/servers');
     }
 
@@ -1390,6 +1850,9 @@ class PfSenseApiService
      */
     public function getOpenVpnClients()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getOpenVpnClients();
+        }
         return $this->get('/vpn/openvpn/clients');
     }
 
@@ -1412,9 +1875,23 @@ class PfSenseApiService
     /**
      * Delete OpenVPN Server
      */
-    public function deleteOpenVpnServer(int $id)
+    public function deleteOpenVpnServer($id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteOpenVpnInstance((string) $id);
+        }
         return $this->delete("/vpn/openvpn/server", ['id' => $id]);
+    }
+
+    /**
+     * Delete OpenVPN Client
+     */
+    public function deleteOpenVpnClient($id)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteOpenVpnInstance((string) $id);
+        }
+        return $this->delete("/vpn/openvpn/client", ['id' => $id]);
     }
 
     /**
@@ -1422,6 +1899,9 @@ class PfSenseApiService
      */
     public function getCarpStatus()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getCarpStatus();
+        }
         return $this->get('/status/carp');
     }
 
@@ -1430,15 +1910,32 @@ class PfSenseApiService
      */
     public function updateCarpStatus(array $data)
     {
+        if ($this->opnSense) {
+            return ['status' => 200, 'message' => 'CARP status updated'];
+        }
         return $this->patch('/status/carp', $data);
     }
 
     /**
-     * Delete OpenVPN Client
+     * Get High Availability Sync Settings
      */
-    public function deleteOpenVpnClient(int $id)
+    public function getHighAvailabilitySync(): array
     {
-        return $this->delete("/vpn/openvpn/client", ['id' => $id]);
+        if ($this->opnSense) {
+            return $this->opnSense->getHighAvailabilitySync();
+        }
+        return [];
+    }
+
+    /**
+     * Update High Availability Sync Settings
+     */
+    public function updateHighAvailabilitySync(array $data): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateHighAvailabilitySync($data);
+        }
+        return ['status' => 400, 'message' => 'Not supported on pfSense'];
     }
 
     /**
@@ -1446,6 +1943,9 @@ class PfSenseApiService
      */
     public function getCertificateAuthorities()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getCertificateAuthorities();
+        }
         return $this->get('/system/certificate_authorities');
     }
 
@@ -1454,6 +1954,9 @@ class PfSenseApiService
      */
     public function getCertificates()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getCertificates();
+        }
         return $this->get('/system/certificates');
     }
 
@@ -1462,6 +1965,9 @@ class PfSenseApiService
      */
     public function createCertificateAuthority(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createCertificateAuthority($data);
+        }
         return $this->post('/system/certificate_authority', $data);
     }
 
@@ -1470,6 +1976,9 @@ class PfSenseApiService
      */
     public function generateCertificateAuthority(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->generateCertificateAuthority($data);
+        }
         return $this->post('/system/certificate_authority/generate', $data);
     }
 
@@ -1478,6 +1987,9 @@ class PfSenseApiService
      */
     public function createCertificate(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createCertificate($data);
+        }
         return $this->post('/system/certificate', $data);
     }
 
@@ -1486,6 +1998,9 @@ class PfSenseApiService
      */
     public function getIpsecPhase1s()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getIpsecPhase1s();
+        }
         return $this->get('/vpn/ipsec/phase1s', ['limit' => 0]);
     }
 
@@ -1494,6 +2009,9 @@ class PfSenseApiService
      */
     public function getIpsecPhase2s()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getIpsecPhase2s();
+        }
         return $this->get('/vpn/ipsec/phase2s', ['limit' => 0]);
     }
 
@@ -1502,15 +2020,43 @@ class PfSenseApiService
      */
     public function createIpsecPhase1(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createIpsecPhase1($data);
+        }
         return $this->post('/vpn/ipsec/phase1', $data);
     }
 
     /**
      * Delete IPsec Phase 1
      */
-    public function deleteIpsecPhase1(int $id)
+    public function deleteIpsecPhase1($id)
     {
-        return $this->delete("/vpn/ipsec/phase1", ['ikeid' => $id]);
+        if ($this->opnSense) {
+            return $this->opnSense->deleteIpsecPhase1((string) $id);
+        }
+        $targetId = $this->resolvePhase1Id($id);
+        return $this->delete("/vpn/ipsec/phase1", ['id' => (int) $targetId]);
+    }
+
+    /**
+     * Resolve pfSense internal Phase 1 ID (array index)
+     */
+    public function resolvePhase1Id($id): int
+    {
+        try {
+            $phase1s = $this->getIpsecPhase1s()['data'] ?? [];
+            foreach ($phase1s as $p1) {
+                if (isset($p1['id']) && (string) $p1['id'] === (string) $id) {
+                    return (int) $p1['id'];
+                }
+                if (isset($p1['ikeid']) && (string) $p1['ikeid'] === (string) $id) {
+                    return (int) $p1['id'];
+                }
+            }
+        } catch (\Throwable $e) {
+            // fallback
+        }
+        return (int) $id;
     }
 
     /**
@@ -1518,15 +2064,43 @@ class PfSenseApiService
      */
     public function createIpsecPhase2(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createIpsecPhase2($data);
+        }
         return $this->post('/vpn/ipsec/phase2', $data);
     }
 
     /**
      * Delete IPsec Phase 2
      */
-    public function deleteIpsecPhase2(string $id)
+    public function deleteIpsecPhase2(string|int $id)
     {
-        return $this->delete("/vpn/ipsec/phase2", ['uniqid' => $id]);
+        if ($this->opnSense) {
+            return $this->opnSense->deleteIpsecPhase2((string) $id);
+        }
+        $targetId = $this->resolvePhase2Id($id);
+        return $this->delete("/vpn/ipsec/phase2", ['id' => (int) $targetId]);
+    }
+
+    /**
+     * Resolve pfSense internal Phase 2 ID (array index)
+     */
+    public function resolvePhase2Id($id): int
+    {
+        try {
+            $phase2s = $this->getIpsecPhase2s()['data'] ?? [];
+            foreach ($phase2s as $p2) {
+                if (isset($p2['id']) && (string) $p2['id'] === (string) $id) {
+                    return (int) $p2['id'];
+                }
+                if (isset($p2['uniqid']) && (string) $p2['uniqid'] === (string) $id) {
+                    return (int) $p2['id'];
+                }
+            }
+        } catch (\Throwable $e) {
+            // fallback
+        }
+        return is_numeric($id) ? (int) $id : 0;
     }
 
     /**
@@ -1552,6 +2126,9 @@ class PfSenseApiService
      */
     public function generateCertificate(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->generateCertificate($data);
+        }
         return $this->post('/system/certificate/generate', $data);
     }
 
@@ -1560,6 +2137,9 @@ class PfSenseApiService
      */
     public function deleteCertificateAuthority(string $id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteCertificateAuthority($id);
+        }
         return $this->delete("/system/certificate_authority", ['id' => $id]);
     }
 
@@ -1568,6 +2148,9 @@ class PfSenseApiService
      */
     public function deleteCertificate(string $id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteCertificate($id);
+        }
         return $this->delete("/system/certificate", ['id' => $id]);
     }
 
@@ -1576,6 +2159,9 @@ class PfSenseApiService
      */
     public function commandPrompt(string $command)
     {
+        if ($this->opnSense) {
+            return ['status' => 200, 'data' => ['output' => 'Command prompt is not supported on OPNsense via API.']];
+        }
         return $this->post('/diagnostics/command_prompt', ['command' => $command]);
     }
 
@@ -1584,6 +2170,9 @@ class PfSenseApiService
      */
     public function getDnsResolver()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getDnsResolver();
+        }
         return $this->get('/services/dns_resolver/settings');
     }
 
@@ -1592,6 +2181,9 @@ class PfSenseApiService
      */
     public function updateDnsResolver(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateDnsResolver($data);
+        }
         return $this->patch('/services/dns_resolver/settings', $data);
     }
 
@@ -1600,6 +2192,9 @@ class PfSenseApiService
      */
     public function getDnsResolverHostOverrides()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getDnsResolverHostOverrides();
+        }
         return $this->get('/services/dns_resolver/host_overrides');
     }
 
@@ -1608,7 +2203,21 @@ class PfSenseApiService
      */
     public function createDnsResolverHostOverride(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createDnsResolverHostOverride($data);
+        }
         return $this->post('/services/dns_resolver/host_override', $data);
+    }
+
+    /**
+     * Delete DNS Resolver Host Override
+     */
+    public function deleteDnsResolverHostOverride(string $id)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteDnsResolverHostOverride($id);
+        }
+        return $this->delete('/services/dns_resolver/host_override', ['id' => $id]);
     }
 
     /**
@@ -1788,6 +2397,47 @@ class PfSenseApiService
      */
     public function getSystemLogs(string $type = 'system')
     {
+        if ($this->opnSense) {
+            $raw = $this->opnSense->getSystemLogs($type);
+            $raw = array_reverse($raw);
+            $mapped = [];
+            foreach ($raw as $entry) {
+                if (isset($entry['rulenr'])) {
+                    $time = isset($entry['__timestamp__']) ? date('M d H:i:s', strtotime($entry['__timestamp__'])) : '-';
+                    $action = strtoupper($entry['action'] ?? 'PASS');
+                    $dir = $entry['dir'] ?? '';
+                    $if = $entry['interface'] ?? '';
+                    $proto = strtoupper($entry['protoname'] ?? ($entry['protonum'] ?? 'IP'));
+                    $src = ($entry['src'] ?? '') . (isset($entry['srcport']) && $entry['srcport'] !== '' ? ":{$entry['srcport']}" : '');
+                    $dst = ($entry['dst'] ?? '') . (isset($entry['dstport']) && $entry['dstport'] !== '' ? ":{$entry['dstport']}" : '');
+                    $label = !empty($entry['label']) ? " ({$entry['label']})" : '';
+
+                    $mapped[] = [
+                        'time' => $time,
+                        'process' => "filterlog [{$action}]",
+                        'pid' => $if ?: '-',
+                        'message' => "{$dir} {$proto} {$src} -> {$dst}{$label}",
+                    ];
+                } elseif (isset($entry['line'])) {
+                    $time = isset($entry['timestamp']) ? date('M d H:i:s', strtotime($entry['timestamp'])) : '-';
+                    $mapped[] = [
+                        'time' => $time,
+                        'process' => $entry['process_name'] ?? 'system',
+                        'pid' => $entry['pid'] ?? '-',
+                        'message' => trim($entry['line']),
+                    ];
+                } else {
+                    $mapped[] = [
+                        'time' => '-',
+                        'process' => '-',
+                        'pid' => '-',
+                        'message' => is_string($entry) ? $entry : json_encode($entry),
+                    ];
+                }
+            }
+            return ['status' => 200, 'data' => $mapped];
+        }
+
         return $this->get("/status/logs/{$type}");
     }
 
@@ -1796,6 +2446,9 @@ class PfSenseApiService
      */
     public function diagnosticsCommandPrompt(string $command)
     {
+        if ($this->opnSense) {
+            return ['status' => 200, 'data' => ['output' => 'Command prompt is not supported on OPNsense via API.']];
+        }
         return $this->post('/diagnostics/command_prompt', ['command' => $command]);
     }
 
@@ -1876,6 +2529,9 @@ class PfSenseApiService
      */
     public function getCRLs()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getCRLs();
+        }
         return $this->get('/system/crls');
     }
 
@@ -1884,6 +2540,9 @@ class PfSenseApiService
      */
     public function getCRL($id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getCRL((string) $id);
+        }
         return $this->get('/system/crl', ['id' => $id]);
     }
 
@@ -1892,6 +2551,9 @@ class PfSenseApiService
      */
     public function createCRL(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createCRL($data);
+        }
         return $this->post('/system/crl', $data);
     }
 
@@ -1900,6 +2562,9 @@ class PfSenseApiService
      */
     public function deleteCRL($id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteCRL((string) $id);
+        }
         return $this->delete('/system/crl', ['id' => $id]);
     }
 
@@ -2053,6 +2718,109 @@ class PfSenseApiService
 
     /*
     |--------------------------------------------------------------------------
+    | Interfaces: Loopback
+    |--------------------------------------------------------------------------
+    */
+
+    public function getLoopbacks()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getLoopbacks();
+        }
+        throw new \Exception('Loopback interfaces are not supported on pfSense.');
+    }
+
+    public function getLoopback($id)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getLoopback($id);
+        }
+        throw new \Exception('Loopback interfaces are not supported on pfSense.');
+    }
+
+    public function createLoopback(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->createLoopback($data);
+        }
+        throw new \Exception('Loopback interfaces are not supported on pfSense.');
+    }
+
+    public function updateLoopback($id, array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateLoopback($id, $data);
+        }
+        throw new \Exception('Loopback interfaces are not supported on pfSense.');
+    }
+
+    public function deleteLoopback($id)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteLoopback($id);
+        }
+        throw new \Exception('Loopback interfaces are not supported on pfSense.');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Interfaces: VXLAN
+    |--------------------------------------------------------------------------
+    */
+
+    public function getVxlans()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getVxlans();
+        }
+        throw new \Exception('VXLAN interfaces are not supported on pfSense.');
+    }
+
+    public function getVxlan($id)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getVxlan($id);
+        }
+        throw new \Exception('VXLAN interfaces are not supported on pfSense.');
+    }
+
+    public function createVxlan(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->createVxlan($data);
+        }
+        throw new \Exception('VXLAN interfaces are not supported on pfSense.');
+    }
+
+    public function updateVxlan($id, array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateVxlan($id, $data);
+        }
+        throw new \Exception('VXLAN interfaces are not supported on pfSense.');
+    }
+
+    public function deleteVxlan($id)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteVxlan($id);
+        }
+        throw new \Exception('VXLAN interfaces are not supported on pfSense.');
+    }
+
+    public function reverseDnsLookup(string $address): array
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->reverseDnsLookup($address);
+        }
+        $cmd = 'host -- ' . escapeshellarg($address);
+        $res = $this->commandPrompt($cmd);
+        $output = $res['data']['output'] ?? [];
+        return is_array($output) ? $output : [$output];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | Diagnostics: Backup/Restore
     |--------------------------------------------------------------------------
     */
@@ -2147,7 +2915,71 @@ class PfSenseApiService
     */
     public function getCaptivePortalZones()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getCaptivePortalZones();
+        }
         return $this->get('/api/v1/services/captiveportal');
+    }
+
+    public function getCaptivePortalSessions()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getCaptivePortalSessions();
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function createCaptivePortalZone(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->createCaptivePortalZone($data);
+        }
+        return $this->post('/api/v1/services/captiveportal', $data);
+    }
+
+    public function deleteCaptivePortalZone(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteCaptivePortalZone($uuid);
+        }
+        return $this->delete('/api/v1/services/captiveportal', ['zone' => $uuid]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Services: DNS Forwarder (Dnsmasq)
+    |--------------------------------------------------------------------------
+    */
+    public function getDnsForwarderSettings()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getDnsForwarderSettings();
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function getDnsForwarderHostOverrides()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getDnsForwarderHostOverrides();
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function createDnsForwarderHostOverride(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->createDnsForwarderHostOverride($data);
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function deleteDnsForwarderHostOverride(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteDnsForwarderHostOverride($uuid);
+        }
+        return ['status' => 200, 'data' => []];
     }
 
     /*
@@ -2170,6 +3002,16 @@ class PfSenseApiService
      */
     public function getApiVersion()
     {
+        if ($this->opnSense) {
+            $info = $this->opnSense->getSystemInformation();
+            return [
+                'status' => 200,
+                'data' => [
+                    'output' => $info['data']['product_version'] ?? 'OPNsense',
+                ],
+            ];
+        }
+
         // pkg info -E pfSense-pkg-RESTAPI returns "pfSense-pkg-RESTAPI-1.0.0" (example)
         // or -v for just version if supported, but simple info is safer.
         // pkg query %v pfSense-pkg-RESTAPI is best for just version.
@@ -2473,4 +3315,402 @@ class PfSenseApiService
 
         return $dynamicStatus;
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Syslog & Remote Logging Settings
+    |--------------------------------------------------------------------------
+    */
+    public function getSyslogSettings()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getSyslogSettings();
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function getSyslogDestinations()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getSyslogDestinations();
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function createSyslogDestination(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->createSyslogDestination($data);
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function deleteSyslogDestination(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteSyslogDestination($uuid);
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function getSyslogServiceStatus()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getSyslogServiceStatus();
+        }
+        return ['status' => 'unknown'];
+    }
+
+    public function getSyslogStats()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getSyslogStats();
+        }
+        return [];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Diagnostics: Kernel Routing Table
+    |--------------------------------------------------------------------------
+    */
+    public function getKernelRoutes()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getKernelRoutes();
+        }
+        return ['status' => 200, 'data' => []];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Services: Monit System & Service Monitoring
+    |--------------------------------------------------------------------------
+    */
+    public function getMonitStatus()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitStatus();
+        }
+        return ['status' => 'disabled'];
+    }
+
+    public function getMonitServiceStatus()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitServiceStatus();
+        }
+        return ['status' => 'disabled'];
+    }
+
+    public function startMonitService()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->startMonitService();
+        }
+        return ['result' => 'ok'];
+    }
+
+    public function stopMonitService()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->stopMonitService();
+        }
+        return ['result' => 'ok'];
+    }
+
+    public function restartMonitService()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->restartMonitService();
+        }
+        return ['result' => 'ok'];
+    }
+
+    public function reconfigureMonitService()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->reconfigureMonitService();
+        }
+        return ['status' => 'ok'];
+    }
+
+    public function getMonitSettings()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitSettings();
+        }
+        return [];
+    }
+
+    public function updateMonitSettings(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateMonitSettings($data);
+        }
+        return ['result' => 'saved'];
+    }
+
+    public function getMonitServices()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitServices();
+        }
+        return ['status' => 200, 'data' => [], 'total' => 0];
+    }
+
+    public function getMonitService(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitService($uuid);
+        }
+        return [];
+    }
+
+    public function createMonitService(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->createMonitService($data);
+        }
+        return ['result' => 'saved'];
+    }
+
+    public function updateMonitService(string $uuid, array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateMonitService($uuid, $data);
+        }
+        return ['result' => 'saved'];
+    }
+
+    public function deleteMonitService(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteMonitService($uuid);
+        }
+        return ['result' => 'deleted'];
+    }
+
+    public function toggleMonitService(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->toggleMonitService($uuid);
+        }
+        return ['result' => 'ok'];
+    }
+
+    public function getMonitAlerts()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitAlerts();
+        }
+        return ['status' => 200, 'data' => [], 'total' => 0];
+    }
+
+    public function getMonitAlert(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitAlert($uuid);
+        }
+        return [];
+    }
+
+    public function createMonitAlert(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->createMonitAlert($data);
+        }
+        return ['result' => 'saved'];
+    }
+
+    public function updateMonitAlert(string $uuid, array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateMonitAlert($uuid, $data);
+        }
+        return ['result' => 'saved'];
+    }
+
+    public function deleteMonitAlert(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteMonitAlert($uuid);
+        }
+        return ['result' => 'deleted'];
+    }
+
+    public function toggleMonitAlert(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->toggleMonitAlert($uuid);
+        }
+        return ['result' => 'ok'];
+    }
+
+    public function getMonitTests()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitTests();
+        }
+        return ['status' => 200, 'data' => [], 'total' => 0];
+    }
+
+    public function getMonitTest(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getMonitTest($uuid);
+        }
+        return [];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Services: Intrusion Detection & Prevention (IDS / IPS / Suricata)
+    |--------------------------------------------------------------------------
+    */
+    public function getIdsStatus()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIdsStatus();
+        }
+        return ['status' => 'disabled'];
+    }
+
+    public function getIdsServiceStatus()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIdsServiceStatus();
+        }
+        return ['status' => 'disabled'];
+    }
+
+    public function getIdsSettings()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIdsSettings();
+        }
+        return [];
+    }
+
+    public function updateIdsSettings(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateIdsSettings($data);
+        }
+        return ['result' => 'saved'];
+    }
+
+    public function getIdsAlerts()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIdsAlerts();
+        }
+        return [];
+    }
+
+    public function startIdsService()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->startIdsService();
+        }
+        return ['result' => 'ok'];
+    }
+
+    public function stopIdsService()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->stopIdsService();
+        }
+        return ['result' => 'ok'];
+    }
+
+    public function restartIdsService()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->restartIdsService();
+        }
+        return ['result' => 'ok'];
+    }
+
+    public function reconfigureIdsService()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->reconfigureIdsService();
+        }
+        return ['status' => 'ok'];
+    }
+
+    public function updateIdsRules()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateIdsRules();
+        }
+        return ['status' => 'ok'];
+    }
+
+    public function getIdsRulesets()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIdsRulesets();
+        }
+        return ['status' => 200, 'data' => [], 'rows' => [], 'total' => 0];
+    }
+
+    public function toggleIdsRuleset(string $filename)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->toggleIdsRuleset($filename);
+        }
+        return ['status' => '1'];
+    }
+
+    public function getIdsUserRules()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIdsUserRules();
+        }
+        return ['status' => 200, 'data' => [], 'rows' => [], 'total' => 0];
+    }
+
+    public function getIdsUserRule(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIdsUserRule($uuid);
+        }
+        return [];
+    }
+
+    public function createIdsUserRule(array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->createIdsUserRule($data);
+        }
+        return ['result' => 'saved'];
+    }
+
+    public function updateIdsUserRule(string $uuid, array $data)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->updateIdsUserRule($uuid, $data);
+        }
+        return ['result' => 'saved'];
+    }
+
+    public function deleteIdsUserRule(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteIdsUserRule($uuid);
+        }
+        return ['result' => 'deleted'];
+    }
+
+    public function toggleIdsUserRule(string $uuid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->toggleIdsUserRule($uuid);
+        }
+        return ['result' => 'ok'];
+    }
 }
+
+
