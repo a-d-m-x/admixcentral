@@ -64,6 +64,7 @@ class ServicesFreeradiusController extends Controller
 
     public function editUser(Firewall $firewall, $username) // Using username as ID might be tricky if API uses index, but assuming key
     {
+        abort_if(auth()->user()->isReadOnly(), 403);
         $api = $this->getApi($firewall);
         $user = null;
         try {
@@ -159,6 +160,7 @@ class ServicesFreeradiusController extends Controller
 
     public function editClient(Firewall $firewall, $id) // ID acts as IP or index
     {
+        abort_if(auth()->user()->isReadOnly(), 403);
         $api = $this->getApi($firewall);
         $client = null;
         try {

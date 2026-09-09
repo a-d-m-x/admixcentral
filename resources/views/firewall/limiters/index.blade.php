@@ -61,7 +61,7 @@
                                     </td>
                                     @if(!auth()->user()->isReadOnly())
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <button @click="editLimiter('{{ $limiter['uuid'] ?? ($limiter['id'] ?? $index) }}', {{ json_encode($limiter) }})"
+                                        <button @click="editLimiter({{ Js::from($limiter['uuid'] ?? ($limiter['id'] ?? $index)) }}, {{ json_encode($limiter) }})"
                                             class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
                                         <form
                                             action="{{ route('firewall.limiters.destroy', ['firewall' => $firewall->id, 'limiter' => $limiter['uuid'] ?? ($limiter['id'] ?? $index)]) }}"

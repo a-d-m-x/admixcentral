@@ -70,7 +70,7 @@
                                                     </a>
                                                     @if(!auth()->user()->isReadOnly())
                                                     <form action="{{ route('interfaces.loopbacks.destroy', [$firewall, $id]) }}" method="POST"
-                                                        onsubmit="return confirm('Are you sure you want to delete loopback interface {{ $ifName }}?');">
+                                                        onsubmit="return confirm({{ Js::from('Are you sure you want to delete loopback interface ' . $ifName . '?') }});">
                                                         @csrf
                                                         @method('DELETE')
                                                         <button type="submit" class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">

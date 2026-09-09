@@ -5,9 +5,16 @@ namespace App\Http\Controllers;
 use App\Models\Firewall;
 use App\Services\PfSenseApiService;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class FirewallVirtualIpController extends Controller
+class FirewallVirtualIpController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [new Middleware('deny.readonly', only: ['create', 'store', 'edit', 'update', 'destroy'])];
+    }
+
     public function index(Firewall $firewall)
     {
         try {

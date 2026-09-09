@@ -84,7 +84,7 @@
                                             </td>
                                             @if(!auth()->user()->isReadOnly())
                                             <td class="px-3 py-2 whitespace-nowrap text-sm font-medium">
-                                                <button @click="editRule('{{ $rule['id'] ?? $index }}', {{ json_encode($rule) }})"
+                                                <button @click="editRule({{ Js::from($rule['id'] ?? $index) }}, {{ json_encode($rule) }})"
                                                     class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
                                                 <form
                                                     action="{{ route('firewall.nat.one-to-one.destroy', ['firewall' => $firewall, 'id' => $rule['id'] ?? $index]) }}"

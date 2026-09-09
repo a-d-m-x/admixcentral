@@ -23,7 +23,7 @@ class SslManagerService
     public function install(string $domain, string $email, string $method = 'http', ?string $cfToken = null): array
     {
         // Strict domain validation to prevent Nginx config injection
-        if (!preg_match('/^(?!:\/\/)(?=.{1,255}$)((.{1,63}\.){1,127}(?![0-9]*$)[a-z0-9-]+\.?)$/i', $domain) || preg_match('/[;{}\n\r]/', $domain)) {
+        if (strlen($domain) > 253 || !preg_match('/\A(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z](?:[a-z0-9-]{0,61}[a-z0-9])?\z/i', $domain)) {
             throw new \Exception("Invalid domain format.");
         }
 
@@ -58,9 +58,7 @@ class SslManagerService
             $this->configService->updateSystemHostname($domain, 'https');
 
             // 5. Enable Secure Cookies and Update Websockets
-            // Note: We keep REVERB on 443/wss for SSL, but the main site is dual-stack.
-            // However, Mixed Content issues might arise if user visits via HTTP but Reverb tries WSS.
-            // For now, aligning Reverb with the primary access method (HTTPS).
+            // The web interface redirects HTTP to HTTPS; Reverb also uses TLS.
             $this->configService->updateEnv([
                 'SESSION_SECURE_COOKIE' => 'true',
                 'REVERB_PORT' => '443',
@@ -229,10 +227,24 @@ class SslManagerService
 server {
     listen 80;
     listen [::]:80;
+    server_name {$domain};
+    root /var/www/admixcentral/public;
+
+    location ^~ /.well-known/acme-challenge/ {
+        default_type text/plain;
+        try_files \$uri =404;
+    }
+
+    location / {
+        return 301 https://{$domain}\$request_uri;
+    }
+}
+
+server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
 
-    server_name _;
+    server_name {$domain};
 
     root /var/www/admixcentral/public;
 

@@ -399,10 +399,10 @@ class StatusController extends Controller
     public function destroyIpsecSad(Request $request, Firewall $firewall)
     {
         $validated = $request->validate([
-            'src' => 'required|string',
-            'dst' => 'required|string',
-            'proto' => 'required|string',
-            'spi' => 'required|string',
+            'src' => 'required|ip',
+            'dst' => 'required|ip',
+            'proto' => 'required|string|in:esp,ah,ipcomp,ESP,AH,IPCOMP',
+            'spi' => ['required', 'string', 'regex:/\A(?:0x)?[a-f0-9]{1,8}\z/i'],
         ]);
 
         try {

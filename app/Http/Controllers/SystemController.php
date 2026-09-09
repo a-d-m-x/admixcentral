@@ -80,6 +80,13 @@ class SystemController extends Controller
             }
         }
 
+        if (auth()->user()->isReadOnly()) {
+            unset($data['notifications']['password']);
+            unset($data['notifications']['telegram']['botid']);
+            unset($data['notifications']['pushover']['apikey'], $data['notifications']['pushover']['userkey']);
+            unset($data['notifications']['slack']['api']);
+        }
+
         return view('system.advanced', compact('firewall', 'tab', 'data'));
     }
 
@@ -368,6 +375,10 @@ class SystemController extends Controller
             $interfaces = $api->getInterfaces()['data'] ?? [];
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('HighAvailSync fetch error: ' . $e->getMessage());
+        }
+
+        if (auth()->user()->isReadOnly()) {
+            unset($haData['hasync']['password']);
         }
 
         return view('system.high-avail-sync', compact('firewall', 'haData', 'interfaces'));

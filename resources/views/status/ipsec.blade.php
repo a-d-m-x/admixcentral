@@ -263,7 +263,7 @@
                                                                     <input type="hidden" name="type" value="p1">
                                                                     <input type="hidden" name="conid" value="{{ $sa['con_id'] }}">
                                                                     <input type="hidden" name="uniqueid" value="{{ $sa['uniqueid'] }}">
-                                                                    <button type="submit" class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60 rounded-lg border border-amber-200 dark:border-amber-800/60 transition shadow-xs" onclick="return confirm('Disconnect Phase 1 tunnel {{ $sa['con_id'] }}?');">
+                                                                    <button type="submit" class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60 rounded-lg border border-amber-200 dark:border-amber-800/60 transition shadow-xs" onclick="return confirm({{ Js::from('Disconnect Phase 1 tunnel ' . $sa['con_id'] . '?') }});">
                                                                         <i class="fa-solid fa-power-off text-amber-600 dark:text-amber-400"></i>{{ __('Disconnect P1') }}
                                                                     </button>
                                                                 </form>
@@ -422,7 +422,7 @@
                                                                                     <input type="hidden" name="type" value="p2">
                                                                                     <input type="hidden" name="name" value="{{ $child['name'] }}">
                                                                                     <input type="hidden" name="uniqueid" value="{{ $child['uniqueid'] }}">
-                                                                                    <button type="submit" class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60 rounded border border-amber-200 dark:border-amber-800/60 transition shadow-2xs" onclick="return confirm('Disconnect Child SA {{ $child['name'] }}?');">
+                                                                                    <button type="submit" class="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60 rounded border border-amber-200 dark:border-amber-800/60 transition shadow-2xs" onclick="return confirm({{ Js::from('Disconnect Child SA ' . $child['name'] . '?') }});">
                                                                                         <i class="fa-solid fa-power-off text-[9px] text-amber-600 dark:text-amber-400"></i>{{ __('Disconnect P2') }}
                                                                                     </button>
                                                                                 </form>

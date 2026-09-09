@@ -24,6 +24,10 @@ class ServicesSnmpController extends Controller
             $error = $e->getMessage();
         }
 
+        if (auth()->user()->isReadOnly()) {
+            unset($snmp['rocommunity'], $snmp['rwcommunity']);
+        }
+
         return view('services.snmp.index', compact('firewall', 'snmp', 'error'));
     }
 

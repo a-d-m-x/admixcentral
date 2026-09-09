@@ -83,7 +83,7 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <a href="{{ route('system.user_manager.users.edit', [$firewall->id, $user['id']]) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
                                                 @if(!in_array($user['name'], ['admin', 'root']))
-                                                    <form action="{{ route('system.user_manager.users.destroy', [$firewall->id, $user['id']]) }}" method="POST" class="inline-block" onsubmit="return confirm('Are you sure you want to delete user {{ $user['name'] }}?');">
+                                                    <form action="{{ route('system.user_manager.users.destroy', [$firewall->id, $user['id']]) }}" method="POST" class="inline-block" onsubmit="return confirm({{ Js::from('Are you sure you want to delete user ' . $user['name'] . '?') }});">
                                                         @csrf
                                                         @method('DELETE')
                                                         <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
@@ -132,7 +132,7 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <a href="{{ route('system.user_manager.groups.edit', [$firewall->id, $group['id']]) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
                                                 @if(!in_array($group['name'], ['all', 'admins']))
-                                                    <form action="{{ route('system.user_manager.groups.destroy', [$firewall->id, $group['id']]) }}" method="POST" class="inline-block" onsubmit="return confirm('Are you sure you want to delete group {{ $group['name'] }}?');">
+                                                    <form action="{{ route('system.user_manager.groups.destroy', [$firewall->id, $group['id']]) }}" method="POST" class="inline-block" onsubmit="return confirm({{ Js::from('Are you sure you want to delete group ' . $group['name'] . '?') }});">
                                                         @csrf
                                                         @method('DELETE')
                                                         <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>

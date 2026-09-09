@@ -73,7 +73,7 @@ class SystemCustomizationController extends Controller
 
         try {
             // Enable TLS verification
-            $client = new \GuzzleHttp\Client(['timeout' => 5, 'verify' => true]);
+            $client = new \GuzzleHttp\Client(['timeout' => 5, 'verify' => true, 'allow_redirects' => false]);
             $response = $client->get($url . '/system/check-hostname');
 
             if ($response->getStatusCode() === 200) {

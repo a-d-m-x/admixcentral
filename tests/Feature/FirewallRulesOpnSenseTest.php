@@ -43,6 +43,8 @@ class FirewallRulesOpnSenseTest extends TestCase
         $recordedPayload = null;
 
         Http::fake([
+            '*api/interfaces/overview/interfacesInfo*' => Http::response(['rows' => []], 200),
+            '*api/diagnostics/interface/getInterfaceStatistics*' => Http::response(['statistics' => []], 200),
             '*api/firewall/filter/addRule*' => function ($request) use (&$recordedPayload) {
                 $recordedPayload = $request->data();
                 return Http::response([
@@ -109,6 +111,8 @@ class FirewallRulesOpnSenseTest extends TestCase
         ]);
 
         Http::fake([
+            '*api/interfaces/overview/interfacesInfo*' => Http::response(['rows' => []], 200),
+            '*api/diagnostics/interface/getInterfaceStatistics*' => Http::response(['statistics' => []], 200),
             '*api/firewall/filter/addRule*' => Http::response([
                 'result' => 'failed',
                 'validations' => [
@@ -154,6 +158,8 @@ class FirewallRulesOpnSenseTest extends TestCase
         ]);
 
         Http::fake([
+            '*api/interfaces/overview/interfacesInfo*' => Http::response(['rows' => []], 200),
+            '*api/diagnostics/interface/getInterfaceStatistics*' => Http::response(['statistics' => []], 200),
             '*api/firewall/filter/searchRule*' => Http::response([
                 'rows' => [
                     [

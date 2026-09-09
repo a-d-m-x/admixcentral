@@ -228,7 +228,7 @@
                                                     <div class="flex items-center gap-1.5">
                                                         <span class="truncate max-w-[130px]" title="{{ $tunnel['public_key'] ?? ($tunnel['pubkey'] ?? '') }}">{{ $tunnel['public_key'] ?? ($tunnel['pubkey'] ?? '-') }}</span>
                                                         @if(!empty($tunnel['public_key'] ?? $tunnel['pubkey']))
-                                                        <button @click="copyText('{{ $tunnel['public_key'] ?? $tunnel['pubkey'] }}', $event)" class="text-gray-400 hover:text-indigo-600 transition" title="Copy public key">
+                                                        <button @click="copyText({{ Js::from($tunnel['public_key'] ?? $tunnel['pubkey']) }}, $event)" class="text-gray-400 hover:text-indigo-600 transition" title="Copy public key">
                                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                                                         </button>
                                                         @endif
@@ -331,7 +331,7 @@
                                                     <div class="flex items-center gap-1.5">
                                                         <span class="truncate max-w-[130px]" title="{{ $peer['public_key'] ?? ($peer['pubkey'] ?? '') }}">{{ $peer['public_key'] ?? ($peer['pubkey'] ?? '-') }}</span>
                                                         @if(!empty($peer['public_key'] ?? $peer['pubkey']))
-                                                        <button @click="copyText('{{ $peer['public_key'] ?? $peer['pubkey'] }}', $event)" class="text-gray-400 hover:text-indigo-600 transition" title="Copy public key">
+                                                        <button @click="copyText({{ Js::from($peer['public_key'] ?? $peer['pubkey']) }}, $event)" class="text-gray-400 hover:text-indigo-600 transition" title="Copy public key">
                                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                                                         </button>
                                                         @endif
@@ -530,7 +530,7 @@
                                     <div class="max-h-32 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-md p-2 space-y-1 dark:bg-gray-700/50">
                                         @foreach($peers as $peer)
                                             <div class="flex items-center">
-                                                <input id="p_check_{{ $peer['id'] }}" type="checkbox" name="peers[]" value="{{ $peer['id'] }}" :checked="tunnelModal.form.peers.includes('{{ $peer['id'] }}')" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                                <input id="p_check_{{ $peer['id'] }}" type="checkbox" name="peers[]" value="{{ $peer['id'] }}" :checked="tunnelModal.form.peers.includes({{ Js::from((string) $peer['id']) }})" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
                                                 <label for="p_check_{{ $peer['id'] }}" class="ml-2 text-xs text-gray-700 dark:text-gray-300 font-mono">
                                                     {{ $peer['name'] ?? $peer['descr'] }} ({{ $peer['allowedips'] ?? '-' }})
                                                 </label>

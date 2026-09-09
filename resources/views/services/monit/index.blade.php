@@ -321,7 +321,7 @@
                                                             </svg>
                                                         </button>
                                                     </form>
-                                                    <form action="{{ route('services.monit.services.destroy', [$firewall, $svc['uuid']]) }}" method="POST" class="inline" onsubmit="return confirm('Delete monitored service {{ $svc['name'] }}?');">
+                                                    <form action="{{ route('services.monit.services.destroy', [$firewall, $svc['uuid']]) }}" method="POST" class="inline" onsubmit="return confirm({{ Js::from('Delete monitored service ' . $svc['name'] . '?') }});">
                                                         @csrf
                                                         @method('DELETE')
                                                         <button type="submit" title="Delete" class="p-1 rounded text-gray-400 hover:text-rose-600 transition">
@@ -442,7 +442,7 @@
                                                             </svg>
                                                         </button>
                                                     </form>
-                                                    <form action="{{ route('services.monit.alerts.destroy', [$firewall, $al['uuid']]) }}" method="POST" class="inline" onsubmit="return confirm('Delete alert recipient {{ $al['recipient'] }}?');">
+                                                    <form action="{{ route('services.monit.alerts.destroy', [$firewall, $al['uuid']]) }}" method="POST" class="inline" onsubmit="return confirm({{ Js::from('Delete alert recipient ' . $al['recipient'] . '?') }});">
                                                         @csrf
                                                         @method('DELETE')
                                                         <button type="submit" title="Delete" class="p-1 rounded text-gray-400 hover:text-rose-600 transition">

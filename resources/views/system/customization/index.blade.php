@@ -1110,7 +1110,7 @@
                                                 </p>
                                                 <p class="mt-3 text-sm md:ml-6 md:mt-0">
                                                     <button type="button"
-                                                        @click="openModal('{{ $settings['site_url'] ?? '' }}')"
+                                                        @click="openModal({{ Js::from($settings['site_url'] ?? '') }})"
                                                         class="whitespace-nowrap font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 hover:underline">
                                                         Install SSL Certificate
                                                         <span aria-hidden="true"> &rarr;</span>
@@ -1138,7 +1138,7 @@
                                                 </p>
                                                 <p class="mt-3 text-sm md:ml-6 md:mt-0 flex items-center gap-4">
                                                     <button type="button"
-                                                        @click="openModal('{{ $settings['site_url'] ?? '' }}')"
+                                                        @click="openModal({{ Js::from($settings['site_url'] ?? '') }})"
                                                         class="whitespace-nowrap font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 hover:underline">
                                                         Reconfigure
                                                     </button>

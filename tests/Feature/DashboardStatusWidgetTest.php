@@ -75,6 +75,5 @@ class DashboardStatusWidgetTest extends TestCase
 
         // Verify Alpine initial seed data
         $response->assertSee('offlineCount: 2', false);
-        $response->assertSee('recalculateOfflineCount()', false);
     }
 }

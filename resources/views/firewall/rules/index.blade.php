@@ -496,7 +496,7 @@
 
                                                     {{-- Delete Button --}}
                                                     <button type="button"
-                                                        @click="openConfirmModal('Delete Rule', 'Are you sure you want to delete this rule?', () => document.getElementById('delete-form-{{ $rule['tracker'] }}').submit())"
+                                                        @click="openConfirmModal('Delete Rule', 'Are you sure you want to delete this rule?', () => document.getElementById({{ Js::from('delete-form-' . $rule['tracker']) }}).submit())"
                                                         class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                                                         title="Delete">
                                                         <svg class="w-5 h-5" fill="none" stroke="currentColor"
