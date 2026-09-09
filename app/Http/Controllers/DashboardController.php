@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Firewall;
 use App\Models\User;
+use App\Services\FirewallApiFactory;
 use App\Services\PfSenseApiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -221,7 +222,8 @@ class DashboardController extends Controller
         session_write_close();
 
         try {
-            $api = new PfSenseApiService($firewall);
+            $api = FirewallApiFactory::make($firewall);
+
 
             // Apply the same fast-fail logic as CheckFirewallStatusJob:
             // If the firewall is already cached as offline, use a 5s timeout per call
