@@ -258,10 +258,14 @@ server {
 
     error_page 404 /index.php;
 
-    location ~ \.php$ {
+    location ~ ^/index\.php(/|$) {
         fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
         fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
         include fastcgi_params;
+    }
+
+    location ~ \.php$ {
+        return 404;
     }
 
     location ~ /\.(?!well-known).* {
@@ -311,10 +315,14 @@ server {
 
     error_page 404 /index.php;
 
-    location ~ \.php$ {
+    location ~ ^/index\.php(/|$) {
         fastcgi_pass unix:/var/run/php/php8.3-fpm.sock;
         fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
         include fastcgi_params;
+    }
+
+    location ~ \.php$ {
+        return 404;
     }
 
     location ~ /\.(?!well-known).* {

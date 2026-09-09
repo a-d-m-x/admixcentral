@@ -88,6 +88,17 @@ class CheckFirewallStatusJob implements ShouldQueue, ShouldBeUnique
 
             $api  = new PfSenseApiService($firewall);
 
+            // Use a shorter timeout for firewalls that are currently cached as offline.
+            // With QUEUE_CONNECTION=sync the job runs inside the HTTP request, so a
+            // 20s timeout × 2 sequential calls = ~40s of blocked response time per
+            // unreachable firewall. 5s still gives a real response if the firewall just
+            // came back, while failing fast if it remains unreachable (~10s total).
+            $cachedStatus = Cache::get($cacheKey);
+            $isKnownOffline = $cachedStatus && ($cachedStatus['online'] ?? true) === false;
+            if ($isKnownOffline) {
+                $api->setApiTimeout(5);
+            }
+
             try {
                 $data   = $api->refreshSystemStatus();
                 $status = [
@@ -133,6 +144,12 @@ class CheckFirewallStatusJob implements ShouldQueue, ShouldBeUnique
                 }
 
             } catch (\Exception $e) {
+                // Log the actual error so we can diagnose why firewalls are being marked offline.
+                Log::warning("Firewall [{$firewall->id}] status check failed: " . $e->getMessage(), [
+                    'firewall_id'  => $firewall->id,
+                    'firewall_url' => $firewall->url,
+                ]);
+
                 $cached = Cache::get($cacheKey);
 
                 $offlineStatus = [

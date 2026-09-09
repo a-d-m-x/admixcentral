@@ -5,30 +5,45 @@ namespace App\Http\Controllers;
 use App\Models\Firewall;
 use App\Services\PfSenseApiService;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class DiagnosticsBackupController extends Controller
+class DiagnosticsBackupController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware(\App\Http\Middleware\CheckRole::class . ':global_admin'),
+        ];
+    }
+
     public function index(Firewall $firewall)
     {
-        // Mostly a form to submit backup/restore requests
+        $user = auth()->user();
+        if (!$user || !$user->isGlobalAdmin()) {
+            abort(403);
+        }
+
         return view('diagnostics.backup.index', compact('firewall'));
     }
 
     public function backup(Firewall $firewall)
     {
+        $user = auth()->user();
+        if (!$user || !$user->isGlobalAdmin()) {
+            abort(403);
+        }
+
         $api = new PfSenseApiService($firewall);
         try {
             $response = $api->backupConfiguration();
-            // Assuming response is the file content or a download link
-            // For now, if raw content, stream download.
 
-            // If API returns JSON with data, handle it. 
-            // Simplest assumption: It returns XML content directly or JSON with base64.
-            // Given get() usually returns JSON decoded array in our service wrapper...
-            // We might need a raw method if it returns file stream.
-            // But let's assume standard API behavior for now.
-
-            return response()->attachment($response, 'config.xml');
+            return response($response, 200, [
+                'Content-Type' => 'application/xml',
+                'Content-Disposition' => 'attachment; filename="' . ($firewall->name ? \Illuminate\Support\Str::slug($firewall->name) . '-' : '') . 'config.xml"',
+                'Cache-Control' => 'no-store, no-cache, must-revalidate, private',
+                'Pragma' => 'no-cache',
+            ]);
 
         } catch (\Exception $e) {
             if (str_contains($e->getMessage(), '404') || str_contains($e->getMessage(), 'Not Found')) {
@@ -40,6 +55,11 @@ class DiagnosticsBackupController extends Controller
 
     public function restore(Firewall $firewall, Request $request)
     {
+        $user = auth()->user();
+        if (!$user || !$user->isGlobalAdmin()) {
+            abort(403);
+        }
+
         $request->validate([
             'config_file' => 'required|file|mimes:xml',
         ]);

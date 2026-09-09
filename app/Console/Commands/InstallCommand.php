@@ -114,6 +114,29 @@ class InstallCommand extends Command
 
     protected function configureDatabase()
     {
+        $existingHost = env('DB_HOST', '127.0.0.1');
+        $existingPort = env('DB_PORT', '3306');
+        $existingDb = env('DB_DATABASE', 'admixcentral');
+        $existingUser = env('DB_USERNAME', 'root');
+        $existingPass = env('DB_PASSWORD', '');
+
+        if (!empty($existingDb) && !empty($existingUser)) {
+            try {
+                $dsn = "mysql:host={$existingHost};port={$existingPort};dbname={$existingDb}";
+                $pdo = new \PDO($dsn, $existingUser, $existingPass, [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION, \PDO::ATTR_TIMEOUT => 3]);
+                $this->info('Database connection verified using existing environment settings.');
+                $this->updateEnvFile(['APP_INSTALLED' => 'true']);
+                return;
+            } catch (\Exception $e) {
+                // If not connected, proceed to prompt or check if non-interactive
+            }
+        }
+
+        if (!$this->input->isInteractive()) {
+            $this->warn('Non-interactive mode: unable to prompt for database credentials.');
+            return;
+        }
+
         $connected = false;
 
         while (!$connected) {
@@ -121,7 +144,7 @@ class InstallCommand extends Command
             $port = $this->ask('Database Port', env('DB_PORT', '3306'));
             $database = $this->ask('Database Name', env('DB_DATABASE', 'admixcentral'));
             $username = $this->ask('Database Username', env('DB_USERNAME', 'root'));
-            $password = $this->secret('Database Password (hidden)');
+            $password = $this->secret('Database Password (hidden)') ?: env('DB_PASSWORD', '');
 
             $this->comment('Testing database connection...');
 

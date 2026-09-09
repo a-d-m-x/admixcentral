@@ -5,9 +5,18 @@ namespace App\Http\Controllers;
 use App\Models\Firewall;
 use App\Models\Company;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 
-class FirewallController extends Controller
+class FirewallController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('deny.readonly', only: ['create', 'store', 'edit', 'update', 'destroy']),
+        ];
+    }
+
     /**
      * Display a listing of firewalls.
      *
@@ -77,16 +86,15 @@ class FirewallController extends Controller
             $ids = explode(',', $request->input('ids'));
         }
 
-        if (!empty($ids)) {
-            $firewalls = Firewall::whereIn('id', $ids)->get();
-        } else {
-            $user = $request->user();
-            if ($user->isGlobalAdmin()) {
-                $firewalls = Firewall::all();
-            } else {
-                $firewalls = Firewall::where('company_id', $user->company_id)->get();
-            }
+        $user = $request->user();
+        $query = Firewall::query();
+        if ($user && !$user->isGlobalAdmin()) {
+            $query->where('company_id', $user->company_id);
         }
+        if (!empty($ids)) {
+            $query->whereIn('id', $ids);
+        }
+        $firewalls = $query->get();
 
         if ($request->boolean('sync')) {
             $results = [];
@@ -170,14 +178,15 @@ class FirewallController extends Controller
 
         $ids = $request->input('ids', []);
 
-        if (!empty($ids)) {
-            $firewalls = Firewall::whereIn('id', $ids)->get();
-        } else {
-            $user = $request->user();
-            $firewalls = $user->isGlobalAdmin()
-                ? Firewall::all()
-                : Firewall::where('company_id', $user->company_id)->get();
+        $user = $request->user();
+        $query = Firewall::query();
+        if ($user && !$user->isGlobalAdmin()) {
+            $query->where('company_id', $user->company_id);
         }
+        if (!empty($ids)) {
+            $query->whereIn('id', $ids);
+        }
+        $firewalls = $query->get();
 
         // Dispatch debounce window (seconds).
         // ShouldBeUnique covers most duplicates, but this prevents even the
@@ -195,14 +204,22 @@ class FirewallController extends Controller
             $debounceKey = 'firewall_dispatch_debounce_' . $firewall->id;
 
             // Only dispatch if no debounce lock is held for this firewall.
-            // All three dedup layers prevent actual duplicate API calls,
-            // but this stops even the Redis enqueue attempt from repeating.
+            // Known-offline firewalls still get checked — CheckFirewallStatusJob uses
+            // a 5s fast-fail timeout for them so the response stays snappy (~10s max
+            // per offline firewall instead of the previous ~40s).
             if (!\Illuminate\Support\Facades\Cache::has($debounceKey)) {
                 \App\Jobs\CheckFirewallStatusJob::dispatch($firewall);
                 \Illuminate\Support\Facades\Cache::put($debounceKey, 1, now()->addSeconds($dispatchDebounceSeconds));
             }
 
             $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+
+            $updatedAt  = $cached['updated_at'] ?? null;
+            $ageSeconds = $updatedAt
+                ? max(0, now()->timestamp - \Carbon\Carbon::parse($updatedAt)->timestamp)
+                : PHP_INT_MAX;
+
+
 
             if (!$cached) {
                 $results[$firewall->id] = [
@@ -218,7 +235,7 @@ class FirewallController extends Controller
 
             $updatedAt  = $cached['updated_at'] ?? null;
             $ageSeconds = $updatedAt
-                ? now()->diffInSeconds(\Carbon\Carbon::parse($updatedAt))
+                ? max(0, now()->timestamp - \Carbon\Carbon::parse($updatedAt)->timestamp)
                 : PHP_INT_MAX;
 
             $results[$firewall->id] = [
@@ -238,6 +255,9 @@ class FirewallController extends Controller
     public function create()
     {
         $user = auth()->user();
+        if (!$user || (!$user->isGlobalAdmin() && !$user->isCompanyAdmin())) {
+            abort(403);
+        }
 
         if ($user->isGlobalAdmin()) {
             $companies = Company::orderBy('name')->get();
@@ -257,15 +277,21 @@ class FirewallController extends Controller
     public function store(Request $request)
     {
         $user = auth()->user();
+        if (!$user || (!$user->isGlobalAdmin() && !$user->isCompanyAdmin())) {
+            abort(403);
+        }
 
         $validated = $request->validate([
             'company_id' => 'required|exists:companies,id',
             'name' => 'required|string|max:255',
+            'os_type' => 'nullable|in:pfsense,opnsense',
             'url' => 'required|url',
             'auth_method' => 'required|in:basic,token',
-            'api_key' => 'required_if:auth_method,basic|nullable|string',
-            'api_secret' => 'required_if:auth_method,basic|nullable|string',
-            'api_token' => 'required_if:auth_method,token|nullable|string',
+            'api_key' => 'nullable|string',
+            'api_secret' => 'nullable|string',
+            'api_token' => 'nullable|string',
+            'opn_username' => 'nullable|string',
+            'opn_password' => 'nullable|string',
             'description' => 'nullable|string',
             'ssh_port' => 'nullable|integer',
             'ssh_username' => 'nullable|string|max:255',
@@ -280,23 +306,49 @@ class FirewallController extends Controller
             abort(403);
         }
 
+        $this->validateFirewallUrl($validated['url']);
+
+        $validated['os_type'] = $validated['os_type'] ?? 'pfsense';
+
+        if ($validated['os_type'] === 'opnsense' && !empty($validated['opn_username']) && !empty($validated['opn_password'])) {
+            try {
+                $keys = \App\Services\OpnSenseApiService::provisionApiKeyFromCredentials(
+                    $validated['url'],
+                    $validated['opn_username'],
+                    $validated['opn_password']
+                );
+                $validated['auth_method'] = 'basic';
+                $validated['api_key'] = $keys['key'];
+                $validated['api_secret'] = $keys['secret'];
+            } catch (\Exception $e) {
+                return back()
+                    ->withInput()
+                    ->with('error', 'OPNsense API key auto-generation failed: ' . $e->getMessage())
+                    ->withErrors(['url' => $e->getMessage()]);
+            }
+        }
+        unset($validated['opn_username'], $validated['opn_password']);
+
+        if ($validated['auth_method'] === 'basic' && (empty($validated['api_key']) || empty($validated['api_secret']))) {
+            return back()
+                ->withInput()
+                ->withErrors(['api_key' => 'API Key and Secret are required for Basic Authentication.']);
+        }
+        if ($validated['auth_method'] === 'token' && empty($validated['api_token'])) {
+            return back()
+                ->withInput()
+                ->withErrors(['api_token' => 'API Token is required for Token Authentication.']);
+        }
+
         $firewall = new Firewall($validated);
 
         try {
             $api = new \App\Services\PfSenseApiService($firewall);
-            // We need to set credentials manually on the service if the model isn't saved/mutated yet?
-            // PfSenseApiService constructor uses model attributes.
-            // Model attributes are set in new Firewall($validated).
-            // Encrypted casting might not happen if not saving? 
-            // Actually, casts happen on set/save. If we just 'new', attributes are raw.
-            // But Service expects raw/decrypted.
-            // Wait, if I set 'api_key' on model, it might auto-encrypt if cast is 'encrypted'.
-            // If I read it back, it decrypts.
-            // So new Firewall($validated) should work in memory.
-
             $response = $api->get('/status/system');
             if (isset($response['data']['netgate_id'])) {
                 $validated['netgate_id'] = $response['data']['netgate_id'];
+            } elseif ($firewall->isOpnSense()) {
+                $validated['netgate_id'] = 'opn-' . substr(md5($validated['url'] . '_' . microtime()), 0, 12);
             }
         } catch (\Exception $e) {
             return back()
@@ -350,9 +402,8 @@ class FirewallController extends Controller
 
     public function edit(Firewall $firewall)
     {
-        // Scope check
         $user = auth()->user();
-        if ($user->isCompanyAdmin() && $firewall->company_id !== $user->company_id) {
+        if (!$user || (!$user->isGlobalAdmin() && !($user->isCompanyAdmin() && (int)$firewall->company_id === (int)$user->company_id))) {
             abort(403);
         }
 
@@ -373,18 +424,19 @@ class FirewallController extends Controller
     public function update(Request $request, Firewall $firewall)
     {
         $user = auth()->user();
-        if ($user->isCompanyAdmin() && $firewall->company_id !== $user->company_id) {
+        if (!$user || (!$user->isGlobalAdmin() && !($user->isCompanyAdmin() && (int)$firewall->company_id === (int)$user->company_id))) {
             abort(403);
         }
 
         $validated = $request->validate([
             'company_id' => 'required|exists:companies,id',
             'name' => 'required|string|max:255',
+            'os_type' => 'nullable|in:pfsense,opnsense',
             'url' => 'required|url',
             'auth_method' => 'required|in:basic,token',
-            'api_key' => 'required_if:auth_method,basic|nullable|string',
+            'api_key' => 'nullable|string',
             'api_secret' => 'nullable|string',
-            'api_token' => 'required_if:auth_method,token|nullable|string',
+            'api_token' => 'nullable|string',
             'description' => 'nullable|string',
             'address' => 'nullable|string|max:255',
             'latitude' => 'nullable|numeric|between:-90,90',
@@ -394,19 +446,41 @@ class FirewallController extends Controller
             'ssh_password' => 'nullable|string',
         ]);
 
-        if ($user->isCompanyAdmin()) {
-            if ((int) $validated['company_id'] !== (int) $user->company_id) {
-                // Prevent moving firewall to another company
-                abort(403);
+        $this->validateFirewallUrl($validated['url']);
+
+        if (!$user->isGlobalAdmin()) {
+            if ((int) $validated['company_id'] !== (int) $firewall->company_id) {
+                abort(403, 'Company reassignment is restricted to global administrators.');
             }
+            $validated['company_id'] = $firewall->company_id;
         }
+
+        $urlChanged = (rtrim($validated['url'], '/') !== rtrim($firewall->url, '/'));
 
         if ($validated['auth_method'] === 'token') {
             $validated['api_key'] = null;
             $validated['api_secret'] = null;
+            if (empty($validated['api_token'])) {
+                if ($urlChanged) {
+                    return back()->withErrors(['api_token' => 'A new API Token is required when changing the firewall URL.'])->withInput();
+                }
+                if ($firewall->auth_method !== 'token' || empty($firewall->api_token)) {
+                    return back()->withErrors(['api_token' => 'API Token is required for Token Authentication.'])->withInput();
+                }
+                unset($validated['api_token']);
+            }
         } else {
             $validated['api_token'] = null;
+            if (empty($validated['api_key'])) {
+                if ($urlChanged || $firewall->auth_method !== 'basic' || empty($firewall->api_key)) {
+                    return back()->withErrors(['api_key' => 'API Key/Username is required for Basic Authentication.'])->withInput();
+                }
+                unset($validated['api_key']);
+            }
             if (empty($validated['api_secret'])) {
+                if ($urlChanged) {
+                    return back()->withErrors(['api_secret' => 'Password is required when changing the firewall URL.'])->withInput();
+                }
                 if (empty($firewall->api_secret) && $firewall->auth_method !== 'basic') {
                     return back()->withErrors(['api_secret' => 'Password is required when switching to Basic Authentication.'])->withInput();
                 }
@@ -426,10 +500,7 @@ class FirewallController extends Controller
     public function destroy(Firewall $firewall)
     {
         $user = auth()->user();
-        if ($user->isCompanyAdmin() && $firewall->company_id !== $user->company_id) {
-            abort(403);
-        }
-        if (!$user->isGlobalAdmin() && !$user->isCompanyAdmin()) {
+        if (!$user || (!$user->isGlobalAdmin() && !($user->isCompanyAdmin() && (int)$firewall->company_id === (int)$user->company_id))) {
             abort(403);
         }
 
@@ -438,13 +509,61 @@ class FirewallController extends Controller
         return redirect()->route('firewalls.index')->with('success', 'Firewall deleted successfully.');
     }
 
+    protected function validateFirewallUrl(string $url): void
+    {
+        $parsed = parse_url($url);
+        if (!isset($parsed['scheme']) || !in_array(strtolower($parsed['scheme']), ['http', 'https'], true)) {
+            abort(422, 'Invalid URL scheme. Only HTTP and HTTPS are permitted.');
+        }
+
+        $host = $parsed['host'] ?? '';
+        if (empty($host)) {
+            abort(422, 'Invalid firewall URL.');
+        }
+
+        $lowerHost = strtolower($host);
+        if (in_array($lowerHost, ['localhost', 'metadata.google.internal', 'instance-data'], true) || str_ends_with($lowerHost, '.localhost')) {
+            abort(422, 'Target hostname is restricted.');
+        }
+
+        $ips = [];
+        if (filter_var($host, FILTER_VALIDATE_IP)) {
+            $ips[] = $host;
+        } else {
+            $resolved = @gethostbynamel($host);
+            if ($resolved) {
+                $ips = $resolved;
+            }
+        }
+
+        foreach ($ips as $ip) {
+            if ($ip === '::1' || str_starts_with($ip, '127.')) {
+                abort(422, 'Target resolves to a loopback address.');
+            }
+            if (str_starts_with($ip, '169.254.') || str_starts_with(strtolower($ip), 'fe80:')) {
+                abort(422, 'Target resolves to a link-local or metadata address.');
+            }
+            if ($ip === '0.0.0.0' || $ip === '::') {
+                abort(422, 'Target resolves to an invalid address.');
+            }
+        }
+    }
+
     /**
      * Get cached status for firewalls (Polling fallback).
      */
     public function getCachedStatus(Request $request)
     {
+        $user = $request->user();
         $ids = $request->input('ids', []);
-        $firewalls = Firewall::whereIn('id', $ids)->get();
+        $query = Firewall::query();
+        if ($user && !$user->isGlobalAdmin()) {
+            $query->where('company_id', $user->company_id);
+        }
+        if (!empty($ids)) {
+            $query->whereIn('id', $ids);
+        }
+        $firewalls = $query->get();
 
         $results = [];
         foreach ($firewalls as $firewall) {

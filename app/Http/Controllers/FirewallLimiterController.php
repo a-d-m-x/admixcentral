@@ -99,7 +99,8 @@ class FirewallLimiterController extends Controller
 
         try {
             $api = new PfSenseApiService($firewall);
-            $api->updateLimiter((int) $id, $data);
+            $limiterId = is_numeric($id) ? (int) $id : (string) $id;
+            $api->updateLimiter($limiterId, $data);
             $firewall->update(['is_dirty' => true]);
 
             return redirect()->route('firewall.limiters.index', $firewall)
@@ -113,7 +114,8 @@ class FirewallLimiterController extends Controller
     {
         try {
             $api = new PfSenseApiService($firewall);
-            $api->deleteLimiter((int) $id);
+            $limiterId = is_numeric($id) ? (int) $id : (string) $id;
+            $api->deleteLimiter($limiterId);
             $firewall->update(['is_dirty' => true]);
 
             return redirect()->route('firewall.limiters.index', $firewall)

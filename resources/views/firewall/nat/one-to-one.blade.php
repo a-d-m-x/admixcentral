@@ -1,6 +1,6 @@
 <x-app-layout :firewall="$firewall">
     <x-slot name="header">
-        <x-firewall-header title="{{ __('Firewall NAT: 1:1') }}" :firewall="$firewall" />
+        <x-firewall-header title="{{ $firewall->isOpnSense() ? __('Firewall NAT: 1:1 (BINAT)') : __('Firewall NAT: 1:1') }}" :firewall="$firewall" />
     </x-slot>
 
     <div class="py-12">
@@ -11,7 +11,7 @@
 
                     <div x-data="natOneToOneHandler()" @open-create-modal.window="openModal()">
                         <div class="flex justify-between items-center mb-4 mt-4">
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-white">1:1 Mappings</h3>
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ $firewall->isOpnSense() ? '1:1 (BINAT) Mappings' : '1:1 Mappings' }}</h3>
                             @if(!auth()->user()->isReadOnly())
                             <x-button-add @click="$dispatch('open-create-modal')">
                                 Add Mapping
@@ -84,10 +84,10 @@
                                             </td>
                                             @if(!auth()->user()->isReadOnly())
                                             <td class="px-3 py-2 whitespace-nowrap text-sm font-medium">
-                                                <button @click="editRule({{ $index }}, {{ json_encode($rule) }})"
+                                                <button @click="editRule('{{ $rule['id'] ?? $index }}', {{ json_encode($rule) }})"
                                                     class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
                                                 <form
-                                                    action="{{ route('firewall.nat.one-to-one.destroy', ['firewall' => $firewall, 'id' => $index]) }}"
+                                                    action="{{ route('firewall.nat.one-to-one.destroy', ['firewall' => $firewall, 'id' => $rule['id'] ?? $index]) }}"
                                                     method="POST" class="inline-block"
                                                     onsubmit="return confirm('Are you sure you want to delete this rule?');">
                                                     @csrf
@@ -129,6 +129,7 @@
                                             <input type="hidden" name="_method" value="PUT">
                                         </template>
                                         <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                            <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4" x-text="isEdit ? 'Edit {{ $firewall->isOpnSense() ? '1:1 NAT (BINAT)' : '1:1' }} Mapping' : 'Add {{ $firewall->isOpnSense() ? '1:1 NAT (BINAT)' : '1:1' }} Mapping'"></h3>
                                             <div class="grid grid-cols-6 gap-6">
                                                 <div class="col-span-6 sm:col-span-3">
                                                     <label for="interface"

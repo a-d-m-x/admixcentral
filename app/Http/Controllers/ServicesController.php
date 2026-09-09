@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Firewall;
+use App\Services\PfSenseApiService;
 use Illuminate\Http\Request;
 
 class ServicesController extends Controller
@@ -71,7 +72,59 @@ class ServicesController extends Controller
 
     public function dnsForwarder(Firewall $firewall)
     {
-        return view('services.dns-forwarder', compact('firewall'));
+        $api = new PfSenseApiService($firewall);
+        $settings = [];
+        $serviceStatus = [];
+        $hostOverrides = [];
+
+        try {
+            $settingsRes = $api->getDnsForwarderSettings();
+            $settings = $settingsRes['data'] ?? [];
+
+            if ($api->getOpnSense()) {
+                $serviceStatus = $api->getOpnSense()->getDnsForwarderServiceStatus();
+            }
+
+            $hostsRes = $api->getDnsForwarderHostOverrides();
+            $hostOverrides = $hostsRes['data'] ?? [];
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to fetch DNS forwarder info: " . $e->getMessage());
+        }
+
+        return view('services.dns-forwarder', compact('firewall', 'settings', 'serviceStatus', 'hostOverrides'));
+    }
+
+    public function storeDnsForwarderHost(Request $request, Firewall $firewall)
+    {
+        $validated = $request->validate([
+            'host' => 'required|string|max:255',
+            'domain' => 'required|string|max:255',
+            'ip' => 'required|ip',
+            'descr' => 'nullable|string|max:255',
+        ]);
+
+        try {
+            $api = new PfSenseApiService($firewall);
+            $api->createDnsForwarderHostOverride($validated);
+
+            return redirect()->route('services.dns-forwarder', $firewall)
+                ->with('success', 'Host override added successfully.');
+        } catch (\Throwable $e) {
+            return back()->withInput()->with('error', 'Failed to add host override: ' . $e->getMessage());
+        }
+    }
+
+    public function destroyDnsForwarderHost(Firewall $firewall, string $uuid)
+    {
+        try {
+            $api = new PfSenseApiService($firewall);
+            $api->deleteDnsForwarderHostOverride($uuid);
+
+            return redirect()->route('services.dns-forwarder', $firewall)
+                ->with('success', 'Host override deleted successfully.');
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Failed to delete host override: ' . $e->getMessage());
+        }
     }
 
     public function dynamicDns(Firewall $firewall)

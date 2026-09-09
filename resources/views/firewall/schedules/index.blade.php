@@ -18,11 +18,34 @@
                 </div>
             @endif
 
+            @if($firewall->os_type === 'opnsense')
+                <div class="mb-4 bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-400 p-4 rounded-r-md">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-blue-700 dark:text-blue-300">
+                                Firewall Schedules on OPNsense are managed directly in the OPNsense Web GUI.
+                                <a href="{{ rtrim($firewall->url, '/') }}/firewall_schedule.php" target="_blank" rel="noopener noreferrer" class="font-semibold underline ml-1 hover:text-blue-600 dark:hover:text-blue-200 inline-flex items-center">
+                                    Open OPNsense Schedules
+                                    <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                </a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 dark:text-gray-100">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-medium text-gray-900 dark:text-white">Schedules</h3>
-                        @if(!auth()->user()->isReadOnly())
+                        @if(!auth()->user()->isReadOnly() && $firewall->os_type !== 'opnsense')
                         <x-link-button-add href="{{ route('firewall.schedules.create', $firewall) }}">
                             Add Schedule
                         </x-link-button-add>
@@ -41,7 +64,7 @@
                                     <th
                                         class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                         Time Ranges</th>
-                                    @if(!auth()->user()->isReadOnly())
+                                    @if(!auth()->user()->isReadOnly() && $firewall->os_type !== 'opnsense')
                                     <th
                                         class="px-6 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                         Actions</th>
@@ -52,10 +75,14 @@
                                 @forelse($schedules as $schedule)
                                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                                         <td class="px-6 py-4 whitespace-nowrap font-mono text-sm">
-                                            <a href="{{ route('firewall.schedules.edit', [$firewall, $schedule['id']]) }}"
-                                                class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline">
-                                                {{ $schedule['name'] }}
-                                            </a>
+                                            @if($firewall->os_type === 'opnsense')
+                                                <span class="text-gray-900 dark:text-gray-100 font-medium">{{ $schedule['name'] }}</span>
+                                            @else
+                                                <a href="{{ route('firewall.schedules.edit', [$firewall, $schedule['id']]) }}"
+                                                    class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline">
+                                                    {{ $schedule['name'] }}
+                                                </a>
+                                            @endif
                                         </td>
                                         <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                                             {{ $schedule['descr'] ?? '-' }}
@@ -63,7 +90,7 @@
                                         <td class="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
                                             {{ isset($schedule['timerange']) ? count($schedule['timerange']) : 0 }} ranges
                                         </td>
-                                        @if(!auth()->user()->isReadOnly())
+                                        @if(!auth()->user()->isReadOnly() && $firewall->os_type !== 'opnsense')
                                         <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                             <div class="flex justify-center items-center space-x-2">
                                                 <a href="{{ route('firewall.schedules.edit', [$firewall, $schedule['id']]) }}"
@@ -99,8 +126,12 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="{{ auth()->user()->isReadOnly() ? '3' : '4' }}" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                                            No schedules configured. Click "Add Schedule" to create one.
+                                        <td colspan="{{ (!auth()->user()->isReadOnly() && $firewall->os_type !== 'opnsense') ? '4' : '3' }}" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                                            @if($firewall->os_type === 'opnsense')
+                                                No schedules found. Configure schedules directly in the OPNsense Web GUI.
+                                            @else
+                                                No schedules configured. Click "Add Schedule" to create one.
+                                            @endif
                                         </td>
                                     </tr>
                                 @endforelse

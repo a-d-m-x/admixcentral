@@ -154,7 +154,7 @@
     'address' => $f->address ?? '',
     'latitude' => $f->latitude,
     'longitude' => $f->longitude
-])) !!};
+]), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) !!};
 
                             const mapEl = document.getElementById('firewall-map');
                             if (mapEl) mapEl.style.height = '100%';
@@ -261,6 +261,17 @@
                         },
 
                         addMarker(lat, lng, name, address) {
+                            const container = document.createElement('div');
+                            const boldTitle = document.createElement('b');
+                            boldTitle.textContent = name || '';
+                            container.appendChild(boldTitle);
+                            if (address) {
+                                container.appendChild(document.createElement('br'));
+                                const addrSpan = document.createElement('span');
+                                addrSpan.textContent = address;
+                                container.appendChild(addrSpan);
+                            }
+
                             const marker = L.circleMarker([lat, lng], {
                                 radius: 5,
                                 fillColor: '#6366f1',
@@ -270,7 +281,7 @@
                                 fillOpacity: 0.9
                             })
                                 .addTo(this.map)
-                                .bindPopup(`<b>${name}</b><br>${address}`);
+                                .bindPopup(container);
                             this.markers.push(marker);
                         },
 
@@ -440,6 +451,8 @@
                     this.firewalls = {{ json_encode($firewalls->map(fn($f) => [
     'id'                 => $f->id,
     'name'               => $f->name,
+    'os_type'            => $f->os_type ?? 'pfsense',
+    'os_display_name'    => $f->os_display_name,
     'status'             => ($firewallCaches[$f->id]['online'] ?? $f->is_online) === true ? 'online'
                             : (($firewallCaches[$f->id]['online'] ?? $f->is_online) === false ? 'offline' : 'unknown'),
     'isOnline'           => $firewallCaches[$f->id]['online'] ?? $f->is_online,
@@ -861,10 +874,19 @@
                                                 </td>
                                             @endif
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                <a :href="firewall.dashboard_url"
-                                                    class="font-medium text-indigo-600 hover:text-indigo-900 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
-                                                    x-text="firewall.name">
-                                                </a>
+                                                <div class="flex items-center space-x-2">
+                                                    <a :href="firewall.dashboard_url"
+                                                        class="font-medium text-indigo-600 hover:text-indigo-900 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
+                                                        x-text="firewall.name">
+                                                    </a>
+                                                    <img
+                                                        :src="firewall.os_type === 'opnsense' ? 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/opnsense.svg' : 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/pfsense.svg'"
+                                                        :alt="firewall.os_display_name || (firewall.os_type === 'opnsense' ? 'OPNsense' : 'pfSense')"
+                                                        :title="firewall.os_display_name || (firewall.os_type === 'opnsense' ? 'OPNsense' : 'pfSense')"
+                                                        class="w-4 h-4 shrink-0 rounded"
+                                                        loading="lazy"
+                                                    >
+                                                </div>
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
                                                 <!-- Online/Offline Badge -->

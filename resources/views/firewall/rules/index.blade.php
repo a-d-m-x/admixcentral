@@ -90,12 +90,18 @@
                             let invert = false;
                             let addr = String(val);
                             if (addr.startsWith('!')) { invert = true; addr = addr.slice(1); }
+                            // OPNsense-style 'wanip', 'lanip', etc.
+                            if (addr.endsWith('ip') && addr.length > 2 && !addr.includes('.') && !addr.includes(':')) {
+                                return { type: addr.slice(0, -2) + ':ip', address: '', invert };
+                            }
                             // Special pfSense v2 strings
-                            if (['wan:ip','lan:ip','opt1:ip','opt2:ip'].includes(addr)) {
+                            if (addr.endsWith(':ip')) {
                                 return { type: addr, address: '', invert };
                             }
-                            if (['wan','lan','opt1','opt2','mgmt'].includes(addr)) {
-                                return { type: addr, address: '', invert };
+                            const ifaceEl = document.getElementById('rule-interface');
+                            const knownIfaces = ifaceEl ? Array.from(ifaceEl.options).map(o => o.value.toLowerCase()) : ['wan','lan','opt1','opt2','opt3','opt4','opt5','lo0','mgmt'];
+                            if (knownIfaces.includes(addr.toLowerCase())) {
+                                return { type: addr.toLowerCase(), address: '', invert };
                             }
                             // Network CIDR or host IP
                             if (addr.includes('/') || /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(addr)) {
@@ -109,12 +115,12 @@
                         this.form.source_type = srcParsed.type;
                         this.form.source_address = srcParsed.address;
                         this.form.source_invert = srcParsed.invert;
-                        if (rule.source_port) { const p = String(rule.source_port).split(':'); this.form.source_port_from = p[0]||''; this.form.source_port_to = p[1]||''; }
+                        if (rule.source_port) { const p = String(rule.source_port).split(/[:-]/); this.form.source_port_from = p[0]||''; this.form.source_port_to = p[1]||''; }
                         const dstParsed = parseEndpoint(rule.destination);
                         this.form.destination_type = dstParsed.type;
                         this.form.destination_address = dstParsed.address;
                         this.form.destination_invert = dstParsed.invert;
-                        if (rule.destination_port) { const p = String(rule.destination_port).split(':'); this.form.destination_port_from = p[0]||''; this.form.destination_port_to = p[1]||''; }
+                        if (rule.destination_port) { const p = String(rule.destination_port).split(/[:-]/); this.form.destination_port_from = p[0]||''; this.form.destination_port_to = p[1]||''; }
                         this.form.gateway = rule.gateway || '';
                         this.form.sched = rule.sched || '';
                         this.form.statetype = rule.statetype || 'keep state';
@@ -211,6 +217,10 @@
                     {{-- Interface Tabs --}}
                     <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
                         <nav class="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
+                            <a href="{{ route('firewall.rules.index', ['firewall' => $firewall, 'interface' => 'floating']) }}"
+                                class="{{ $selectedInterface === 'floating' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300' }} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                                FLOATING
+                            </a>
                             @foreach($interfaces as $iface)
                                 <a href="{{ route('firewall.rules.index', ['firewall' => $firewall, 'interface' => $iface['id'] ?? $iface['if']]) }}"
                                     class="{{ $selectedInterface === ($iface['id'] ?? $iface['if']) ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300' }} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
@@ -659,9 +669,10 @@
                                                 <label for="rule-interface" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Interface</label>
                                                 <select id="rule-interface" name="interface" x-model="form.interface"
                                                     class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 sm:text-sm">
+                                                    <option value="floating">FLOATING</option>
                                                     @foreach($interfaces as $iface)
-                                                        <option value="{{ $iface['descr'] ?? strtoupper($iface['id'] ?? $iface['if']) }}">
-                                                            {{ $iface['descr'] ?? strtoupper($iface['id'] ?? $iface['if']) }}
+                                                        <option value="{{ $iface['id'] ?? $iface['if'] }}">
+                                                            {{ strtoupper($iface['descr'] ?? $iface['id'] ?? $iface['if']) }}
                                                         </option>
                                                     @endforeach
                                                 </select>
@@ -735,10 +746,10 @@
                                                                 <option value="any">Any</option>
                                                                 <option value="address">Host / Alias</option>
                                                                 <option value="network">Network</option>
-                                                                <option value="wan:ip">WAN address</option>
-                                                                <option value="lan:ip">LAN address</option>
-                                                                <option value="wan">WAN net</option>
-                                                                <option value="lan">LAN net</option>
+                                                                @foreach($interfaces as $iface)
+                                                                    <option value="{{ $iface['id'] ?? $iface['if'] }}:ip">{{ strtoupper($iface['descr'] ?? $iface['id'] ?? $iface['if']) }} address</option>
+                                                                    <option value="{{ $iface['id'] ?? $iface['if'] }}">{{ strtoupper($iface['descr'] ?? $iface['id'] ?? $iface['if']) }} net</option>
+                                                                @endforeach
                                                             </select>
                                                         </div>
                                                         <div class="flex-1">
@@ -784,10 +795,10 @@
                                                                 <option value="any">Any</option>
                                                                 <option value="address">Host / Alias</option>
                                                                 <option value="network">Network</option>
-                                                                <option value="wan:ip">WAN address</option>
-                                                                <option value="lan:ip">LAN address</option>
-                                                                <option value="wan">WAN net</option>
-                                                                <option value="lan">LAN net</option>
+                                                                @foreach($interfaces as $iface)
+                                                                    <option value="{{ $iface['id'] ?? $iface['if'] }}:ip">{{ strtoupper($iface['descr'] ?? $iface['id'] ?? $iface['if']) }} address</option>
+                                                                    <option value="{{ $iface['id'] ?? $iface['if'] }}">{{ strtoupper($iface['descr'] ?? $iface['id'] ?? $iface['if']) }} net</option>
+                                                                @endforeach
                                                             </select>
                                                         </div>
                                                         <div class="flex-1">

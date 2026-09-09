@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Firewall extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'company_id',
         'name',
+        'os_type',
         'url',
         'auth_method',
         'api_key',
@@ -25,6 +28,18 @@ class Firewall extends Model
         'ssh_password',
     ];
 
+    /**
+     * Prevent credential leakage in JSON serialization (toArray, toJson, API responses, logs).
+     * Use makeVisible() explicitly when credentials are needed (e.g., backup export).
+     */
+    protected $hidden = [
+        'api_key',
+        'api_secret',
+        'api_token',
+        'ssh_password',
+        'ssh_username',
+    ];
+
     protected $casts = [
         'api_key' => 'encrypted',
         'api_secret' => 'encrypted',
@@ -36,6 +51,33 @@ class Firewall extends Model
     public function getRouteKeyName()
     {
         return 'netgate_id';
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        return $this->where('netgate_id', $value)
+            ->orWhere('id', $value)
+            ->first() ?? abort(404);
+    }
+
+    public function isOpnSense(): bool
+    {
+        return ($this->os_type ?? 'pfsense') === 'opnsense';
+    }
+
+    public function isPfSense(): bool
+    {
+        return ($this->os_type ?? 'pfsense') === 'pfsense';
+    }
+
+    public function getOsDisplayNameAttribute(): string
+    {
+        return $this->isOpnSense() ? 'OPNsense' : 'pfSense';
+    }
+
+    public function opnsense(): \App\Services\OpnSenseApiService
+    {
+        return new \App\Services\OpnSenseApiService($this);
     }
 
     public function company()

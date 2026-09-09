@@ -61,10 +61,10 @@
                                     </td>
                                     @if(!auth()->user()->isReadOnly())
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <button @click="editLimiter({{ $index }}, {{ json_encode($limiter) }})"
+                                        <button @click="editLimiter('{{ $limiter['uuid'] ?? ($limiter['id'] ?? $index) }}', {{ json_encode($limiter) }})"
                                             class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
                                         <form
-                                            action="{{ route('firewall.limiters.destroy', ['firewall' => $firewall->id, 'limiter' => $index]) }}"
+                                            action="{{ route('firewall.limiters.destroy', ['firewall' => $firewall->id, 'limiter' => $limiter['uuid'] ?? ($limiter['id'] ?? $index)]) }}"
                                             method="POST" class="inline-block"
                                             onsubmit="return confirm('Are you sure you want to delete this limiter?');">
                                             @csrf
@@ -98,7 +98,7 @@
                         <div
                             class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
                             <form
-                                :action="isEdit ? '/firewall/{{ $firewall->id }}/limiters/' + form.id : '{{ route('firewall.limiters.store', $firewall) }}'"
+                                :action="isEdit ? '/firewall/{{ $firewall->id }}/firewall/limiters/' + form.id : '{{ route('firewall.limiters.store', $firewall) }}'"
                                 method="POST">
                                 @csrf
                                 <template x-if="isEdit">

@@ -86,4 +86,16 @@ class ServicesDnsResolverController extends Controller
             return back()->withInput()->with('error', 'Failed to add host override: ' . $e->getMessage());
         }
     }
+
+    public function destroyHostOverride(Firewall $firewall, string $id)
+    {
+        try {
+            $api = new PfSenseApiService($firewall);
+            $api->deleteDnsResolverHostOverride($id);
+
+            return back()->with('success', 'Host override deleted successfully.');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Failed to delete host override: ' . $e->getMessage());
+        }
+    }
 }

@@ -13,6 +13,10 @@ class FirewallRuleController extends Controller
     use NormalizesInterfaceData;
     public function index(Request $request, Firewall $firewall)
     {
+        if ($request->wantsJson()) {
+            session_write_close();
+        }
+
         try {
             $api = new PfSenseApiService($firewall);
             $rulesResponse = $api->getFirewallRules();
@@ -124,6 +128,8 @@ class FirewallRuleController extends Controller
 
         // Add tracker to data if not present (though API usually needs index)
         $data['tracker'] = $tracker;
+        $data['id'] = $tracker;
+        $data['uuid'] = $tracker;
 
         try {
             $api = new PfSenseApiService($firewall);
@@ -187,7 +193,7 @@ class FirewallRuleController extends Controller
         $request->validate([
             'action' => 'required|in:enable,disable,delete',
             'trackers' => 'required|array',
-            'trackers.*' => 'required|numeric',
+            'trackers.*' => 'required',
         ]);
 
         $action = $request->input('action');
@@ -354,11 +360,14 @@ class FirewallRuleController extends Controller
 
     protected function prepareRuleData(Request $request)
     {
+        $interface = strtolower(trim((string)$request->input('interface', 'wan')));
+
         $data = [
             'type' => $request->input('type'),
-            'interface' => $request->input('interface'),
+            'interface' => $interface,
             'ipprotocol' => $request->input('ipprotocol'),
             'protocol' => $request->input('protocol'),
+            'icmptype' => $request->input('icmptype'),
             'descr' => $request->input('descr'),
             'disabled' => $request->has('disabled'),
             'log' => $request->has('log'),

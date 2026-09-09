@@ -17,7 +17,8 @@
 
     <div class="py-8">
         <div class="mx-auto sm:px-6 lg:px-8">
-            <form action="{{ route('firewalls.update', $firewall) }}" method="POST">
+            <form action="{{ route('firewalls.update', $firewall) }}" method="POST"
+                  x-data="{ osType: '{{ old('os_type', $firewall->os_type ?? 'pfsense') }}' }">
                 @csrf
                 @method('PUT')
 
@@ -30,6 +31,29 @@
                             <h3 class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Identity</h3>
                         </div>
                         <div class="px-6 py-5 flex flex-col gap-4 flex-1">
+
+                            {{-- Platform / OS --}}
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Operating System / Platform</label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <label class="flex items-center p-2.5 border rounded-lg cursor-pointer transition"
+                                           :class="osType === 'pfsense' ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 ring-2 ring-indigo-500' : 'border-gray-300 dark:border-gray-700'">
+                                        <input type="radio" name="os_type" value="pfsense" x-model="osType" class="text-indigo-600 focus:ring-indigo-500">
+                                        <div class="ml-2.5">
+                                            <span class="block text-xs font-semibold text-gray-900 dark:text-gray-100">pfSense</span>
+                                            <span class="block text-[10px] text-gray-500 dark:text-gray-400">pfRest API</span>
+                                        </div>
+                                    </label>
+                                    <label class="flex items-center p-2.5 border rounded-lg cursor-pointer transition"
+                                           :class="osType === 'opnsense' ? 'border-amber-600 bg-amber-50/50 dark:bg-amber-950/30 ring-2 ring-amber-500' : 'border-gray-300 dark:border-gray-700'">
+                                        <input type="radio" name="os_type" value="opnsense" x-model="osType" class="text-amber-600 focus:ring-amber-500">
+                                        <div class="ml-2.5">
+                                            <span class="block text-xs font-semibold text-gray-900 dark:text-gray-100">OPNsense</span>
+                                            <span class="block text-[10px] text-gray-500 dark:text-gray-400">Native Core API</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
 
                             @if(auth()->user()->isGlobalAdmin())
                                 <div>
@@ -94,28 +118,38 @@
 
                             <div x-show="authMethod === 'basic'" class="grid grid-cols-2 gap-4" x-cloak>
                                 <div>
-                                    <label for="api_key" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Username</label>
+                                    <label for="api_key" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                                           x-text="osType === 'opnsense' ? 'OPNsense API Key' : 'API Username'"></label>
                                     <input type="text" name="api_key" id="api_key"
-                                        value="{{ old('api_key', $firewall->api_key) }}"
-                                        :required="authMethod === 'basic'"
+                                        value="{{ old('api_key', $firewall->os_type === 'opnsense' ? '' : $firewall->api_key) }}"
+                                        placeholder="{{ !empty($firewall->api_key) ? 'Configured (Leave blank to keep current)' : 'Enter API Key / Username' }}"
                                         class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                    @if(!empty($firewall->api_key) && $firewall->os_type === 'opnsense')
+                                        <p class="text-green-600 dark:text-green-400 text-xs mt-1">✓ OPNsense API Key is configured</p>
+                                    @endif
                                     @error('api_key')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                                 </div>
                                 <div>
-                                    <label for="api_secret" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">API Password</label>
+                                    <label for="api_secret" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                                           x-text="osType === 'opnsense' ? 'OPNsense API Secret' : 'API Password'"></label>
                                     <input type="password" name="api_secret" id="api_secret"
                                         placeholder="Leave blank to keep current"
                                         class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
+                                    @if(!empty($firewall->api_secret))
+                                        <p class="text-green-600 dark:text-green-400 text-xs mt-1">✓ Secret / Password is configured</p>
+                                    @endif
                                     @error('api_secret')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                                 </div>
                             </div>
 
                             <div x-show="authMethod === 'token'" x-cloak>
                                 <label for="api_token" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bearer Token</label>
-                                <textarea name="api_token" id="api_token" rows="4"
-                                    :required="authMethod === 'token'"
-                                    placeholder="ey…"
-                                    class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm font-mono">{{ old('api_token', $firewall->api_token) }}</textarea>
+                                <textarea name="api_token" id="api_token" rows="3"
+                                    placeholder="{{ !empty($firewall->api_token) ? 'Configured (Leave blank to keep current)' : 'ey…' }}"
+                                    class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm font-mono"></textarea>
+                                @if(!empty($firewall->api_token))
+                                    <p class="text-green-600 dark:text-green-400 text-xs mt-1">✓ Bearer token is configured</p>
+                                @endif
                                 @error('api_token')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                             </div>
 

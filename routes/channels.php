@@ -17,10 +17,16 @@ use Illuminate\Support\Facades\Broadcast;
 
 // Device channel - for sending commands to devices
 Broadcast::channel('device.{firewallId}', function ($user, $firewallId) {
-    // This channel is for devices only, not web users
-    // Authentication is handled separately in the WebSocket controller
-    // For now, we'll allow it and rely on device authentication
-    return true;
+    // This channel is strictly for devices only, never web users
+    if ($user instanceof User) {
+        return false;
+    }
+
+    if (is_object($user) && isset($user->firewall_id)) {
+        return (int) $user->firewall_id === (int) $firewallId;
+    }
+
+    return false;
 });
 
 // Firewall dashboard channel - for real-time updates to users
@@ -36,6 +42,6 @@ Broadcast::channel('firewall.{firewallId}', function ($user, $firewallId) {
         return true;
     }
 
-    // Company admins can only access their company's firewalls
-    return $user->company_id === $firewall->company_id;
+    // Tenant users can only access their company's firewalls
+    return !is_null($user->company_id) && (int) $user->company_id === (int) $firewall->company_id;
 });

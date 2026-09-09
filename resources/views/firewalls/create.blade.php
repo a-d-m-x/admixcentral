@@ -113,50 +113,112 @@
                             </div>
                         @endif
 
-                        <div class="mb-4">
-                            <label for="name"
-                                class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Firewall
-                                Name</label>
-                            <input type="text" name="name" id="name" value="{{ old('name') }}" required
-                                class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
-                                placeholder="e.g., Office Firewall">
-                            @error('name')
-                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
+                        <div x-data="{ 
+                            osType: '{{ old('os_type', 'pfsense') }}',
+                            authMethod: '{{ old('auth_method', 'basic') }}',
+                            autoGen: false
+                        }">
+                            {{-- Firewall OS Platform --}}
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                                    Firewall Platform / Operating System
+                                </label>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <label class="relative flex items-center p-3.5 border rounded-lg cursor-pointer transition"
+                                           :class="osType === 'pfsense' ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 ring-2 ring-indigo-500' : 'border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50'">
+                                        <input type="radio" name="os_type" value="pfsense" x-model="osType" class="text-indigo-600 focus:ring-indigo-500">
+                                        <div class="ml-3 flex-1">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="font-semibold text-sm text-gray-900 dark:text-gray-100">pfSense</span>
+                                                <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">pfRest API</span>
+                                            </div>
+                                            <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">pfSense CE or Plus with pfRest package</span>
+                                        </div>
+                                    </label>
 
-                        <div class="mb-4">
-                            <label for="url"
-                                class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">URL</label>
-                            <input type="url" name="url" id="url" value="{{ old('url') }}" required
-                                class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
-                                placeholder="https://192.168.1.1:443">
-                            @error('url')
-                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
+                                    <label class="relative flex items-center p-3.5 border rounded-lg cursor-pointer transition"
+                                           :class="osType === 'opnsense' ? 'border-amber-600 bg-amber-50/50 dark:bg-amber-950/30 ring-2 ring-amber-500' : 'border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50'">
+                                        <input type="radio" name="os_type" value="opnsense" x-model="osType" class="text-amber-600 focus:ring-amber-500">
+                                        <div class="ml-3 flex-1">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="font-semibold text-sm text-gray-900 dark:text-gray-100">OPNsense</span>
+                                                <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Native Core API</span>
+                                            </div>
+                                            <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">Built-in REST API (Basic Auth with Key & Secret)</span>
+                                        </div>
+                                    </label>
+                                </div>
 
-                        <div x-data="{ authMethod: '{{ old('auth_method', 'basic') }}' }">
+                                {{-- OPNsense Auto-provision helper --}}
+                                <div x-show="osType === 'opnsense'" x-cloak class="mt-4 p-4 rounded-lg bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60">
+                                    <div class="flex items-start">
+                                        <input id="auto_gen_toggle" type="checkbox" x-model="autoGen" class="mt-1 h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500">
+                                        <label for="auto_gen_toggle" class="ml-2.5 text-sm font-medium text-amber-900 dark:text-amber-200 cursor-pointer">
+                                            Auto-generate API Key & Secret using Web Admin credentials
+                                        </label>
+                                    </div>
+                                    <p class="text-xs text-amber-700/90 dark:text-amber-300/80 mt-1 ml-6">
+                                        AdmixCentral will log in once to your OPNsense Web GUI, create an API key/secret, and store them securely.
+                                    </p>
+
+                                    <div x-show="autoGen" class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 ml-6 pt-2 border-t border-amber-200/60 dark:border-amber-800/40">
+                                        <div>
+                                            <label class="block text-xs font-medium text-amber-900 dark:text-amber-200 mb-1">Web Admin Username</label>
+                                            <input type="text" name="opn_username" placeholder="root" value="{{ old('opn_username') }}"
+                                                class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:ring-amber-500 focus:border-amber-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-amber-900 dark:text-amber-200 mb-1">Web Admin Password</label>
+                                            <input type="password" name="opn_password" placeholder="Pass123"
+                                                class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:ring-amber-500 focus:border-amber-500">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="name"
+                                    class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Firewall
+                                    Name</label>
+                                <input type="text" name="name" id="name" value="{{ old('name') }}" required
+                                    class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                                    placeholder="e.g., Office Firewall">
+                                @error('name')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="url"
+                                    class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">URL</label>
+                                <input type="url" name="url" id="url" value="{{ old('url') }}" required
+                                    class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
+                                    placeholder="https://192.168.1.1:443">
+                                @error('url')
+                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+
                             <div class="mb-4">
                                 <label for="auth_method"
                                     class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Authentication
                                     Method</label>
                                 <select name="auth_method" id="auth_method" x-model="authMethod"
                                     class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
-                                    <option value="basic">Basic Auth (Username/Password)</option>
-                                    <option value="token">Bearer Token</option>
+                                    <option value="basic">Basic Auth (Username/Password or API Key/Secret)</option>
+                                    <option value="token" x-show="osType === 'pfsense'">Bearer Token (pfSense only)</option>
                                 </select>
                             </div>
 
-                            <div x-show="authMethod === 'basic'">
+                            <div x-show="authMethod === 'basic' && (!autoGen || osType !== 'opnsense')">
                                 <div class="mb-4">
                                     <label for="api_key"
-                                        class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">API
-                                        Username</label>
+                                        class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300"
+                                        x-text="osType === 'opnsense' ? 'OPNsense API Key' : 'API Username'"></label>
                                     <input type="text" name="api_key" id="api_key" value="{{ old('api_key') }}"
-                                        :required="authMethod === 'basic'"
+                                        :required="authMethod === 'basic' && !autoGen"
                                         class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
-                                        placeholder="admin">
+                                        :placeholder="osType === 'opnsense' ? 'e.g. KxMw8ArClfuCya...' : 'admin'">
                                     @error('api_key')
                                         <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                                     @enderror
@@ -164,10 +226,10 @@
 
                                 <div class="mb-4">
                                     <label for="api_secret"
-                                        class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">API
-                                        Password</label>
+                                        class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300"
+                                        x-text="osType === 'opnsense' ? 'OPNsense API Secret' : 'API Password'"></label>
                                     <input type="password" name="api_secret" id="api_secret"
-                                        :required="authMethod === 'basic'"
+                                        :required="authMethod === 'basic' && !autoGen"
                                         class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
                                     @error('api_secret')
                                         <p class="text-red-500 text-xs mt-1">{{ $message }}</p>

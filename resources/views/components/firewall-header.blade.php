@@ -3,9 +3,18 @@
 <div>
     <div class="flex justify-between items-start">
         <div>
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                {{ $title }}
-            </h2>
+            <div class="flex items-center space-x-2.5">
+                <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+                    {{ $title }}
+                </h2>
+                <img
+                    src="{{ ($firewall->isOpnSense() ?? false) ? 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/opnsense.svg' : 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/pfsense.svg' }}"
+                    alt="{{ $firewall->os_display_name ?? 'pfSense' }}"
+                    title="{{ $firewall->os_display_name ?? 'pfSense' }}"
+                    class="w-5 h-5 shrink-0 rounded"
+                    loading="lazy"
+                >
+            </div>
             <div class="mt-1 flex flex-col sm:flex-row sm:items-center">
                 <div class="text-sm text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-y-1">
                     <a href="{{ route('dashboard') }}"

@@ -155,9 +155,30 @@ class RoutingController extends Controller
     // Gateway Groups
     public function storeGatewayGroup(Request $request, Firewall $firewall)
     {
+        if ($firewall->isOpnSense()) {
+            return back()->withErrors(['error' => 'Gateway groups are not supported via API on OPNsense. Please configure Gateway Groups directly in the OPNsense Web GUI.']);
+        }
+
+        $items = [];
+        if ($request->has('tiers') && is_array($request->input('tiers'))) {
+            foreach ($request->input('tiers') as $gw => $tier) {
+                if ($tier && $tier !== 'never' && is_numeric($tier)) {
+                    $items[] = "{$gw}|{$tier}";
+                }
+            }
+        } elseif ($request->has('item') && is_array($request->input('item'))) {
+            $items = array_values(array_filter($request->input('item')));
+        }
+
+        if (empty($items)) {
+            return back()->withErrors(['item' => 'At least one gateway must be assigned to a tier (Tier 1-5).'])->withInput();
+        }
+
+        $request->merge(['item' => $items]);
+
         $request->validate([
             'name' => 'required|string',
-            'item' => 'required|array', // Items are usually array of gateway configs
+            'item' => 'required|array|min:1',
             'trigger' => 'required|string',
             'descr' => 'nullable|string',
         ]);
@@ -175,9 +196,30 @@ class RoutingController extends Controller
 
     public function updateGatewayGroup(Request $request, Firewall $firewall, string $id)
     {
+        if ($firewall->isOpnSense()) {
+            return back()->withErrors(['error' => 'Gateway groups are not supported via API on OPNsense. Please configure Gateway Groups directly in the OPNsense Web GUI.']);
+        }
+
+        $items = [];
+        if ($request->has('tiers') && is_array($request->input('tiers'))) {
+            foreach ($request->input('tiers') as $gw => $tier) {
+                if ($tier && $tier !== 'never' && is_numeric($tier)) {
+                    $items[] = "{$gw}|{$tier}";
+                }
+            }
+        } elseif ($request->has('item') && is_array($request->input('item'))) {
+            $items = array_values(array_filter($request->input('item')));
+        }
+
+        if (empty($items)) {
+            return back()->withErrors(['item' => 'At least one gateway must be assigned to a tier (Tier 1-5).'])->withInput();
+        }
+
+        $request->merge(['item' => $items]);
+
         $request->validate([
             'name' => 'required|string',
-            'item' => 'required|array',
+            'item' => 'required|array|min:1',
             'trigger' => 'required|string',
             'descr' => 'nullable|string',
         ]);
@@ -197,6 +239,10 @@ class RoutingController extends Controller
 
     public function destroyGatewayGroup(Firewall $firewall, string $id)
     {
+        if ($firewall->isOpnSense()) {
+            return back()->withErrors(['error' => 'Gateway groups are not supported via API on OPNsense. Please configure Gateway Groups directly in the OPNsense Web GUI.']);
+        }
+
         try {
             $api = new PfSenseApiService($firewall);
             $api->deleteRoutingGatewayGroup($id);

@@ -198,7 +198,7 @@
                                         <div class="border-t border-gray-200 pt-6 mt-2">
                                             <h4 class="text-md font-medium text-gray-900 mb-4">{{ __('Authentication') }}</h4>
                                             <div class="grid grid-cols-1 gap-6"
-                                                x-data="{ auth_mech: '{{ $data['notifications']['authentication_mechanism'] ?: 'PLAIN' }}' }">
+                                                x-data="{ auth_mech: '{{ $data['notifications']['authentication_mechanism'] ?? 'PLAIN' }}' }">
                                                 <div>
                                                     <x-input-label for="authentication_mechanism" :value="__('Notification E-Mail Auth Mechanism')" />
                                                     <select id="authentication_mechanism" name="authentication_mechanism"
@@ -366,7 +366,7 @@
                                                 </tr>
                                             </thead>
                                             <tbody class="bg-white divide-y divide-gray-200">
-                                                @forelse($data['tunables'] as $tunable)
+                                                @forelse(($data['tunables'] ?? []) as $tunable)
                                                     <tr>
                                                         <td
                                                             class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -495,7 +495,6 @@
 
             </div>
         </div>
-    </div>
     </div>
 </x-app-layout>
 
