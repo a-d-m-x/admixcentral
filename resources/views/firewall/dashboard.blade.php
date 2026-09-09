@@ -106,11 +106,15 @@
                                             <th class="py-2 font-medium text-gray-900 dark:text-gray-300 text-sm">BIOS
                                             </th>
                                             <td class="py-2 text-sm">
+                                                @if($firewall->isOpnSense())
+                                                    <span class="text-gray-400 dark:text-gray-500">Not available</span>
+                                                @else
                                                 <div class="flex flex-col">
                                                     <span x-text="systemStatus?.data?.bios_vendor"></span>
                                                     <span x-text="systemStatus?.data?.bios_version"></span>
                                                     <span x-text="systemStatus?.data?.bios_date"></span>
                                                 </div>
+                                                @endif
                                             </td>
                                         </tr>
                                         <tr class="border-b dark:border-gray-700">
@@ -162,6 +166,9 @@
                                                 Modified
                                             </th>
                                             <td class="py-2 text-sm">
+                                                @if($firewall->isOpnSense())
+                                                    <span class="text-gray-400 dark:text-gray-500">Not available</span>
+                                                @else
                                                 <div class="flex flex-col">
                                                     <span
                                                         x-text="systemStatus?.data?.last_config_change || 'Unknown'"></span>
@@ -171,6 +178,7 @@
                                                             class="text-gray-400 dark:text-gray-400"></span>
                                                     </template>
                                                 </div>
+                                                @endif
                                             </td>
                                         </tr>
                                     </tbody>
@@ -983,26 +991,34 @@
                         if (!wan && ifaceList.length > 0) wan = ifaceList[0];
 
                         if (wan) {
-                            const bytesIn = this.extractBytes(wan, 'in');
+                            const bytesIn  = this.extractBytes(wan, 'in');
                             const bytesOut = this.extractBytes(wan, 'out');
-                            let inRate = 0;
+                            let inRate  = 0;
                             let outRate = 0;
 
-                            if (this.lastBytes.time > 0) {
+                            if (wan.in_rate_bps !== undefined && wan.out_rate_bps !== undefined) {
+                                // Prefer server-computed rates (backend calculates delta between polls).
+                                // Available on OPNsense once the interface byte-snapshot cache is warm.
+                                inRate  = parseFloat(wan.in_rate_bps  || 0);
+                                outRate = parseFloat(wan.out_rate_bps || 0);
+                            } else if (this.lastBytes.time > 0) {
+                                // Fall back to client-side delta (requires two successive readings)
                                 const timeDiff = (now - this.lastBytes.time) / 1000;
                                 if (timeDiff > 0) {
-                                    if (bytesIn >= this.lastBytes.in) inRate = ((bytesIn - this.lastBytes.in) * 8) / timeDiff;
+                                    if (bytesIn  >= this.lastBytes.in)  inRate  = ((bytesIn  - this.lastBytes.in)  * 8) / timeDiff;
                                     if (bytesOut >= this.lastBytes.out) outRate = ((bytesOut - this.lastBytes.out) * 8) / timeDiff;
                                 }
                             }
+
                             this.lastBytes = { in: bytesIn, out: bytesOut, time: now };
                             this.bandwidthHistory.shift();
                             this.bandwidthHistory.push({ in: inRate, out: outRate });
                             this.currentTraffic = {
-                                in: this.formatBytes(inRate, true),
+                                in:  this.formatBytes(inRate,  true),
                                 out: this.formatBytes(outRate, true)
                             };
                         }
+
 
                         // 2. Process ALL interfaces
                         Object.entries(interfaces).forEach(([name, iface]) => {
@@ -1097,7 +1113,8 @@
 
                     // Polling Configuration
                     realtimeMs: {{ ($settings['realtime_interval'] ?? 10) * 1000 }},
-                    fallbackMs: {{ ($settings['fallback_interval'] ?? 30) * 1000 }},
+                    fallbackMs: {{ ($settings['fallback_interval'] ?? 8) * 1000 }},
+
                     timer: null,
 
                     init() {

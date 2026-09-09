@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Firewall;
+use App\Services\FirewallApiFactory;
 use App\Services\PfSenseApiService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -86,7 +87,7 @@ class CheckFirewallStatusJob implements ShouldQueue, ShouldBeUnique
 
             $lockAcquired = true;
 
-            $api  = new PfSenseApiService($firewall);
+            $api  = FirewallApiFactory::make($firewall);
 
             // Use a shorter timeout for firewalls that are currently cached as offline.
             // With QUEUE_CONNECTION=sync the job runs inside the HTTP request, so a

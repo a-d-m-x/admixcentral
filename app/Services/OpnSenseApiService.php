@@ -116,7 +116,7 @@ class OpnSenseApiService
             ->timeout($this->apiTimeout);
 
         if ($this->apiKey && $this->apiSecret) {
-            $client->withBasicAuth($this->apiKey, $this->apiSecret);
+            $client = $client->withBasicAuth($this->apiKey, $this->apiSecret);
         }
 
         if ($method === 'GET') {
@@ -161,36 +161,103 @@ class OpnSenseApiService
 
     public function getSystemStatus()
     {
-        // 1. Static Information Caching (24h TTL)
-        $staticCacheKey = 'firewall_static_info_' . $this->firewall->id;
+        // Cache key versioned (v9 — auth bug fix: withBasicAuth now correctly chained in request())
+        $staticCacheKey = 'firewall_static_info_v9_' . $this->firewall->id;
         $staticInfo = Cache::get($staticCacheKey);
         if (!$staticInfo) {
             try {
                 $info = $this->getSystemInformation();
+                // Real response shape: {"name":"...", "versions":["OPNsense 26.7.1_1-amd64","FreeBSD ...","OpenSSL ..."], "updates":"..."}
+                // There are NO bios, cpu, or product sub-keys in this endpoint.
+
                 $version = $info['versions'][0] ?? 'OPNsense';
-                $vParts = explode(' ', $version);
-                $productVersion = $vParts[1] ?? $version;
+                // e.g. "OPNsense 26.7.1_1-amd64"
+                $vParts = explode(' ', $version, 2);
+                $productVersion = $vParts[1] ?? $version; // "26.7.1_1-amd64"
+                // Platform: "OPNsense" (first token of the version string)
+                $platform = $vParts[0] ?? 'OPNsense';
+
+                // ── DNS Servers ────────────────────────────────────────────────────────
+                // /api/core/general and /api/core/general/get both return 404 on OPNsense 26.x.
+                // Instead inspect Unbound settings to determine the DNS resolution mode.
+                $dnsServers = [];
+                try {
+                    $unboundRes = $this->get('/api/unbound/settings/get');
+                    $unboundGeneral = $unboundRes['unbound']['general'] ?? [];
+                    $isEnabled = ($unboundGeneral['enabled'] ?? '0') === '1';
+
+                    // Check if forwarding is configured (forwarding hosts present)
+                    $fwdHosts = $unboundRes['unbound']['forwarding']['hosts']['host'] ?? [];
+                    $forwardIps = is_array($fwdHosts)
+                        ? array_values(array_filter(array_column($fwdHosts, 'server')))
+                        : [];
+
+                    if (!empty($forwardIps)) {
+                        // Forwarding mode: show the upstream servers
+                        $dnsServers = $forwardIps;
+                    } elseif ($isEnabled) {
+                        // Recursive mode: Unbound resolves directly
+                        $dnsServers = ['Local (Unbound recursive)'];
+                    }
+                } catch (\Exception $e) {
+                    // Could not determine DNS configuration
+                }
+
+                // ── Installed Packages Count ───────────────────────────────────────────
+                // /api/core/firmware/info → 'package' (base pkgs) + 'plugin' (community)
+                $packageCount = 'N/A';
+                try {
+                    $firmwareInfo = $this->get('/api/core/firmware/info');
+                    $pkgCount    = is_array($firmwareInfo['package'] ?? null) ? count($firmwareInfo['package']) : 0;
+                    $pluginCount = is_array($firmwareInfo['plugin']  ?? null) ? count($firmwareInfo['plugin'])  : 0;
+                    $total = $pkgCount + $pluginCount;
+                    if ($total > 0) $packageCount = $total;
+                } catch (\Exception $e) {
+                    // Package count unavailable
+                }
 
                 $staticInfo = [
-                    'hostname' => $info['name'] ?? $this->firewall->name,
-                    'product_version' => $productVersion,
-                    'os_version' => $info['versions'][1] ?? 'FreeBSD',
-                    'api_version' => 'OPNsense Core',
-                    'update_available' => !empty($info['updates']) && !str_contains(strtolower($info['updates']), 'click to check'),
-                    'cores' => 4,
+                    'hostname'                  => $info['name'] ?? $this->firewall->name,
+                    'product_version'           => $productVersion,
+                    'version'                   => $productVersion,
+                    'os_version'                => $info['versions'][1] ?? 'FreeBSD',
+                    'api_version'               => 'OPNsense Core',
+                    'update_available'          => !empty($info['updates']) && !str_contains(strtolower($info['updates']), 'click to check'),
+                    'platform'                  => $platform,
+                    // BIOS fields are not available from the OPNsense API
+                    'bios_vendor'               => null,
+                    'bios_version'              => null,
+                    'bios_date'                 => null,
+                    // CPU model not available from systemInformation — filled from systemTime below
+                    'cpu_model'                 => null,
+                    'cpu_count'                 => 4, // default; updated below from systemTime response
+                    'cores'                     => 4,
+                    // Slow fields — fetched once per day
+                    'dns_servers'               => $dnsServers,
+                    'installed_packages_count'  => $packageCount,
                 ];
                 Cache::put($staticCacheKey, $staticInfo, now()->addDay());
             } catch (\Exception $e) {
                 $staticInfo = [
-                    'hostname' => $this->firewall->name,
-                    'product_version' => 'OPNsense',
-                    'os_version' => 'FreeBSD',
-                    'api_version' => 'OPNsense Core',
-                    'update_available' => false,
-                    'cores' => 4,
+                    'hostname'                  => $this->firewall->name,
+                    'product_version'           => 'OPNsense',
+                    'version'                   => 'OPNsense',
+                    'os_version'                => 'FreeBSD',
+                    'api_version'               => 'OPNsense Core',
+                    'update_available'          => false,
+                    'platform'                  => 'OPNsense',
+                    'bios_vendor'               => null,
+                    'bios_version'              => null,
+                    'bios_date'                 => null,
+                    'cpu_model'                 => null,
+                    'cpu_count'                 => 4,
+                    'cores'                     => 4,
+                    'dns_servers'               => [],
+                    'installed_packages_count'  => 'N/A',
                 ];
             }
         }
+
 
         // 2. Parallel fetch for lightweight real-time telemetry (Time, Resources, Disk, Gateways, Interfaces)
         $key = $this->apiKey;
@@ -207,26 +274,80 @@ class OpnSenseApiService
             $pool->as('ifStats')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/diagnostics/interface/getInterfaceStatistics?_t=$now"),
         ]);
 
-        $timeData = $responses['time']->json() ?? [];
-        $resData = $responses['resources']->json() ?? [];
-        $diskData = $responses['disk']->json() ?? [];
-        $gwData = $responses['gateways']->json() ?? [];
+        $timeData  = $responses['time']->json()      ?? [];
+        $resData   = $responses['resources']->json() ?? [];
+        $diskData  = $responses['disk']->json()      ?? [];
+        $gwData    = $responses['gateways']->json()  ?? [];
         $ifOverview = $responses['ifOverview']->json() ?? [];
-        $ifStats = $responses['ifStats']->json() ?? [];
+        $ifStats   = $responses['ifStats']->json()   ?? [];
+
 
         // CPU calculation from real-time 1m load average without spawning heavy 'top'
         $loadParts = explode(',', $timeData['loadavg'] ?? '0, 0, 0');
         $l1 = (float) trim($loadParts[0] ?? '0');
         $cores = (int) ($staticInfo['cores'] ?? 4);
+        // Extract real CPU count from systemTime response (field: 'cpus' or 'ncpus')
+        $cpuCountFromTime = (int) ($timeData['cpus'] ?? $timeData['ncpus'] ?? $timeData['cpu'] ?? 0);
+        if ($cpuCountFromTime > 0 && $cpuCountFromTime !== ($staticInfo['cores'] ?? 4)) {
+            $staticInfo['cores'] = $cpuCountFromTime;
+            $staticInfo['cpu_count'] = $cpuCountFromTime;
+            // Persist updated cores count back to cache
+            Cache::put($staticCacheKey, $staticInfo, now()->addDay());
+        }
+        $cores = (int) ($staticInfo['cores'] ?? $cpuCountFromTime ?: 4);
+
         $cpuUsage = min(100.0, max(0.0, round(($l1 / (float) max(1, $cores)) * 100, 2)));
 
         // Memory Usage
         $memTotal = (float) ($resData['memory']['total'] ?? 0);
-        $memUsed = (float) ($resData['memory']['used'] ?? 0);
+        $memUsed  = (float) ($resData['memory']['used']  ?? 0);
         $memUsage = $memTotal > 0 ? round(($memUsed / $memTotal) * 100, 2) : 0.0;
 
-        // Disk Usage
-        $diskUsage = !empty($diskData['devices'][0]['used_pct']) ? (float) $diskData['devices'][0]['used_pct'] : 0.0;
+        // Swap Usage — OPNsense systemResources only has swap keys when swap is configured.
+        // If no swap partition exists, swap_total will be absent and usage is 0%.
+        $swapTotal = (float) ($resData['memory']['swap_total'] ?? $resData['memory']['swap-total'] ?? 0);
+        $swapUsed  = (float) ($resData['memory']['swap_used']  ?? $resData['memory']['swap-used']  ?? 0);
+        $swapUsage = $swapTotal > 0 ? round(($swapUsed / $swapTotal) * 100, 2) : 0.0;
+
+        // Disk Usage — OPNsense on ZFS reports used_pct=0 for all ZFS datasets.
+        // Instead calculate from the root mountpoint's 'used' and 'blocks' text fields.
+        // Find the device mounted at '/' first.
+        $diskUsage = 0.0;
+        $devices = $diskData['devices'] ?? [];
+        // Prefer the root mountpoint; fallback to first device
+        $rootDevice = null;
+        foreach ($devices as $dev) {
+            if (($dev['mountpoint'] ?? '') === '/') {
+                $rootDevice = $dev;
+                break;
+            }
+        }
+        if (!$rootDevice && !empty($devices)) {
+            $rootDevice = $devices[0];
+        }
+        if ($rootDevice) {
+            $pct = (float) ($rootDevice['used_pct'] ?? 0);
+            if ($pct > 0) {
+                $diskUsage = $pct;
+            } else {
+                // Parse text values like "2.1G" / "441G"
+                $parseSize = function (string $s): float {
+                    $s = strtoupper(trim($s));
+                    $num = (float) $s;
+                    if (str_contains($s, 'T')) return $num * 1024 * 1024 * 1024 * 1024;
+                    if (str_contains($s, 'G')) return $num * 1024 * 1024 * 1024;
+                    if (str_contains($s, 'M')) return $num * 1024 * 1024;
+                    if (str_contains($s, 'K')) return $num * 1024;
+                    return $num;
+                };
+                $usedStr   = (string) ($rootDevice['used']   ?? '0');
+                $blocksStr = (string) ($rootDevice['blocks'] ?? '0');
+                $usedBytes   = $parseSize($usedStr);
+                $blocksBytes = $parseSize($blocksStr);
+                $diskUsage = $blocksBytes > 0 ? round(($usedBytes / $blocksBytes) * 100, 2) : 0.0;
+            }
+        }
+
 
         // Gateways
         $gateways = [];
@@ -237,18 +358,18 @@ class OpnSenseApiService
             if ($lossNum === '') $lossNum = '0';
 
             $gateways[] = [
-                'id' => $item['name'] ?? '',
-                'name' => $item['name'] ?? 'GW',
+                'id'        => $item['name'] ?? '',
+                'name'      => $item['name'] ?? 'GW',
                 'interface' => $item['interface'] ?? 'WAN',
-                'address' => $addr,
-                'gateway' => $addr,
+                'address'   => $addr,
+                'gateway'   => $addr,
                 'monitorip' => $addr,
-                'srcip' => $addr,
-                'status' => strtolower($item['status_translated'] ?? ($item['status'] === 'none' ? 'Online' : 'Offline')),
-                'loss' => $lossNum,
-                'delay' => $item['delay'] === '~' ? '0.0ms' : ($item['delay'] ?? '0.0ms'),
-                'stddev' => $item['stddev'] === '~' ? '0.0ms' : ($item['stddev'] ?? '0.0ms'),
-                'descr' => $item['descr'] ?? ($item['name'] ?? 'Gateway'),
+                'srcip'     => $addr,
+                'status'    => strtolower($item['status_translated'] ?? ($item['status'] === 'none' ? 'Online' : 'Offline')),
+                'loss'      => $lossNum,
+                'delay'     => $item['delay'] === '~' ? '0.0ms' : ($item['delay'] ?? '0.0ms'),
+                'stddev'    => $item['stddev'] === '~' ? '0.0ms' : ($item['stddev'] ?? '0.0ms'),
+                'descr'     => $item['descr'] ?? ($item['name'] ?? 'Gateway'),
             ];
         }
 
@@ -269,19 +390,19 @@ class OpnSenseApiService
             $ip = $row['ipv4'][0]['ipaddr'] ?? ($row['ipv6'][0]['ipaddr'] ?? 'N/A');
 
             $formattedIfaces[$dev] = [
-                'id' => strtolower($row['identifier'] ?? $desc),
-                'if' => $dev,
-                'name' => $desc,
-                'descr' => $desc,
-                'device' => $dev,
-                'status' => $row['status'] ?? 'up',
-                'ipaddr' => $ip,
-                'inbytes' => (int) ($s['received-bytes'] ?? 0),
-                'outbytes' => (int) ($s['sent-bytes'] ?? 0),
-                'in_rate_bps' => 0,
+                'id'           => strtolower($row['identifier'] ?? $desc),
+                'if'           => $dev,
+                'name'         => $desc,
+                'descr'        => $desc,
+                'device'       => $dev,
+                'status'       => $row['status'] ?? 'up',
+                'ipaddr'       => $ip,
+                'inbytes'      => (int) ($s['received-bytes'] ?? 0),
+                'outbytes'     => (int) ($s['sent-bytes'] ?? 0),
+                'in_rate_bps'  => 0,
                 'out_rate_bps' => 0,
-                'media' => $row['media'] ?? 'VirtIO',
-                'speed' => $row['speed'] ?? '10 Gbps',
+                'media'        => $row['media'] ?? 'VirtIO',
+                'speed'        => $row['speed'] ?? '10 Gbps',
             ];
         }
 
@@ -289,26 +410,38 @@ class OpnSenseApiService
 
         return [
             'status' => 200,
-            'data' => [
-                'hostname' => $staticInfo['hostname'] ?? $this->firewall->name,
-                'product_version' => $productVersion,
-                'os_version' => $staticInfo['os_version'] ?? 'FreeBSD',
-                'api_version' => $staticInfo['api_version'] ?? 'OPNsense Core',
-                'uptime' => $timeData['uptime'] ?? 'N/A',
-                'load_average' => explode(',', $timeData['loadavg'] ?? '0, 0, 0'),
-                'cpu_load_avg' => array_map('trim', explode(',', $timeData['loadavg'] ?? '0, 0, 0')),
-                'cpu_usage' => $cpuUsage,
-                'mem_usage' => $memUsage,
-                'disk_usage' => $diskUsage,
-                'swap_usage' => 0.0,
-                'update_available' => (bool) ($staticInfo['update_available'] ?? false),
-                'gateways' => $gateways,
-                'interfaces' => $formattedIfaces,
+            'data'   => [
+                'hostname'                  => $staticInfo['hostname'] ?? $this->firewall->name,
+                'product_version'           => $productVersion,
+                'version'                   => $productVersion,
+                'os_version'                => $staticInfo['os_version'] ?? 'FreeBSD',
+                'api_version'               => $staticInfo['api_version'] ?? 'OPNsense Core',
+                'platform'                  => $staticInfo['platform'] ?? null,
+                'bios_vendor'               => null,
+                'bios_version'              => null,
+                'bios_date'                 => null,
+                'cpu_model'                 => $staticInfo['cpu_model'] ?? null,
+                'cpu_count'                 => $staticInfo['cpu_count'] ?? $cores,
+                'uptime'                    => $timeData['uptime'] ?? 'N/A',
+                'load_average'              => explode(',', $timeData['loadavg'] ?? '0, 0, 0'),
+                'cpu_load_avg'              => array_map('trim', explode(',', $timeData['loadavg'] ?? '0, 0, 0')),
+                'cpu_usage'                 => $cpuUsage,
+                'mem_usage'                 => $memUsage,
+                'swap_usage'                => $swapUsage,
+                'disk_usage'                => $diskUsage,
+                'update_available'          => (bool) ($staticInfo['update_available'] ?? false),
+                // Slow fields from static cache (refreshed once per day)
+                'dns_servers'               => $staticInfo['dns_servers'] ?? [],
+                'installed_packages_count'  => $staticInfo['installed_packages_count'] ?? 'N/A',
+                'gateways'                  => $gateways,
+                'interfaces'                => $formattedIfaces,
             ],
             'product_version' => $productVersion,
-            'api_version' => 'OPNsense Core',
+            'api_version'     => 'OPNsense Core',
         ];
     }
+
+
 
     public function refreshSystemStatus(): array
     {
@@ -359,6 +492,9 @@ class OpnSenseApiService
 
         return $data;
     }
+
+
+
 
     public function getSystemInformation(): array
     {
@@ -423,17 +559,33 @@ class OpnSenseApiService
 
     public function getConfigHistory(): array
     {
-        // OPNsense config history is available in backup history
-        return [
-            'data' => [
-                [
-                    'time' => time(),
-                    'date' => date('r'),
-                    'description' => 'Current running configuration',
-                ],
-            ],
-        ];
+        try {
+            $backups = $this->get('/api/core/backup/backups');
+            $entries = is_array($backups) ? $backups : [];
+
+            if (empty($entries)) {
+                return ['data' => []];
+            }
+
+            // Sort descending by time (newest first) and normalise to the shared shape:
+            // ['time' => unix_ts, 'date' => human_date, 'description' => string]
+            usort($entries, fn($a, $b) => ($b['time'] ?? 0) <=> ($a['time'] ?? 0));
+
+            $normalised = array_map(function ($entry) {
+                $ts = isset($entry['time']) ? (int) $entry['time'] : null;
+                return [
+                    'time'        => $ts,
+                    'date'        => $ts ? date('r', $ts) : ($entry['date'] ?? ''),
+                    'description' => $entry['description'] ?? $entry['reason'] ?? '',
+                ];
+            }, $entries);
+
+            return ['data' => $normalised];
+        } catch (\Exception $e) {
+            return ['data' => []];
+        }
     }
+
 
     // ─────────────────────────────────────────────────────────────────────────
     // Gateways & Routing
