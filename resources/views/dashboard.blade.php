@@ -74,7 +74,7 @@
                 <div class="p-6 text-gray-900 dark:text-gray-100" x-data='dashboard({{ $firewallsWithStatus->map(fn($f) => [
     "id" => $f->id,
     "staticInfo" => strtolower($f->name . " " . $f->company->name . " " . $f->url . " " . $f->hostname),
-    "online" => isset($f->cached_status["online"]) ? $f->cached_status["online"] : false,
+    "online" => $f->cached_status !== null ? (($f->cached_status["online"] ?? true) !== false) : null,
     "companyName" => $f->company->name
 ])->values()->toJson() }})'>
                     <!-- Widgets Grid -->
@@ -1217,19 +1217,50 @@
                 // matching the same pattern as the individual firewall cards.
                 offlineCount: {{ $offlineFirewalls }},
                 showOnlineBadge: {{ $firewallsWithStatus->filter(fn($f) => $f->cached_status !== null)->count() > 0 ? 'true' : 'false' }},
+                deviceStatusMap: {},
                 // customerFilter and statusFilter come from filterableMixin (initialized from URL params)
+
+                recalculateOfflineCount() {
+                    this.offlineCount = Object.values(this.deviceStatusMap).filter(status => status === false).length;
+                },
 
                 init() {
                     // Initialize filterable functionality
                     this.initFilterable();
+
+                    // Seed status map from initial firewalls
+                    if (Array.isArray(initialFirewalls)) {
+                        initialFirewalls.forEach(f => {
+                            if (f && f.id !== undefined) {
+                                this.deviceStatusMap[f.id] = f.online;
+                            }
+                        });
+                    }
 
                     // Fallback: if no cache data was available at render time, reveal after 2.5s
                     // so the widget doesn't stay as a skeleton forever on a cold start.
                     if (!this.showOnlineBadge) {
                         setTimeout(() => this.showOnlineBadge = true, 2500);
                     }
-                    window.addEventListener('device-offline', () => this.offlineCount++);
-                    window.addEventListener('device-online', () => this.offlineCount = Math.max(0, this.offlineCount - 1));
+
+                    window.addEventListener('device-offline', (e) => {
+                        if (e.detail?.id) {
+                            this.deviceStatusMap[e.detail.id] = false;
+                            this.recalculateOfflineCount();
+                        }
+                    });
+                    window.addEventListener('device-online', (e) => {
+                        if (e.detail?.id) {
+                            this.deviceStatusMap[e.detail.id] = true;
+                            this.recalculateOfflineCount();
+                        }
+                    });
+                    window.addEventListener('device-updated', (e) => {
+                        if (e.detail?.id && typeof e.detail.online === 'boolean') {
+                            this.deviceStatusMap[e.detail.id] = e.detail.online;
+                            this.recalculateOfflineCount();
+                        }
+                    });
                 }
             }));
             Alpine.data('firewallCard', (initialStatus, staticInfo, checkUrl, firewallId, companyName) => ({
@@ -1239,7 +1270,7 @@
                 loading: !initialStatus || (initialStatus && !initialStatus.online),
 
                 online: initialStatus ? (initialStatus.online === true || initialStatus.online === 'true' || initialStatus.online === 1) : null,
-                reportedOffline: false,
+                reportedOffline: initialStatus ? (initialStatus.online === false || initialStatus.online === 'false' || initialStatus.online === 0) : false,
                 status: initialStatus,
                 error: null,
                 staticInfo: staticInfo,
@@ -1418,15 +1449,15 @@
                 init() {
                     // Apply cached status with source tag — no pfSense API call.
                     if (this.status) {
-                        this.status._source = 'cache';
-                        this.updateFromStatus(this.status);
-
                         // PHP already seeds offlineCount from this same cached data.
                         // Pre-mark as reported so the card doesn't fire device-offline
                         // again during init, which would double the count.
                         if (!this.online) {
                             this.reportedOffline = true;
                         }
+
+                        this.status._source = 'cache';
+                        this.updateFromStatus(this.status);
                     }
 
                     // If starting in skeleton state (no cache, or cached-offline),

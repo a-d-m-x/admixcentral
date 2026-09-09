@@ -3583,6 +3583,21 @@ class OpnSenseApiService
         return ['status' => 200, 'data' => []];
     }
 
+    public function createRoutingGatewayGroup(array $data): array
+    {
+        throw new \BadMethodCallException('Gateway groups are not supported via API on OPNsense. Please configure Gateway Groups directly in the OPNsense Web GUI.');
+    }
+
+    public function updateRoutingGatewayGroup(array $data): array
+    {
+        throw new \BadMethodCallException('Gateway groups are not supported via API on OPNsense. Please configure Gateway Groups directly in the OPNsense Web GUI.');
+    }
+
+    public function deleteRoutingGatewayGroup(string $id): array
+    {
+        throw new \BadMethodCallException('Gateway groups are not supported via API on OPNsense. Please configure Gateway Groups directly in the OPNsense Web GUI.');
+    }
+
     /**
      * Get Certificate Authorities
      */
