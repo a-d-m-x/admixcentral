@@ -758,6 +758,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/gateways', [App\Http\Controllers\StatusController::class, 'gateways'])->name('gateways');
         Route::get('/interfaces', [App\Http\Controllers\StatusController::class, 'interfaces'])->name('interfaces.index');
         Route::get('/ipsec', [App\Http\Controllers\StatusController::class, 'ipsec'])->name('ipsec');
+        Route::post('/ipsec/disconnect', [App\Http\Controllers\StatusController::class, 'disconnectIpsec'])->middleware('deny.readonly')->name('ipsec.disconnect');
+        Route::post('/ipsec/connect', [App\Http\Controllers\StatusController::class, 'connectIpsec'])->middleware('deny.readonly')->name('ipsec.connect');
+        Route::post('/ipsec/sad/delete', [App\Http\Controllers\StatusController::class, 'destroyIpsecSad'])->middleware('deny.readonly')->name('ipsec.sad.destroy');
         Route::get('/monitoring', [App\Http\Controllers\StatusController::class, 'monitoring'])->name('monitoring');
         Route::get('/ntp', [App\Http\Controllers\StatusController::class, 'ntp'])->name('ntp');
         Route::get('/openvpn', [App\Http\Controllers\StatusController::class, 'openvpn'])->name('openvpn');

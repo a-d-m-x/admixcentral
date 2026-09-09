@@ -1588,6 +1588,146 @@ class PfSenseApiService
     }
 
     /**
+     * Get IPsec SADs (Security Association Database)
+     */
+    public function getIpsecSads()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIpsecSads();
+        }
+        try {
+            $cmd = 'php -r "require_once(\'ipsec.inc\'); echo json_encode(ipsec_dump_sad());"';
+            $res = $this->diagnosticsCommandPrompt($cmd);
+            $raw = $res['data']['output'] ?? '[]';
+            $data = json_decode($raw, true) ?: [];
+            return ['status' => 200, 'data' => $data];
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to fetch pfSense IPsec SADs: " . $e->getMessage());
+            return ['status' => 200, 'data' => []];
+        }
+    }
+
+    /**
+     * Get IPsec SPDs (Security Policy Database)
+     */
+    public function getIpsecSpds()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIpsecSpds();
+        }
+        try {
+            $cmd = 'php -r "require_once(\'ipsec.inc\'); echo json_encode(ipsec_dump_spd());"';
+            $res = $this->diagnosticsCommandPrompt($cmd);
+            $raw = $res['data']['output'] ?? '[]';
+            $data = json_decode($raw, true) ?: [];
+            return ['status' => 200, 'data' => $data];
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to fetch pfSense IPsec SPDs: " . $e->getMessage());
+            return ['status' => 200, 'data' => []];
+        }
+    }
+
+    /**
+     * Get IPsec Mobile Client Leases and Pools
+     */
+    public function getIpsecLeases()
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->getIpsecLeases();
+        }
+        try {
+            $cmd = 'php -r "require_once(\'ipsec.inc\'); echo json_encode(ipsec_dump_mobile());"';
+            $res = $this->diagnosticsCommandPrompt($cmd);
+            $raw = $res['data']['output'] ?? '[]';
+            $data = json_decode($raw, true) ?: [];
+            return ['status' => 200, 'data' => $data];
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("Failed to fetch pfSense IPsec Leases: " . $e->getMessage());
+            return ['status' => 200, 'data' => []];
+        }
+    }
+
+    /**
+     * Disconnect IPsec Phase 1
+     */
+    public function disconnectIpsecP1($conid = null, $uniqueid = null)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->disconnectIpsecP1($conid, $uniqueid);
+        }
+        $cmd = sprintf(
+            'php -r "require_once(\'ipsec.inc\'); ipsec_terminate_by_conid(\'ike\', %s, %s);"',
+            $conid !== null ? var_export((string) $conid, true) : 'null',
+            $uniqueid !== null ? var_export((string) $uniqueid, true) : 'null'
+        );
+        return $this->diagnosticsCommandPrompt($cmd);
+    }
+
+    /**
+     * Disconnect IPsec Phase 2
+     */
+    public function disconnectIpsecP2($name = null, $uniqueid = null)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->disconnectIpsecP2($name, $uniqueid);
+        }
+        $cmd = sprintf(
+            'php -r "require_once(\'ipsec.inc\'); ipsec_terminate_by_conid(\'child\', %s, %s);"',
+            $name !== null ? var_export((string) $name, true) : 'null',
+            $uniqueid !== null ? var_export((string) $uniqueid, true) : 'null'
+        );
+        return $this->diagnosticsCommandPrompt($cmd);
+    }
+
+    /**
+     * Connect IPsec Phase 1
+     */
+    public function connectIpsecP1($conid)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->connectIpsecP1($conid);
+        }
+        $cmd = sprintf(
+            'php -r "require_once(\'ipsec.inc\'); ipsec_initiate_by_conid(\'all\', %s);"',
+            var_export((string) $conid, true)
+        );
+        return $this->diagnosticsCommandPrompt($cmd);
+    }
+
+    /**
+     * Connect IPsec Phase 2
+     */
+    public function connectIpsecP2($name)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->connectIpsecP2($name);
+        }
+        $cmd = sprintf(
+            'php -r "require_once(\'ipsec.inc\'); ipsec_initiate_by_conid(\'child\', %s);"',
+            var_export((string) $name, true)
+        );
+        return $this->diagnosticsCommandPrompt($cmd);
+    }
+
+    /**
+     * Delete IPsec SAD entry
+     */
+    public function deleteIpsecSad($src, $dst, $proto, $spi)
+    {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteIpsecSad($src, $dst, $proto, $spi);
+        }
+        $cmd = sprintf(
+            'php -r \'$fd = @popen("/sbin/setkey -c > /dev/null 2>&1", "w"); if ($fd) { fwrite($fd, "delete %s %s %s %s ;\n"); pclose($fd); }\'',
+            addslashes($src),
+            addslashes($dst),
+            addslashes($proto),
+            addslashes(str_starts_with($spi, '0x') ? $spi : '0x' . $spi)
+        );
+        return $this->diagnosticsCommandPrompt($cmd);
+    }
+
+    /**
      * Get OpenVPN Server Status
      */
     public function getOpenVpnServerStatus()
