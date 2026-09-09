@@ -128,6 +128,8 @@ class FirewallRuleController extends Controller
 
         // Add tracker to data if not present (though API usually needs index)
         $data['tracker'] = $tracker;
+        $data['id'] = $tracker;
+        $data['uuid'] = $tracker;
 
         try {
             $api = new PfSenseApiService($firewall);
@@ -358,11 +360,14 @@ class FirewallRuleController extends Controller
 
     protected function prepareRuleData(Request $request)
     {
+        $interface = strtolower(trim((string)$request->input('interface', 'wan')));
+
         $data = [
             'type' => $request->input('type'),
-            'interface' => $request->input('interface'),
+            'interface' => $interface,
             'ipprotocol' => $request->input('ipprotocol'),
             'protocol' => $request->input('protocol'),
+            'icmptype' => $request->input('icmptype'),
             'descr' => $request->input('descr'),
             'disabled' => $request->has('disabled'),
             'log' => $request->has('log'),

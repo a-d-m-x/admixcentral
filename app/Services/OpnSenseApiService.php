@@ -688,6 +688,16 @@ class OpnSenseApiService
                 continue;
             }
 
+            $sourceNet = $row['source_net'] ?? 'any';
+            if (!empty($row['source_not']) && $sourceNet !== 'any' && $sourceNet !== '') {
+                $sourceNet = '!' . $sourceNet;
+            }
+
+            $destNet = $row['destination_net'] ?? 'any';
+            if (!empty($row['destination_not']) && $destNet !== 'any' && $destNet !== '') {
+                $destNet = '!' . $destNet;
+            }
+
             $rules[] = [
                 'id' => $row['uuid'] ?? '',
                 'tracker' => $row['uuid'] ?? ($row['#priority'] ?? 0),
@@ -695,10 +705,17 @@ class OpnSenseApiService
                 'ipprotocol' => $row['ipprotocol'] ?? 'inet',
                 'protocol' => $row['protocol'] ?? 'any',
                 'type' => $row['action'] ?? 'pass',
-                'source' => $row['source_net'] ?? 'any',
-                'destination' => $row['destination_net'] ?? 'any',
+                'source' => $sourceNet ?: 'any',
+                'source_port' => !empty($row['source_port']) ? $row['source_port'] : null,
+                'destination' => $destNet ?: 'any',
+                'destination_port' => !empty($row['destination_port']) ? $row['destination_port'] : null,
+                'gateway' => !empty($row['gateway']) ? $row['gateway'] : null,
                 'descr' => $row['description'] ?? '',
                 'disabled' => empty($row['enabled']) || $row['enabled'] === '0',
+                'log' => !empty($row['log']),
+                'statetype' => $row['statetype'] ?? 'keep',
+                'icmptype' => $row['icmptype'] ?? '',
+                'sched' => $row['sched'] ?? '',
                 'is_automatic' => !empty($row['is_automatic']),
             ];
         }
@@ -721,6 +738,16 @@ class OpnSenseApiService
         $item = $this->get("/api/firewall/filter/getRule/{$id}");
         $rule = $item['rule'] ?? [];
 
+        $sourceNet = $rule['source_net'] ?? 'any';
+        if (!empty($rule['source_not']) && $sourceNet !== 'any' && $sourceNet !== '') {
+            $sourceNet = '!' . $sourceNet;
+        }
+
+        $destNet = $rule['destination_net'] ?? 'any';
+        if (!empty($rule['destination_not']) && $destNet !== 'any' && $destNet !== '') {
+            $destNet = '!' . $destNet;
+        }
+
         return [
             'status' => 200,
             'data' => [
@@ -730,45 +757,152 @@ class OpnSenseApiService
                 'ipprotocol' => $rule['ipprotocol'] ?? 'inet',
                 'protocol' => $rule['protocol'] ?? 'any',
                 'type' => $rule['action'] ?? 'pass',
-                'source' => $rule['source_net'] ?? 'any',
-                'destination' => $rule['destination_net'] ?? 'any',
+                'source' => $sourceNet ?: 'any',
+                'source_port' => !empty($rule['source_port']) ? $rule['source_port'] : null,
+                'destination' => $destNet ?: 'any',
+                'destination_port' => !empty($rule['destination_port']) ? $rule['destination_port'] : null,
+                'gateway' => !empty($rule['gateway']) ? $rule['gateway'] : null,
                 'descr' => $rule['description'] ?? '',
                 'disabled' => empty($rule['enabled']) || $rule['enabled'] === '0',
+                'log' => !empty($rule['log']),
+                'statetype' => $rule['statetype'] ?? 'keep',
+                'icmptype' => $rule['icmptype'] ?? '',
+                'sched' => $rule['sched'] ?? '',
             ],
         ];
     }
 
-    public function createFirewallRule(array $data): array
+    /**
+     * Build the OPNsense filter rule payload from generic rule data.
+     */
+    protected function buildOpnSenseRulePayload(array $data): array
     {
+        // 1. Interface
         $iface = $data['interface'] ?? 'lan';
         if (is_array($iface)) {
             $iface = $iface[0] ?? 'lan';
         }
-
-        $source = $data['source'] ?? 'any';
-        if (is_array($source)) {
-            $source = $source['network'] ?? ($source['any'] ? 'any' : 'any');
+        $iface = strtolower(trim((string)$iface));
+        if ($iface === 'floating' || $iface === 'any') {
+            $iface = '';
         }
 
-        $dest = $data['destination'] ?? 'any';
-        if (is_array($dest)) {
-            $dest = $dest['network'] ?? ($dest['any'] ? 'any' : 'any');
+        // 2. Source parsing
+        $srcRaw = $data['src'] ?? ($data['source'] ?? 'any');
+        if (is_array($srcRaw)) {
+            $srcRaw = $srcRaw['network'] ?? ($srcRaw['address'] ?? ($srcRaw['any'] ? 'any' : 'any'));
+        }
+        $srcRaw = trim((string)$srcRaw);
+        $sourceNot = !empty($data['source_not']) || !empty($data['source_invert']) || str_starts_with($srcRaw, '!');
+        if (str_starts_with($srcRaw, '!')) {
+            $srcRaw = substr($srcRaw, 1);
+        }
+        if (str_ends_with($srcRaw, ':ip')) {
+            $srcRaw = str_replace(':ip', 'ip', $srcRaw);
+        }
+        if ($srcRaw === '') {
+            $srcRaw = 'any';
         }
 
-        $payload = [
-            'rule' => [
-                'enabled' => empty($data['disabled']) ? '1' : '0',
-                'action' => $data['type'] ?? ($data['action'] ?? 'pass'),
-                'interface' => $iface,
-                'ipprotocol' => $data['ipprotocol'] ?? 'inet',
-                'protocol' => $data['protocol'] ?? 'any',
-                'description' => $data['descr'] ?? ($data['description'] ?? ''),
-                'source_net' => $source,
-                'destination_net' => $dest,
-            ],
+        // 3. Destination parsing
+        $dstRaw = $data['dst'] ?? ($data['destination'] ?? 'any');
+        if (is_array($dstRaw)) {
+            $dstRaw = $dstRaw['network'] ?? ($dstRaw['address'] ?? ($dstRaw['any'] ? 'any' : 'any'));
+        }
+        $dstRaw = trim((string)$dstRaw);
+        $destNot = !empty($data['destination_not']) || !empty($data['destination_invert']) || str_starts_with($dstRaw, '!');
+        if (str_starts_with($dstRaw, '!')) {
+            $dstRaw = substr($dstRaw, 1);
+        }
+        if (str_ends_with($dstRaw, ':ip')) {
+            $dstRaw = str_replace(':ip', 'ip', $dstRaw);
+        }
+        if ($dstRaw === '') {
+            $dstRaw = 'any';
+        }
+
+        // 4. Ports: convert range separator ':' to '-'
+        $srcPort = $data['srcport'] ?? ($data['source_port'] ?? ($data['source_port_from'] ?? ''));
+        if (!empty($data['source_port_to']) && $data['source_port_to'] !== $srcPort) {
+            $srcPort = $srcPort . '-' . $data['source_port_to'];
+        }
+        $srcPort = str_replace(':', '-', trim((string)$srcPort));
+
+        $dstPort = $data['dstport'] ?? ($data['destination_port'] ?? ($data['destination_port_from'] ?? ''));
+        if (!empty($data['destination_port_to']) && $data['destination_port_to'] !== $dstPort) {
+            $dstPort = $dstPort . '-' . $data['destination_port_to'];
+        }
+        $dstPort = str_replace(':', '-', trim((string)$dstPort));
+
+        // 5. Statetype: OPNsense expects keep, sloppy, modulate, synproxy, none
+        $stateType = $data['statetype'] ?? '';
+        if ($stateType === 'keep state') {
+            $stateType = 'keep';
+        }
+
+        // 6. Action / Type
+        $action = $data['type'] ?? ($data['action'] ?? 'pass');
+
+        // 7. Protocol
+        $protocol = strtolower(trim((string)($data['protocol'] ?? 'any')));
+
+        $rule = [
+            'enabled' => empty($data['disabled']) ? '1' : '0',
+            'action' => $action,
+            'interface' => $iface,
+            'ipprotocol' => $data['ipprotocol'] ?? 'inet',
+            'protocol' => $protocol,
+            'description' => $data['descr'] ?? ($data['description'] ?? ''),
+            'source_net' => $srcRaw,
+            'source_not' => $sourceNot ? '1' : '0',
+            'destination_net' => $dstRaw,
+            'destination_not' => $destNot ? '1' : '0',
         ];
 
+        if ($srcPort !== '') {
+            $rule['source_port'] = $srcPort;
+        }
+        if ($dstPort !== '') {
+            $rule['destination_port'] = $dstPort;
+        }
+        if (!empty($data['gateway'])) {
+            $rule['gateway'] = $data['gateway'];
+        }
+        if (isset($data['log'])) {
+            $rule['log'] = !empty($data['log']) ? '1' : '0';
+        }
+        if (!empty($stateType)) {
+            $rule['statetype'] = $stateType;
+        }
+        if (!empty($data['icmptype'])) {
+            $rule['icmptype'] = $data['icmptype'];
+        }
+        if (!empty($data['sched'])) {
+            $rule['sched'] = $data['sched'];
+        }
+
+        return ['rule' => $rule];
+    }
+
+    /**
+     * Check OPNsense result and throw exception if result is failed.
+     */
+    protected function checkOpnSenseResult(array $res, string $defaultMessage = 'Operation failed'): void
+    {
+        if (($res['result'] ?? '') === 'failed' || !empty($res['validations'])) {
+            $errors = !empty($res['validations'])
+                ? implode(', ', array_map(fn($k, $v) => is_array($v) ? implode(', ', $v) : "$k: $v", array_keys($res['validations']), $res['validations']))
+                : ($res['message'] ?? $defaultMessage);
+            throw new \Exception("OPNsense rule error: {$errors}");
+        }
+    }
+
+    public function createFirewallRule(array $data): array
+    {
+        $payload = $this->buildOpnSenseRulePayload($data);
         $res = $this->post('/api/firewall/filter/addRule', $payload);
+        $this->checkOpnSenseResult($res, 'Failed to add firewall rule in OPNsense');
+
         $this->applyFirewallRules();
         return [
             'status' => 200,
@@ -788,35 +922,10 @@ class OpnSenseApiService
             }
         }
 
-        $iface = $data['interface'] ?? 'lan';
-        if (is_array($iface)) {
-            $iface = $iface[0] ?? 'lan';
-        }
-
-        $source = $data['source'] ?? 'any';
-        if (is_array($source)) {
-            $source = $source['network'] ?? ($source['any'] ? 'any' : 'any');
-        }
-
-        $dest = $data['destination'] ?? 'any';
-        if (is_array($dest)) {
-            $dest = $dest['network'] ?? ($dest['any'] ? 'any' : 'any');
-        }
-
-        $payload = [
-            'rule' => [
-                'enabled' => empty($data['disabled']) ? '1' : '0',
-                'action' => $data['type'] ?? ($data['action'] ?? 'pass'),
-                'interface' => $iface,
-                'ipprotocol' => $data['ipprotocol'] ?? 'inet',
-                'protocol' => $data['protocol'] ?? 'any',
-                'description' => $data['descr'] ?? ($data['description'] ?? ''),
-                'source_net' => $source,
-                'destination_net' => $dest,
-            ],
-        ];
-
+        $payload = $this->buildOpnSenseRulePayload($data);
         $res = $this->post("/api/firewall/filter/setRule/{$uuid}", $payload);
+        $this->checkOpnSenseResult($res, 'Failed to update firewall rule in OPNsense');
+
         $this->applyFirewallRules();
         return [
             'status' => 200,
@@ -835,6 +944,8 @@ class OpnSenseApiService
         }
 
         $res = $this->post("/api/firewall/filter/delRule/{$id}");
+        $this->checkOpnSenseResult($res, 'Failed to delete firewall rule in OPNsense');
+
         $this->applyFirewallRules();
         return [
             'status' => 200,
