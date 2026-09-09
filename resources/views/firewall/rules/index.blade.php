@@ -98,7 +98,8 @@
                             if (addr.endsWith(':ip')) {
                                 return { type: addr, address: '', invert };
                             }
-                            const knownIfaces = @json(collect($interfaces)->pluck('id')->filter()->values());
+                            const ifaceEl = document.getElementById('rule-interface');
+                            const knownIfaces = ifaceEl ? Array.from(ifaceEl.options).map(o => o.value.toLowerCase()) : ['wan','lan','opt1','opt2','opt3','opt4','opt5','lo0','mgmt'];
                             if (knownIfaces.includes(addr.toLowerCase())) {
                                 return { type: addr.toLowerCase(), address: '', invert };
                             }
