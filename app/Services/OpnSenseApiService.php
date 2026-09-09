@@ -3598,6 +3598,26 @@ class OpnSenseApiService
         throw new \BadMethodCallException('Gateway groups are not supported via API on OPNsense. Please configure Gateway Groups directly in the OPNsense Web GUI.');
     }
 
+    public function getSchedules(): array
+    {
+        return ['status' => 200, 'data' => []];
+    }
+
+    public function createSchedule(array $data): array
+    {
+        throw new \BadMethodCallException('Firewall schedules are not supported via API on OPNsense. Please configure schedules directly in the OPNsense Web GUI.');
+    }
+
+    public function updateSchedule(int|string $id, array $data): array
+    {
+        throw new \BadMethodCallException('Firewall schedules are not supported via API on OPNsense. Please configure schedules directly in the OPNsense Web GUI.');
+    }
+
+    public function deleteSchedule(int|string $id): array
+    {
+        throw new \BadMethodCallException('Firewall schedules are not supported via API on OPNsense. Please configure schedules directly in the OPNsense Web GUI.');
+    }
+
     /**
      * Get Certificate Authorities
      */

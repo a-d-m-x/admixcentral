@@ -5,10 +5,19 @@ namespace App\Http\Controllers;
 use App\Models\Firewall;
 use App\Services\PfSenseApiService;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Log;
 
-class FirewallScheduleController extends Controller
+class FirewallScheduleController extends Controller implements HasMiddleware
 {
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('deny.readonly', only: ['create', 'store', 'edit', 'update', 'destroy']),
+        ];
+    }
+
     public function index(Firewall $firewall)
     {
         try {
@@ -25,11 +34,21 @@ class FirewallScheduleController extends Controller
 
     public function create(Firewall $firewall)
     {
+        if ($firewall->isOpnSense()) {
+            return redirect()->route('firewall.schedules.index', $firewall)
+                ->with('error', 'Firewall schedules are not supported via API on OPNsense. Please configure schedules directly in the OPNsense Web GUI.');
+        }
+
         return view('firewall.schedules.create', compact('firewall'));
     }
 
     public function store(Request $request, Firewall $firewall)
     {
+        if ($firewall->isOpnSense()) {
+            return redirect()->route('firewall.schedules.index', $firewall)
+                ->with('error', 'Firewall schedules are not supported via API on OPNsense. Please configure schedules directly in the OPNsense Web GUI.');
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255|regex:/^[a-zA-Z0-9_]+$/',
             'descr' => 'nullable|string',
@@ -66,6 +85,7 @@ class FirewallScheduleController extends Controller
         try {
             $api = new PfSenseApiService($firewall);
             $api->createSchedule($data);
+            $firewall->update(['is_dirty' => true]);
 
             return redirect()->route('firewall.schedules.index', $firewall)
                 ->with('success', 'Schedule created successfully.');
@@ -76,6 +96,11 @@ class FirewallScheduleController extends Controller
 
     public function edit(Firewall $firewall, string $id)
     {
+        if ($firewall->isOpnSense()) {
+            return redirect()->route('firewall.schedules.index', $firewall)
+                ->with('error', 'Firewall schedules are not supported via API on OPNsense. Please configure schedules directly in the OPNsense Web GUI.');
+        }
+
         try {
             $api = new PfSenseApiService($firewall);
             $response = $api->getSchedules();
@@ -94,6 +119,11 @@ class FirewallScheduleController extends Controller
 
     public function update(Request $request, Firewall $firewall, string $id)
     {
+        if ($firewall->isOpnSense()) {
+            return redirect()->route('firewall.schedules.index', $firewall)
+                ->with('error', 'Firewall schedules are not supported via API on OPNsense. Please configure schedules directly in the OPNsense Web GUI.');
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255|regex:/^[a-zA-Z0-9_]+$/',
             'descr' => 'nullable|string',
@@ -103,6 +133,7 @@ class FirewallScheduleController extends Controller
         try {
             $api = new PfSenseApiService($firewall);
             $api->updateSchedule((int) $id, $validated);
+            $firewall->update(['is_dirty' => true]);
 
             return redirect()->route('firewall.schedules.index', $firewall)
                 ->with('success', 'Schedule updated successfully.');
@@ -113,9 +144,15 @@ class FirewallScheduleController extends Controller
 
     public function destroy(Firewall $firewall, string $id)
     {
+        if ($firewall->isOpnSense()) {
+            return redirect()->route('firewall.schedules.index', $firewall)
+                ->with('error', 'Firewall schedules are not supported via API on OPNsense. Please configure schedules directly in the OPNsense Web GUI.');
+        }
+
         try {
             $api = new PfSenseApiService($firewall);
             $api->deleteSchedule((int) $id);
+            $firewall->update(['is_dirty' => true]);
 
             return back()->with('success', 'Schedule deleted successfully.');
         } catch (\Exception $e) {
