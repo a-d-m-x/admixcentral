@@ -2265,7 +2265,40 @@ class PfSenseApiService
         if ($this->isOpnSense && $this->opnSense) {
             return $this->opnSense->getWireGuardServiceShow();
         }
-        return ['status' => 200, 'data' => []];
+
+        // pfSense: run `wg show all dump` via diagnostics command prompt.
+        // Output is tab-separated, one line per peer:
+        //   interface  public-key  preshared-key  endpoint  allowed-ips  latest-handshake  transfer-rx  transfer-tx  persistent-keepalive
+        try {
+            $res    = $this->diagnosticsCommandPrompt('wg show all dump');
+            $output = trim($res['data']['output'] ?? '');
+            $rows   = [];
+
+            foreach (explode("\n", $output) as $line) {
+                $line = trim($line);
+                if ($line === '') continue;
+
+                $cols = preg_split('/\t/', $line);
+                // Interface header line has 9 cols starting with the interface name
+                // and a "(none)" public key — skip it.
+                if (!isset($cols[1]) || $cols[1] === '(none)') continue;
+
+                // Peer rows: interface, public-key, psk, endpoint, allowed-ips, latest-handshake, rx, tx, keepalive
+                $rows[] = [
+                    'if'               => $cols[0] ?? '',
+                    'public-key'       => $cols[1] ?? '',
+                    'endpoint'         => $cols[3] ?? '',
+                    'latest-handshake' => $cols[5] ?? '0',
+                    'transfer-rx'      => $this->formatBytes((int) ($cols[6] ?? 0)),
+                    'transfer-tx'      => $this->formatBytes((int) ($cols[7] ?? 0)),
+                ];
+            }
+
+            return ['status' => 200, 'data' => $rows];
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('pfSense WireGuard show failed: ' . $e->getMessage());
+            return ['status' => 200, 'data' => []];
+        }
     }
 
     public function serviceWireGuardAction(string $action): array
@@ -3710,6 +3743,19 @@ class PfSenseApiService
             return $this->opnSense->toggleIdsUserRule($uuid);
         }
         return ['result' => 'ok'];
+    }
+
+    /**
+     * Format a byte count into a human-readable string (e.g. "1.23 GiB").
+     * Used by getWireGuardServiceShow() to normalise wg show dump output.
+     */
+    private function formatBytes(int $bytes): string
+    {
+        if ($bytes <= 0) return '0 B';
+        $units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+        $i = (int) floor(log($bytes, 1024));
+        $i = min($i, count($units) - 1);
+        return round($bytes / (1024 ** $i), 2) . ' ' . $units[$i];
     }
 }
 

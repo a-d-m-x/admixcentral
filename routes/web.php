@@ -129,6 +129,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware(App\Http\Middleware\EnsureTenantScope::class)
         ->name('firewall.check-status');
 
+    Route::get('/firewall/{firewall}/vpn-summary', [App\Http\Controllers\FirewallVpnSummaryController::class, 'summary'])
+        ->middleware(App\Http\Middleware\EnsureTenantScope::class)
+        ->name('firewall.vpn-summary');
+
     // Bulk Firewall Actions — restricted to admin/user (not readonly)
     Route::post('/firewalls/bulk/action', [App\Http\Controllers\FirewallBulkController::class, 'handle'])
         ->middleware([App\Http\Middleware\CheckRole::class . ':admin,user', 'deny.readonly'])

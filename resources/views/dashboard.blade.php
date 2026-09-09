@@ -484,22 +484,26 @@
                                                 alt="{{ $firewall->os_display_name }}"
                                                 title="{{ $firewall->os_display_name }}"
                                                 class="w-4 h-4 shrink-0 rounded"
+                                                width="16" height="16"
                                                 loading="lazy"
                                             >
                                             @if(auth()->user()->role === 'admin')
                                                 <a href="{{ route('companies.show', $firewall->company) }}"
                                                    class="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 truncate shrink hidden md:block max-w-[110px]">{{ $firewall->company->name }}</a>
                                             @endif
-                                            {{-- Uptime / Offline badge — fixed min-width to prevent reflow --}}
-                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-mono text-[10px] font-medium shrink-0 hidden sm:inline-flex min-w-[56px]"
-                                                  :class="(!loading && online) ? 'opacity-100' : 'opacity-0'"
-                                                  x-text="(!loading && online) ? formatUptime(status?.data?.uptime || status?.data?.uptime_text || status?.data?.uptime_string) : ''"></span>
-                                            <span class="text-[10px] text-red-400 font-medium shrink-0 min-w-[40px]"
-                                                  :class="(!loading && !online) ? 'opacity-100' : 'opacity-0'">Offline</span>
+                                            {{-- Uptime / Offline badge — overlaid in same space to prevent layout shift --}}
+                                            <div class="relative hidden sm:inline-flex items-center shrink-0 min-w-[56px] h-[18px]">
+                                                <span class="absolute inset-0 inline-flex items-center justify-center px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-mono text-[10px] font-medium transition-opacity"
+                                                      :class="(!loading && online) ? 'opacity-100' : 'opacity-0'"
+                                                      x-text="(!loading && online) ? formatUptime(status?.data?.uptime || status?.data?.uptime_text || status?.data?.uptime_string) : ''"></span>
+                                                <span class="absolute inset-0 inline-flex items-center justify-center px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[10px] font-semibold transition-opacity"
+                                                      :class="(!loading && !online) ? 'opacity-100' : 'opacity-0'">Offline</span>
+                                            </div>
                                         </div>
 
-                                        {{-- ── Gateways + Storage + Temp (lg+) — always in DOM, never collapses ── --}}
-                                        <div class="hidden lg:flex items-center gap-x-3 shrink-0">
+                                        {{-- ── Gateways + Storage + Temp (lg+) — hidden when offline ── --}}
+                                        <div class="hidden lg:flex items-center gap-x-3 shrink-0"
+                                             x-show="online || loading">
                                             <div class="h-3 w-px bg-gray-200 dark:bg-gray-700"></div>
 
                                             {{-- Gateways: label always visible; dots fade in. x-for on empty array = no DOM reflow --}}
@@ -629,7 +633,8 @@
                                                 alt="{{ $firewall->os_display_name }}"
                                                 title="{{ $firewall->os_display_name }}"
                                                 :class="$store.dashLayout.layout === 'compact' ? 'w-4 h-4' : 'w-5 h-5'"
-                                                class="shrink-0 rounded"
+                                                class="w-5 h-5 shrink-0 rounded"
+                                                width="20" height="20"
                                                 loading="lazy"
                                             >
 
@@ -687,19 +692,17 @@
                                             </svg>
                                         </a>
 
-                                        {{-- Uptime Chip --}}
-                                        <div
+                                        {{-- Uptime Chip — only shown when online (header already shows Offline badge) --}}
+                                        <div x-show="online || loading"
                                             class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-100 dark:border-blue-800/30">
                                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
                                             <div x-show="loading" class="h-3 w-12 bg-blue-200 dark:bg-blue-800 rounded animate-pulse"></div>
-                                            <span x-show="!loading">
-                                                <span class="font-mono" x-show="!online">Offline</span>
-                                                <span class="font-mono" x-show="online"
-                                                    x-text="formatUptime(status?.data?.uptime || status?.data?.uptime_text || status?.data?.uptime_string)"></span>
-                                            </span>
+                                            <span x-show="!loading"
+                                                  class="font-mono"
+                                                  x-text="formatUptime(status?.data?.uptime || status?.data?.uptime_text || status?.data?.uptime_string)"></span>
                                         </div>
                                     </div>
 
@@ -728,7 +731,7 @@
                                         <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-mono font-medium"
                                               x-show="!loading && online"
                                               x-text="formatUptime(status?.data?.uptime || status?.data?.uptime_text || status?.data?.uptime_string)"></span>
-                                        <span class="text-red-500 dark:text-red-400 font-medium" x-show="!loading && !online">Offline</span>
+
                                         <div class="h-3 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" x-show="loading"></div>
                                     </div>{{-- end compact row --}}
 
@@ -932,14 +935,30 @@
                                                             </template>
 
                                                             <template x-if="!status?.data?.gateways || status.data.gateways.length === 0">
-                                                                <div class="mb-3 col-span-2 sm:col-span-1" x-show="$store.dashLayout.layout === 'cards'">
-                                                                    <div class="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">Gateways</div>
-                                                                    <div class="grid gap-1">
-                                                                        <div class="flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded-r bg-gray-50 dark:bg-slate-800/50 mb-1 border-l-2 border-gray-300 dark:border-gray-600">
-                                                                            <span class="text-sm font-mono font-medium text-gray-500 dark:text-gray-400">WAN</span>
-                                                                            <div class="flex items-center gap-1.5">
-                                                                                <div class="w-2 h-2 rounded-full bg-gray-400"></div>
-                                                                                <span class="capitalize text-[10px] font-medium text-gray-500 dark:text-gray-400">Unknown</span>
+                                                                <div class="col-span-2 sm:col-span-1">
+                                                                    {{-- Cards: red "Unreachable" gateway row --}}
+                                                                    <div x-show="$store.dashLayout.layout === 'cards'" class="mb-3">
+                                                                        <div class="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">Gateways</div>
+                                                                        <div class="grid gap-1">
+                                                                            <div class="flex items-center justify-between gap-2 text-xs px-2.5 py-1.5 rounded-r bg-red-50 dark:bg-red-900/10 mb-1 border-l-2 border-red-500">
+                                                                                <div class="flex flex-col min-w-0">
+                                                                                    <span class="text-xs font-semibold text-red-600 dark:text-red-400">WAN</span>
+                                                                                    <span class="text-[10px] text-red-400 dark:text-red-500 font-mono">Unreachable</span>
+                                                                                </div>
+                                                                                <div class="flex items-center gap-1.5">
+                                                                                    <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                                                                                    <span class="capitalize text-[10px] font-medium text-red-500 dark:text-red-400">offline</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    {{-- Compact: red pill placeholder --}}
+                                                                    <div class="mb-1" x-show="$store.dashLayout.layout === 'compact'">
+                                                                        <div class="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">Gateways</div>
+                                                                        <div class="flex items-center gap-1 flex-wrap">
+                                                                            <div class="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                                                                <div class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div>
+                                                                                <span>WAN</span>
                                                                             </div>
                                                                         </div>
                                                                     </div>
