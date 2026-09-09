@@ -2018,7 +2018,29 @@ class PfSenseApiService
         if ($this->opnSense) {
             return $this->opnSense->deleteIpsecPhase1((string) $id);
         }
-        return $this->delete("/vpn/ipsec/phase1", ['ikeid' => (int) $id]);
+        $targetId = $this->resolvePhase1Id($id);
+        return $this->delete("/vpn/ipsec/phase1", ['id' => (int) $targetId]);
+    }
+
+    /**
+     * Resolve pfSense internal Phase 1 ID (array index)
+     */
+    public function resolvePhase1Id($id): int
+    {
+        try {
+            $phase1s = $this->getIpsecPhase1s()['data'] ?? [];
+            foreach ($phase1s as $p1) {
+                if (isset($p1['id']) && (string) $p1['id'] === (string) $id) {
+                    return (int) $p1['id'];
+                }
+                if (isset($p1['ikeid']) && (string) $p1['ikeid'] === (string) $id) {
+                    return (int) $p1['id'];
+                }
+            }
+        } catch (\Throwable $e) {
+            // fallback
+        }
+        return (int) $id;
     }
 
     /**
@@ -2035,12 +2057,34 @@ class PfSenseApiService
     /**
      * Delete IPsec Phase 2
      */
-    public function deleteIpsecPhase2(string $id)
+    public function deleteIpsecPhase2(string|int $id)
     {
         if ($this->opnSense) {
-            return $this->opnSense->deleteIpsecPhase2($id);
+            return $this->opnSense->deleteIpsecPhase2((string) $id);
         }
-        return $this->delete("/vpn/ipsec/phase2", ['uniqid' => $id]);
+        $targetId = $this->resolvePhase2Id($id);
+        return $this->delete("/vpn/ipsec/phase2", ['id' => (int) $targetId]);
+    }
+
+    /**
+     * Resolve pfSense internal Phase 2 ID (array index)
+     */
+    public function resolvePhase2Id($id): int
+    {
+        try {
+            $phase2s = $this->getIpsecPhase2s()['data'] ?? [];
+            foreach ($phase2s as $p2) {
+                if (isset($p2['id']) && (string) $p2['id'] === (string) $id) {
+                    return (int) $p2['id'];
+                }
+                if (isset($p2['uniqid']) && (string) $p2['uniqid'] === (string) $id) {
+                    return (int) $p2['id'];
+                }
+            }
+        } catch (\Throwable $e) {
+            // fallback
+        }
+        return is_numeric($id) ? (int) $id : 0;
     }
 
     /**

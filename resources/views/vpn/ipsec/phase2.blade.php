@@ -15,11 +15,33 @@
             remoteid_netbits: '',
             protocol: 'esp',
             encryption_algorithm_name: 'aes',
-            encryption_algorithm_keylen: '128',
+            encryption_algorithm_keylen: 'auto',
             hash_algorithm: ['hmac_sha256'],
             pfsgroup: '14',
             lifetime: 3600,
             descr: ''
+        },
+        hasKeylen() {
+            return ['aes', 'aes128gcm', 'aes192gcm', 'aes256gcm'].includes(this.form.encryption_algorithm_name);
+        },
+        getKeylenOptions() {
+            if (this.form.encryption_algorithm_name === 'aes') {
+                return [
+                    { value: 'auto', label: 'Auto' },
+                    { value: '128', label: '128 bits' },
+                    { value: '192', label: '192 bits' },
+                    { value: '256', label: '256 bits' }
+                ];
+            }
+            if (['aes128gcm', 'aes192gcm', 'aes256gcm'].includes(this.form.encryption_algorithm_name)) {
+                return [
+                    { value: 'auto', label: 'Auto' },
+                    { value: '64', label: '64 bits' },
+                    { value: '96', label: '96 bits' },
+                    { value: '128', label: '128 bits' }
+                ];
+            }
+            return [];
         }
     }">
         <div class="max-w-full mx-auto sm:px-6 lg:px-8 space-y-6">
@@ -70,7 +92,7 @@
                                     @foreach($phase2List as $p2)
                                         <tr>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                                {{ $p2['uniqid'] ?? 'N/A' }}</td>
+                                                {{ $p2['uniqid'] ?? ($p2['id'] ?? 'N/A') }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                                 {{ $p2['mode'] ?? 'N/A' }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
@@ -87,7 +109,7 @@
                                                 {{ $p2['descr'] ?? '' }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                                 <form
-                                                    action="{{ route('vpn.ipsec.phase2.destroy', [$firewall, $phase1Id, $p2['uniqid']]) }}"
+                                                    action="{{ route('vpn.ipsec.phase2.destroy', [$firewall, $phase1Id, $p2['uniqid'] ?? $p2['id']]) }}"
                                                     method="POST" class="inline-block"
                                                     onsubmit="return confirm('Are you sure you want to delete this Phase 2 entry?');">
                                                     @csrf
@@ -116,11 +138,11 @@
                 <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
                 <div
-                    class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                    class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full">
                     <form action="{{ route('vpn.ipsec.phase2.store', [$firewall, $phase1Id]) }}" method="POST">
                         @csrf
-                        <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                            <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100 mb-4">Add Phase 2
+                        <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4 max-h-[80vh] overflow-y-auto">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-gray-100 mb-4">Add IPsec Phase 2
                             </h3>
 
                             <!-- Mode -->
@@ -131,7 +153,7 @@
                                     <option value="tunnel">Tunnel IPv4</option>
                                     <option value="tunnel6">Tunnel IPv6</option>
                                     <option value="transport">Transport</option>
-                                    <option value="vti">VTI</option>
+                                    <option value="vti">Routed (VTI)</option>
                                 </select>
                             </div>
 
@@ -140,22 +162,22 @@
                                 <x-input-label for="localid_type" :value="__('Local Network Type')" />
                                 <select id="localid_type" name="localid_type" x-model="form.localid_type"
                                     class="block mt-1 w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm">
-                                    <option value="address">Address</option>
-                                    <option value="network">Network</option>
                                     <option value="lan">LAN Subnet</option>
                                     <option value="wan">WAN Address</option>
+                                    <option value="address">Address</option>
+                                    <option value="network">Network</option>
                                 </select>
                             </div>
                             <div class="mb-4"
                                 x-show="form.localid_type === 'address' || form.localid_type === 'network'">
                                 <x-input-label for="localid_address" :value="__('Local Address')" />
                                 <x-text-input id="localid_address" class="block mt-1 w-full" type="text"
-                                    name="localid_address" x-model="form.localid_address" />
+                                    name="localid_address" x-model="form.localid_address" placeholder="e.g. 192.168.1.0" />
                             </div>
                             <div class="mb-4" x-show="form.localid_type === 'network'">
                                 <x-input-label for="localid_netbits" :value="__('Local Netbits')" />
-                                <x-text-input id="localid_netbits" class="block mt-1 w-full" type="number"
-                                    name="localid_netbits" x-model="form.localid_netbits" />
+                                <x-text-input id="localid_netbits" class="block mt-1 w-full" type="number" min="0" max="128"
+                                    name="localid_netbits" x-model="form.localid_netbits" placeholder="24" />
                             </div>
 
                             <!-- Remote Network -->
@@ -163,20 +185,20 @@
                                 <x-input-label for="remoteid_type" :value="__('Remote Network Type')" />
                                 <select id="remoteid_type" name="remoteid_type" x-model="form.remoteid_type"
                                     class="block mt-1 w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm">
-                                    <option value="address">Address</option>
                                     <option value="network">Network</option>
+                                    <option value="address">Address</option>
                                 </select>
                             </div>
                             <div class="mb-4"
                                 x-show="form.remoteid_type === 'address' || form.remoteid_type === 'network'">
                                 <x-input-label for="remoteid_address" :value="__('Remote Address')" />
                                 <x-text-input id="remoteid_address" class="block mt-1 w-full" type="text"
-                                    name="remoteid_address" x-model="form.remoteid_address" />
+                                    name="remoteid_address" x-model="form.remoteid_address" placeholder="e.g. 10.0.0.0" />
                             </div>
                             <div class="mb-4" x-show="form.remoteid_type === 'network'">
                                 <x-input-label for="remoteid_netbits" :value="__('Remote Netbits')" />
-                                <x-text-input id="remoteid_netbits" class="block mt-1 w-full" type="number"
-                                    name="remoteid_netbits" x-model="form.remoteid_netbits" />
+                                <x-text-input id="remoteid_netbits" class="block mt-1 w-full" type="number" min="0" max="128"
+                                    name="remoteid_netbits" x-model="form.remoteid_netbits" placeholder="24" />
                             </div>
 
                             <!-- Protocol -->
@@ -189,47 +211,96 @@
                                 </select>
                             </div>
 
-                            <!-- Encryption -->
+                            <!-- Encryption Algorithm -->
                             <div class="mb-4">
                                 <x-input-label for="encryption_algorithm_name" :value="__('Encryption Algorithm')" />
                                 <select id="encryption_algorithm_name" name="encryption_algorithm_name"
                                     x-model="form.encryption_algorithm_name"
+                                    @change="if (!hasKeylen()) { form.encryption_algorithm_keylen = ''; } else { form.encryption_algorithm_keylen = 'auto'; }"
                                     class="block mt-1 w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm">
                                     <option value="aes">AES</option>
-                                    <option value="3des">3DES</option>
+                                    <option value="aes128gcm">AES128-GCM</option>
+                                    <option value="aes192gcm">AES192-GCM</option>
+                                    <option value="aes256gcm">AES256-GCM</option>
+                                    <option value="chacha20poly1305">CHACHA20-POLY1305</option>
                                 </select>
                             </div>
-                            <div class="mb-4" x-show="form.encryption_algorithm_name === 'aes'">
+
+                            <!-- Key Length -->
+                            <div class="mb-4" x-show="hasKeylen()">
                                 <x-input-label for="encryption_algorithm_keylen" :value="__('Key Length')" />
                                 <select id="encryption_algorithm_keylen" name="encryption_algorithm_keylen"
                                     x-model="form.encryption_algorithm_keylen"
                                     class="block mt-1 w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm">
-                                    <option value="128">128 bits</option>
-                                    <option value="256">256 bits</option>
-                                    <option value="auto">Auto</option>
+                                    <template x-for="opt in getKeylenOptions()" :key="opt.value">
+                                        <option :value="opt.value" x-text="opt.label"></option>
+                                    </template>
                                 </select>
                             </div>
 
-                            <!-- Hash -->
+                            <!-- Hash / Integrity Algorithms -->
                             <div class="mb-4">
-                                <x-input-label for="hash_algorithm" :value="__('Hash Algorithm')" />
-                                <select id="hash_algorithm" name="hash_algorithm[]" x-model="form.hash_algorithm"
-                                    multiple
-                                    class="block mt-1 w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm">
-                                    <option value="hmac_sha256">SHA256</option>
-                                    <option value="hmac_sha1">SHA1</option>
-                                </select>
+                                <x-input-label :value="__('Hash / Integrity Algorithms')" />
+                                <div class="mt-2 grid grid-cols-2 gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                    <label class="inline-flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="hash_algorithm[]" value="hmac_sha256" x-model="form.hash_algorithm" class="rounded border-gray-300 dark:border-gray-700 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                                        <span>SHA256</span>
+                                    </label>
+                                    <label class="inline-flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="hash_algorithm[]" value="hmac_sha384" x-model="form.hash_algorithm" class="rounded border-gray-300 dark:border-gray-700 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                                        <span>SHA384</span>
+                                    </label>
+                                    <label class="inline-flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="hash_algorithm[]" value="hmac_sha512" x-model="form.hash_algorithm" class="rounded border-gray-300 dark:border-gray-700 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                                        <span>SHA512</span>
+                                    </label>
+                                    <label class="inline-flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="hash_algorithm[]" value="hmac_sha1" x-model="form.hash_algorithm" class="rounded border-gray-300 dark:border-gray-700 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                                        <span>SHA1</span>
+                                    </label>
+                                    <label class="inline-flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="hash_algorithm[]" value="aesxcbc" x-model="form.hash_algorithm" class="rounded border-gray-300 dark:border-gray-700 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                                        <span>AES-XCBC</span>
+                                    </label>
+                                </div>
                             </div>
 
-                            <!-- PFS Group -->
+                            <!-- PFS Key Group -->
                             <div class="mb-4">
                                 <x-input-label for="pfsgroup" :value="__('PFS Key Group')" />
                                 <select id="pfsgroup" name="pfsgroup" x-model="form.pfsgroup"
                                     class="block mt-1 w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm">
-                                    <option value="14">14 (2048 bit)</option>
-                                    <option value="2">2 (1024 bit)</option>
                                     <option value="0">Off</option>
+                                    <option value="1">1 (768 bit)</option>
+                                    <option value="2">2 (1024 bit)</option>
+                                    <option value="5">5 (1536 bit)</option>
+                                    <option value="14">14 (2048 bit)</option>
+                                    <option value="15">15 (3072 bit)</option>
+                                    <option value="16">16 (4096 bit)</option>
+                                    <option value="17">17 (6144 bit)</option>
+                                    <option value="18">18 (8192 bit)</option>
+                                    <option value="19">19 (nist ecp256)</option>
+                                    <option value="20">20 (nist ecp384)</option>
+                                    <option value="21">21 (nist ecp521)</option>
+                                    <option value="22">22 (1024 sub 160 bit)</option>
+                                    <option value="23">23 (2048 sub 224 bit)</option>
+                                    <option value="24">24 (2048 sub 256 bit)</option>
+                                    <option value="25">25 (nist ecp192)</option>
+                                    <option value="26">26 (nist ecp224)</option>
+                                    <option value="27">27 (brainpool ecp224)</option>
+                                    <option value="28">28 (brainpool ecp256)</option>
+                                    <option value="29">29 (brainpool ecp384)</option>
+                                    <option value="30">30 (brainpool ecp512)</option>
+                                    <option value="31">31 (Curve25519)</option>
+                                    <option value="32">32 (Curve448)</option>
                                 </select>
+                            </div>
+
+                            <!-- Lifetime -->
+                            <div class="mb-4">
+                                <x-input-label for="lifetime" :value="__('Lifetime (seconds)')" />
+                                <x-text-input id="lifetime" class="block mt-1 w-full" type="number" name="lifetime"
+                                    x-model="form.lifetime" />
                             </div>
 
                             <!-- Description -->

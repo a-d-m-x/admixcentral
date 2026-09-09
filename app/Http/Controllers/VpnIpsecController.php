@@ -42,11 +42,24 @@ class VpnIpsecController extends Controller
             'myid_type' => 'required|string',
             'peerid_type' => 'required|string',
             'encryption_algorithm_name' => 'required|string',
-            'encryption_algorithm_keylen' => 'required_if:encryption_algorithm_name,aes|integer',
+            'encryption_algorithm_keylen' => 'nullable',
             'hash_algorithm' => 'required|string',
             'dhgroup' => 'required|integer',
             'lifetime' => 'nullable|integer|min:60',
         ]);
+
+        $algo = $validated['encryption_algorithm_name'];
+        $encItem = [
+            'encryption_algorithm_name' => $algo,
+            'hash_algorithm' => $validated['hash_algorithm'],
+            'dhgroup' => (int) $validated['dhgroup'],
+        ];
+
+        // Key length is only relevant for algorithms with selectable key lengths
+        if (in_array($algo, ['aes', 'aes128gcm', 'aes192gcm', 'aes256gcm'])) {
+            $rawKeylen = $request->input('encryption_algorithm_keylen');
+            $encItem['encryption_algorithm_keylen'] = !empty($rawKeylen) ? (int) $rawKeylen : 128;
+        }
 
         $data = [
             'iketype' => $validated['iketype'],
@@ -57,14 +70,7 @@ class VpnIpsecController extends Controller
             'authentication_method' => $validated['authentication_method'],
             'myid_type' => $validated['myid_type'],
             'peerid_type' => $validated['peerid_type'],
-            'encryption' => [
-                [
-                    'encryption_algorithm_name' => $validated['encryption_algorithm_name'],
-                    'encryption_algorithm_keylen' => (int) ($validated['encryption_algorithm_keylen'] ?? 'auto'),
-                    'hash_algorithm' => $validated['hash_algorithm'],
-                    'dhgroup' => (int) $validated['dhgroup'],
-                ]
-            ],
+            'encryption' => [$encItem],
             'lifetime' => (int) ($validated['lifetime'] ?? 28800),
         ];
 
@@ -126,29 +132,44 @@ class VpnIpsecController extends Controller
             'remoteid_netbits' => 'nullable|integer',
             'protocol' => 'required|string',
             'encryption_algorithm_name' => 'required|string',
-            'encryption_algorithm_keylen' => 'required|string',
+            'encryption_algorithm_keylen' => 'nullable',
             'hash_algorithm' => 'required|array',
-            'pfsgroup' => 'required|string',
+            'pfsgroup' => 'required|integer',
             'lifetime' => 'nullable|integer',
         ]);
+
+        $algo = $validated['encryption_algorithm_name'];
+        $rawKeylen = $request->input('encryption_algorithm_keylen');
+        // pfSense RESTAPI requires integer 0 for auto, or integer keylen. NEVER the string 'auto'!
+        $keylen = ($rawKeylen === 'auto' || $rawKeylen === '0' || empty($rawKeylen)) ? 0 : (int) $rawKeylen;
+
+        $encOption = [
+            'name' => $algo,
+        ];
+        if (in_array($algo, ['aes', 'aes128gcm', 'aes192gcm', 'aes256gcm', 'blowfish'])) {
+            $encOption['keylen'] = $keylen;
+        }
+
+        $localAddress = in_array($validated['localid_type'], ['address', 'network']) ? ($validated['localid_address'] ?? null) : null;
+        $localNetbits = ($validated['localid_type'] === 'network' && isset($validated['localid_netbits']) && $validated['localid_netbits'] !== '')
+            ? (int) $validated['localid_netbits'] : null;
+
+        $remoteAddress = in_array($validated['remoteid_type'], ['address', 'network']) ? ($validated['remoteid_address'] ?? null) : null;
+        $remoteNetbits = ($validated['remoteid_type'] === 'network' && isset($validated['remoteid_netbits']) && $validated['remoteid_netbits'] !== '')
+            ? (int) $validated['remoteid_netbits'] : null;
 
         $data = [
             'ikeid' => is_numeric($phase1Id) ? (int) $phase1Id : (string) $phase1Id,
             'descr' => $validated['descr'] ?? '',
             'mode' => $validated['mode'],
             'localid_type' => $validated['localid_type'],
-            'localid_address' => $validated['localid_address'],
-            'localid_netbits' => isset($validated['localid_netbits']) ? (int) $validated['localid_netbits'] : null,
+            'localid_address' => $localAddress,
+            'localid_netbits' => $localNetbits,
             'remoteid_type' => $validated['remoteid_type'],
-            'remoteid_address' => $validated['remoteid_address'],
-            'remoteid_netbits' => isset($validated['remoteid_netbits']) ? (int) $validated['remoteid_netbits'] : null,
+            'remoteid_address' => $remoteAddress,
+            'remoteid_netbits' => $remoteNetbits,
             'protocol' => $validated['protocol'],
-            'encryption_algorithm_option' => [
-                [
-                    'name' => $validated['encryption_algorithm_name'],
-                    'keylen' => $validated['encryption_algorithm_keylen'] === 'auto' ? 'auto' : (int) $validated['encryption_algorithm_keylen'],
-                ]
-            ],
+            'encryption_algorithm_option' => [$encOption],
             'hash_algorithm_option' => $validated['hash_algorithm'],
             'pfsgroup' => (int) $validated['pfsgroup'],
             'lifetime' => (int) ($validated['lifetime'] ?? 3600),
