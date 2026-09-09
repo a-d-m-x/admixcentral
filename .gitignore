@@ -29,3 +29,6 @@ certs.env
 *-key.pem
 /ssl/
 minisign.key
+
+__pycache__/
+*.py[cod]
