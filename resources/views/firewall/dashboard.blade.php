@@ -712,6 +712,272 @@
                         </div>
                     </div>
 
+                    {{-- VPN Status Card --}}
+                    <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                        <div class="p-6 text-gray-900 dark:text-gray-100">
+                            <div class="mb-4">
+                                <h3 class="text-xl font-semibold">VPN Tunnels</h3>
+                            </div>
+
+                            {{-- Loading skeleton --}}
+                            <template x-if="vpnLoading">
+                                <div class="space-y-3 animate-pulse">
+                                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                                    <div class="h-2 bg-gray-200 dark:bg-gray-700 rounded-full w-full"></div>
+                                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+                                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                                </div>
+                            </template>
+
+                            {{-- Error --}}
+                            <template x-if="!vpnLoading && vpnError">
+                                <p class="text-sm text-gray-400 dark:text-gray-500 italic" x-text="vpnError"></p>
+                            </template>
+
+                            {{-- No VPN configured --}}
+                            <template x-if="!vpnLoading && !vpnError && !hasAnyVpn()">
+                                <p class="text-sm text-gray-400 dark:text-gray-500 italic">No VPN tunnels configured.</p>
+                            </template>
+
+                            {{-- VPN sections --}}
+                            <div x-show="!vpnLoading && !vpnError && hasAnyVpn()" class="space-y-5">
+
+                                {{-- ── IPsec ── --}}
+                                <template x-if="vpnData && vpnData.ipsec && vpnData.ipsec.total > 0">
+                                    <div>
+                                        {{-- Header row --}}
+                                        <div class="flex items-center justify-between mb-1.5">
+                                            <div class="flex items-center gap-2.5">
+                                                <span class="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">IPsec</span>
+                                                <span class="text-lg font-bold text-gray-800 dark:text-gray-100 leading-none">
+                                                    <span x-text="vpnData.ipsec.up"></span><span class="text-gray-400 dark:text-gray-500 font-normal"> / </span><span x-text="vpnData.ipsec.total"></span>
+                                                    <span class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-1">Up</span>
+                                                </span>
+                                            </div>
+                                            <div class="flex items-center gap-3">
+                                                <span x-show="vpnData.ipsec.down > 0"
+                                                      class="text-xs font-semibold text-red-500 dark:text-red-400"
+                                                      x-text="vpnData.ipsec.down + ' Down'"></span>
+                                                <a href="{{ route('vpn.ipsec', $firewall) }}"
+                                                   class="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap">View →</a>
+                                            </div>
+                                        </div>
+                                        {{-- Progress bar --}}
+                                        <div class="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mb-3">
+                                            <div class="h-1.5 rounded-full transition-all duration-700"
+                                                 :class="vpnData.ipsec.down > 0 ? 'bg-green-500' : 'bg-green-500'"
+                                                 :style="'width: ' + (vpnData.ipsec.total > 0 ? Math.round((vpnData.ipsec.up / vpnData.ipsec.total) * 100) : 0) + '%'"></div>
+                                        </div>
+                                        {{-- Tunnel rows --}}
+                                        <div class="divide-y divide-gray-100 dark:divide-gray-700/60">
+                                            <template x-for="tunnel in vpnData.ipsec.tunnels" :key="(tunnel.con_name || tunnel.name) + tunnel.remote">
+                                                <div class="py-2">
+                                                    {{-- Phase 1 row: name + remote subtitle + status badge + uptime --}}
+                                                    <div class="flex items-start justify-between gap-2">
+                                                        <div class="flex items-start gap-2 min-w-0">
+                                                            <div class="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
+                                                                 :class="tunnel.status === 'up' ? 'bg-green-500' : 'bg-red-500'"></div>
+                                                            <div class="min-w-0">
+                                                                <div class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate"
+                                                                     x-text="tunnel.name"
+                                                                     :title="tunnel.remote_id || tunnel.remote"></div>
+                                                                {{-- Show remote_id (FQDN/identity) if available, else fall back to IP --}}
+                                                                <div x-show="(tunnel.remote_id || tunnel.remote) && (tunnel.remote_id || tunnel.remote) !== tunnel.name"
+                                                                     class="text-[11px] text-gray-400 dark:text-gray-500 font-mono mt-0.5 truncate"
+                                                                     x-text="(tunnel.remote_id && tunnel.remote_id !== tunnel.remote) ? tunnel.remote_id : tunnel.remote"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="flex items-center gap-2 flex-shrink-0 mt-0.5">
+                                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                                                                  :class="tunnel.status === 'up'
+                                                                      ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400'
+                                                                      : 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400'"
+                                                                  x-text="tunnel.status === 'up' ? 'UP' : 'DOWN'"></span>
+                                                            <span x-show="tunnel.established > 0"
+                                                                  class="text-[11px] text-gray-400 dark:text-gray-500 font-mono"
+                                                                  x-text="formatUptime(tunnel.established)"></span>
+                                                        </div>
+                                                    </div>
+                                                    {{-- Phase 2 child SAs --}}
+                                                    <template x-if="tunnel.peers && tunnel.peers.length > 0">
+                                                        <div class="mt-1 ml-4 divide-y divide-gray-100 dark:divide-gray-700/40">
+                                                            <template x-for="peer in tunnel.peers" :key="peer.con_name || peer.name">
+                                                                <div class="flex items-center justify-between py-1 gap-2"
+                                                                     :title="(peer.local_ts ? 'Local: ' + peer.local_ts : '') + (peer.remote_ts ? '  →  Remote: ' + peer.remote_ts : '')">
+                                                                    <div class="flex items-center gap-1.5 min-w-0">
+                                                                        <div class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                                                             :class="{
+                                                                                 'bg-green-400':  peer.status === 'active',
+                                                                                 'bg-yellow-400': peer.status === 'inactive',
+                                                                                 'bg-red-400':    peer.status === 'disabled'
+                                                                             }"></div>
+                                                                        <span class="text-xs text-gray-600 dark:text-gray-300 truncate"
+                                                                              x-text="peer.name"></span>
+                                                                        <span x-show="peer.con_name && peer.con_name !== peer.name"
+                                                                              class="text-[10px] text-gray-400 dark:text-gray-500 font-mono truncate"
+                                                                              x-text="peer.con_name"></span>
+                                                                    </div>
+                                                                    <span class="flex-shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                                                                          :class="{
+                                                                              'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400':   peer.status === 'active',
+                                                                              'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400': peer.status === 'inactive',
+                                                                              'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400':            peer.status === 'disabled'
+                                                                          }"
+                                                                          x-text="peer.status === 'active' ? 'SA UP' : peer.status === 'inactive' ? 'NEGOTIATING' : 'DOWN'"></span>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                {{-- ── OpenVPN ── --}}
+                                <template x-if="vpnData && vpnData.openvpn && vpnData.openvpn.total > 0">
+                                    <div>
+                                        <div class="flex items-center justify-between mb-1.5">
+                                            <div class="flex items-center gap-2.5">
+                                                <span class="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/60 text-green-700 dark:text-green-300">OpenVPN</span>
+                                                <span class="text-lg font-bold text-gray-800 dark:text-gray-100 leading-none">
+                                                    <span x-text="vpnData.openvpn.up"></span><span class="text-gray-400 dark:text-gray-500 font-normal"> / </span><span x-text="vpnData.openvpn.total"></span>
+                                                    <span class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-1">Up</span>
+                                                </span>
+                                            </div>
+                                            <div class="flex items-center gap-3">
+                                                <span x-show="vpnData.openvpn.down > 0"
+                                                      class="text-xs font-semibold text-red-500 dark:text-red-400"
+                                                      x-text="vpnData.openvpn.down + ' Down'"></span>
+                                                <a href="{{ route('vpn.openvpn.servers', $firewall) }}"
+                                                   class="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap">View →</a>
+                                            </div>
+                                        </div>
+                                        <div class="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mb-3">
+                                            <div class="h-1.5 bg-green-500 rounded-full transition-all duration-700"
+                                                 :style="'width: ' + (vpnData.openvpn.total > 0 ? Math.round((vpnData.openvpn.up / vpnData.openvpn.total) * 100) : 0) + '%'"></div>
+                                        </div>
+                                        <div class="divide-y divide-gray-100 dark:divide-gray-700/60">
+                                            <template x-for="tunnel in vpnData.openvpn.tunnels" :key="tunnel.name + (tunnel.role || '')">
+                                                <div class="flex items-center justify-between py-1.5 gap-2">
+                                                    <div class="flex items-center gap-2 min-w-0">
+                                                        <div class="w-2 h-2 rounded-full flex-shrink-0"
+                                                             :class="tunnel.status === 'up' ? 'bg-green-500' : 'bg-red-500'"></div>
+                                                        <span class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate"
+                                                              x-text="tunnel.name"></span>
+                                                        <span x-show="tunnel.role === 'client'"
+                                                              class="text-[10px] text-gray-400 dark:text-gray-500 uppercase">(client)</span>
+                                                    </div>
+                                                    <div class="flex items-center gap-3 flex-shrink-0">
+                                                        <span class="text-xs font-semibold uppercase tracking-wide"
+                                                              :class="tunnel.status === 'up' ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'"
+                                                              x-text="tunnel.status === 'up' ? 'UP' : 'DOWN'"></span>
+                                                        <span class="text-xs text-gray-400 dark:text-gray-500 font-mono w-14 text-right"
+                                                              x-text="tunnel.remote || '—'"></span>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                {{-- ── WireGuard ── --}}
+                                <template x-if="vpnData && vpnData.wireguard && vpnData.wireguard.total > 0">
+                                    <div>
+                                        <div class="flex items-center justify-between mb-1.5">
+                                            <div class="flex items-center gap-2.5">
+                                                <span class="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">WireGuard</span>
+                                                <span class="text-lg font-bold text-gray-800 dark:text-gray-100 leading-none">
+                                                    <span x-text="vpnData.wireguard.up"></span><span class="text-gray-400 dark:text-gray-500 font-normal"> / </span><span x-text="vpnData.wireguard.total"></span>
+                                                    <span class="text-sm font-normal text-gray-500 dark:text-gray-400 ml-1">Up</span>
+                                                </span>
+                                            </div>
+                                            <div class="flex items-center gap-3">
+                                                <span x-show="vpnData.wireguard.down > 0"
+                                                      class="text-xs font-semibold text-red-500 dark:text-red-400"
+                                                      x-text="vpnData.wireguard.down + ' Down'"></span>
+                                                <a href="{{ route('vpn.wireguard.index', $firewall) }}"
+                                                   class="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium whitespace-nowrap">View →</a>
+                                            </div>
+                                        </div>
+                                        <div class="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mb-3">
+                                            <div class="h-1.5 bg-green-500 rounded-full transition-all duration-700"
+                                                 :style="'width: ' + (vpnData.wireguard.total > 0 ? Math.round((vpnData.wireguard.up / vpnData.wireguard.total) * 100) : 0) + '%'"></div>
+                                        </div>
+                                        <div class="divide-y divide-gray-100 dark:divide-gray-700/60">
+                                            <template x-for="tunnel in vpnData.wireguard.tunnels" :key="tunnel.name">
+                                                <div>
+                                                    {{-- Tunnel header row --}}
+                                                    <div class="flex items-center justify-between py-1.5 gap-2">
+                                                        <div class="flex items-center gap-2 min-w-0">
+                                                            <div class="w-2 h-2 rounded-full flex-shrink-0"
+                                                                 :class="tunnel.status === 'up' ? 'bg-green-500' : 'bg-red-500'"></div>
+                                                            <span class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate"
+                                                                  x-text="tunnel.name"
+                                                                  :title="tunnel.remote"></span>
+                                                        </div>
+                                                        <div class="flex items-center gap-3 flex-shrink-0">
+                                                            <span class="text-xs font-semibold uppercase tracking-wide"
+                                                                  :class="tunnel.status === 'up' ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'"
+                                                                  x-text="tunnel.status === 'up' ? 'ACTIVE' : 'DISABLED'"></span>
+                                                            <span x-show="tunnel.port"
+                                                                  class="text-xs text-gray-400 dark:text-gray-500 font-mono"
+                                                                  x-text="':' + tunnel.port"></span>
+                                                        </div>
+                                                    </div>
+                                                    {{-- Peer list — 3-state: active (green), inactive (amber), disabled (red) --}}
+                                                    <template x-if="tunnel.peers && tunnel.peers.length > 0">
+                                                        <div class="divide-y divide-gray-100 dark:divide-gray-700/50 mt-1">
+                                                            <template x-for="peer in tunnel.peers" :key="peer.name">
+                                                                <div class="text-xs py-1.5">
+                                                                    {{-- Row 1: status dot · name · status badge --}}
+                                                                    <div class="flex items-center justify-between gap-2"
+                                                                         :title="peer.endpoint ? 'Endpoint: ' + peer.endpoint : ''">
+                                                                        <div class="flex items-center gap-1.5 min-w-0">
+                                                                            <div class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                                                                 :class="{
+                                                                                     'bg-green-400':  peer.status === 'active',
+                                                                                     'bg-yellow-400': peer.status === 'inactive',
+                                                                                     'bg-red-400':    peer.status === 'disabled'
+                                                                                 }"></div>
+                                                                            <span class="text-gray-600 dark:text-gray-300 font-medium truncate"
+                                                                                  x-text="peer.name"></span>
+                                                                        </div>
+                                                                        <span class="flex-shrink-0 font-semibold"
+                                                                              :class="{
+                                                                                  'text-green-500 dark:text-green-400':   peer.status === 'active',
+                                                                                  'text-yellow-500 dark:text-yellow-400': peer.status === 'inactive',
+                                                                                  'text-red-400':                         peer.status === 'disabled'
+                                                                              }"
+                                                                              x-text="peer.status === 'active' ? 'ACTIVE' : peer.status === 'inactive' ? 'INACTIVE' : 'DISABLED'"></span>
+                                                                    </div>
+                                                                    {{-- Row 2: handshake + RX/TX (only when we have data) --}}
+                                                                    <div x-show="peer.last_handshake !== null || peer.rx !== null"
+                                                                         class="flex items-center gap-3 pl-3 mt-0.5 text-[10px] text-gray-400 dark:text-gray-500 font-mono">
+                                                                        <span x-show="peer.last_handshake !== null"
+                                                                              :class="peer.status === 'active' ? 'text-green-600 dark:text-green-500' : 'text-gray-400'"
+                                                                              x-text="'⏱ ' + timeSince(peer.last_handshake)"></span>
+                                                                        <span x-show="peer.rx !== null"
+                                                                              class="text-green-600 dark:text-green-500"
+                                                                              x-text="'↓ ' + (peer.rx || '0 B')"></span>
+                                                                        <span x-show="peer.tx !== null"
+                                                                              class="text-blue-600 dark:text-blue-400"
+                                                                              x-text="'↑ ' + (peer.tx || '0 B')"></span>
+                                                                    </div>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+
+                            </div>
+                        </div>
+                    </div>
+
                     {{-- Config Backup (GlobalAdmin only) --}}
                     @if(auth()->user()->isGlobalAdmin())
                     @php $backup = $firewall->configBackup; $sshMissing = !$firewall->isOpnSense() && (empty($firewall->ssh_username) || empty($firewall->ssh_password)); @endphp
@@ -905,6 +1171,12 @@
 
                     packages: [],
                     packagesLoading: true,
+
+                    // VPN Summary
+                    vpnData: null,
+                    vpnLoading: true,
+                    vpnError: null,
+                    vpnTimer: null,
 
                     // Traffic Monitor
                     bandwidthHistory: new Array(20).fill(0).map(() => ({ in: 0, out: 0 })),
@@ -1109,9 +1381,60 @@
                         }).join(' ');
                     },
 
+                    // ── VPN Summary ──────────────────────────────────────────
 
+                    fetchVpnSummary() {
+                        fetch('{{ route('firewall.vpn-summary', $firewall) }}?t=' + Date.now())
+                            .then(res => res.json())
+                            .then(data => {
+                                this.vpnLoading = false;
+                                if (data.error) {
+                                    this.vpnError = 'Unable to fetch VPN status.';
+                                } else {
+                                    this.vpnData  = data;
+                                    this.vpnError = null;
+                                }
+                            })
+                            .catch(() => {
+                                this.vpnLoading = false;
+                                this.vpnError   = 'Unable to fetch VPN status.';
+                            });
+                    },
 
-                    // Polling Configuration
+                    hasAnyVpn() {
+                        if (!this.vpnData) return false;
+                        return (this.vpnData.ipsec?.total     || 0)
+                             + (this.vpnData.openvpn?.total   || 0)
+                             + (this.vpnData.wireguard?.total || 0) > 0;
+                    },
+
+                    // Format seconds as "Xd Yh" / "Xh Ym" / "Xm"
+                    formatUptime(seconds) {
+                        if (!seconds || seconds <= 0) return '—';
+                        const d = Math.floor(seconds / 86400);
+                        const h = Math.floor((seconds % 86400) / 3600);
+                        const m = Math.floor((seconds % 3600) / 60);
+                        if (d > 0) return d + 'd ' + h + 'h';
+                        if (h > 0) return h + 'h ' + m + 'm';
+                        return m + 'm';
+                    },
+
+                    // Convert a unix timestamp to "Xm ago" / "Xh Xm ago" / "never"
+                    timeSince(ts) {
+                        if (!ts || ts <= 0) return 'never';
+                        const elapsed = Math.floor(Date.now() / 1000) - ts;
+                        if (elapsed < 0)  return 'just now';
+                        if (elapsed < 60) return elapsed + 's ago';
+                        const m = Math.floor(elapsed / 60);
+                        const h = Math.floor(m / 60);
+                        const d = Math.floor(h / 24);
+                        if (d > 0)  return d + 'd ' + (h % 24) + 'h ago';
+                        if (h > 0)  return h + 'h ' + (m % 60) + 'm ago';
+                        return m + 'm ago';
+                    },
+
+                    // ────────────────────────────────────────────────────────
+
                     realtimeMs: {{ ($settings['realtime_interval'] ?? 10) * 1000 }},
                     fallbackMs: {{ ($settings['fallback_interval'] ?? 8) * 1000 }},
 
@@ -1124,9 +1447,15 @@
                         this.fetchGateways();
                         this.fetchRules();
                         this.fetchPackages();
+                        this.fetchVpnSummary(); // Initial VPN fetch
                         this.setupWebSocket();
 
                         this.startIntervalManager();
+
+                        // VPN status poll — 5s interval for near-real-time troubleshooting
+                        this.vpnTimer = setInterval(() => {
+                            this.fetchVpnSummary();
+                        }, 5000);
                     },
 
                     startIntervalManager() {
