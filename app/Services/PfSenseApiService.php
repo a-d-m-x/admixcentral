@@ -1499,6 +1499,9 @@ class PfSenseApiService
      */
     public function getSchedules()
     {
+        if ($this->opnSense) {
+            return $this->opnSense->getSchedules();
+        }
         return $this->get('/firewall/schedules');
     }
 
@@ -1507,14 +1510,20 @@ class PfSenseApiService
      */
     public function createSchedule(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createSchedule($data);
+        }
         return $this->post('/firewall/schedule', $data);
     }
 
     /**
      * Update Firewall Schedule
      */
-    public function updateSchedule(int $id, array $data)
+    public function updateSchedule(int|string $id, array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateSchedule($id, $data);
+        }
         $data['id'] = $id;
         return $this->patch("/firewall/schedule?id={$id}", $data);
     }
@@ -1522,8 +1531,11 @@ class PfSenseApiService
     /**
      * Delete Firewall Schedule
      */
-    public function deleteSchedule(int $id)
+    public function deleteSchedule(int|string $id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteSchedule($id);
+        }
         return $this->delete("/firewall/schedule", ['id' => $id]);
     }
 
