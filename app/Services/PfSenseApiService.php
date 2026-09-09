@@ -914,16 +914,25 @@ class PfSenseApiService
 
     public function createRoutingGatewayGroup(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->createRoutingGatewayGroup($data);
+        }
         return $this->post('/routing/gateway/group', $data);
     }
 
     public function updateRoutingGatewayGroup(array $data)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->updateRoutingGatewayGroup($data);
+        }
         return $this->patch('/routing/gateway/group', $data);
     }
 
     public function deleteRoutingGatewayGroup(string $id)
     {
+        if ($this->opnSense) {
+            return $this->opnSense->deleteRoutingGatewayGroup($id);
+        }
         return $this->delete('/routing/gateway/group', ['id' => $id]);
     }
 
