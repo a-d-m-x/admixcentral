@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->dontFlash(['api_key', 'api_secret', 'api_token', 'ssh_password', 'opn_password']);
         // Swallow Reverb/WebSocket broadcast failures so they never crash
         // a user-facing HTTP request. The operation (e.g. saving a firewall)
         // still succeeds — only the real-time push is silently skipped.

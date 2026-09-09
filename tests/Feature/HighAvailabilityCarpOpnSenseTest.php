@@ -43,6 +43,8 @@ class HighAvailabilityCarpOpnSenseTest extends TestCase
         ]);
 
         Http::fake([
+            '*api/interfaces/overview/interfacesInfo*' => Http::response(['rows' => []], 200),
+            '*api/diagnostics/interface/getInterfaceStatistics*' => Http::response(['statistics' => []], 200),
             '*api/core/hasync/get*' => Http::response([
                 'hasync' => [
                     'disablepreempt' => '0',

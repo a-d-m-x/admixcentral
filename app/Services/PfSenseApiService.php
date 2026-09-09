@@ -515,7 +515,7 @@ class PfSenseApiService
             $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
         }
 
-        $client = Http::withOptions(['verify' => false])
+        $client = Http::withOptions(FirewallHttpOptions::get($this->firewall->tls_public_key_pin, $this->firewall->url))
             ->acceptJson()
             ->timeout($this->apiTimeout);
 
@@ -1671,12 +1671,12 @@ class PfSenseApiService
         if ($this->opnSense) {
             return $this->opnSense->disconnectIpsecP1($conid, $uniqueid);
         }
-        $cmd = sprintf(
-            'php -r "require_once(\'ipsec.inc\'); ipsec_terminate_by_conid(\'ike\', %s, %s);"',
+        $php = sprintf(
+            'require_once(\'ipsec.inc\'); ipsec_terminate_by_conid(\'ike\', %s, %s);',
             $conid !== null ? var_export((string) $conid, true) : 'null',
             $uniqueid !== null ? var_export((string) $uniqueid, true) : 'null'
         );
-        return $this->diagnosticsCommandPrompt($cmd);
+        return $this->diagnosticsCommandPrompt('php -r ' . escapeshellarg($php));
     }
 
     /**
@@ -1687,12 +1687,12 @@ class PfSenseApiService
         if ($this->opnSense) {
             return $this->opnSense->disconnectIpsecP2($name, $uniqueid);
         }
-        $cmd = sprintf(
-            'php -r "require_once(\'ipsec.inc\'); ipsec_terminate_by_conid(\'child\', %s, %s);"',
+        $php = sprintf(
+            'require_once(\'ipsec.inc\'); ipsec_terminate_by_conid(\'child\', %s, %s);',
             $name !== null ? var_export((string) $name, true) : 'null',
             $uniqueid !== null ? var_export((string) $uniqueid, true) : 'null'
         );
-        return $this->diagnosticsCommandPrompt($cmd);
+        return $this->diagnosticsCommandPrompt('php -r ' . escapeshellarg($php));
     }
 
     /**
@@ -1703,11 +1703,13 @@ class PfSenseApiService
         if ($this->opnSense) {
             return $this->opnSense->connectIpsecP1($conid);
         }
-        $cmd = sprintf(
-            'php -r "require_once(\'ipsec.inc\'); ipsec_initiate_by_conid(\'all\', %s);"',
+        // Quote the entire PHP program for the shell; PHP string escaping alone
+        // does not prevent shell expansion of $(), backticks, or double quotes.
+        $php = sprintf(
+            'require_once(\'ipsec.inc\'); ipsec_initiate_by_conid(\'all\', %s);',
             var_export((string) $conid, true)
         );
-        return $this->diagnosticsCommandPrompt($cmd);
+        return $this->diagnosticsCommandPrompt('php -r ' . escapeshellarg($php));
     }
 
     /**
@@ -1718,11 +1720,11 @@ class PfSenseApiService
         if ($this->opnSense) {
             return $this->opnSense->connectIpsecP2($name);
         }
-        $cmd = sprintf(
-            'php -r "require_once(\'ipsec.inc\'); ipsec_initiate_by_conid(\'child\', %s);"',
+        $php = sprintf(
+            'require_once(\'ipsec.inc\'); ipsec_initiate_by_conid(\'child\', %s);',
             var_export((string) $name, true)
         );
-        return $this->diagnosticsCommandPrompt($cmd);
+        return $this->diagnosticsCommandPrompt('php -r ' . escapeshellarg($php));
     }
 
     /**
@@ -1730,17 +1732,21 @@ class PfSenseApiService
      */
     public function deleteIpsecSad($src, $dst, $proto, $spi)
     {
+        if (!filter_var($src, FILTER_VALIDATE_IP) || !filter_var($dst, FILTER_VALIDATE_IP)
+            || !in_array(strtolower($proto), ['esp', 'ah', 'ipcomp'], true)
+            || !preg_match('/\A(?:0x)?[a-f0-9]{1,8}\z/i', $spi)) {
+            throw new \InvalidArgumentException('Invalid IPsec security association.');
+        }
+
         if ($this->opnSense) {
             return $this->opnSense->deleteIpsecSad($src, $dst, $proto, $spi);
         }
-        $cmd = sprintf(
-            'php -r \'$fd = @popen("/sbin/setkey -c > /dev/null 2>&1", "w"); if ($fd) { fwrite($fd, "delete %s %s %s %s ;\n"); pclose($fd); }\'',
-            addslashes($src),
-            addslashes($dst),
-            addslashes($proto),
-            addslashes(str_starts_with($spi, '0x') ? $spi : '0x' . $spi)
-        );
-        return $this->diagnosticsCommandPrompt($cmd);
+        $spi = preg_replace('/\A0x/i', '', $spi);
+        $input = sprintf("delete %s %s %s 0x%s ;\n", $src, $dst, strtolower($proto), $spi);
+        $php = '$fd = @popen("/sbin/setkey -c > /dev/null 2>&1", "w"); '
+            . 'if ($fd) { fwrite($fd, ' . var_export($input, true) . '); pclose($fd); }';
+
+        return $this->diagnosticsCommandPrompt('php -r ' . escapeshellarg($php));
     }
 
     /**
@@ -3712,5 +3718,4 @@ class PfSenseApiService
         return ['result' => 'ok'];
     }
 }
-
 

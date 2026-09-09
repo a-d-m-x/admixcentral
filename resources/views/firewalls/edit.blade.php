@@ -17,8 +17,8 @@
 
     <div class="py-8">
         <div class="mx-auto sm:px-6 lg:px-8">
-            <form action="{{ route('firewalls.update', $firewall) }}" method="POST"
-                  x-data="{ osType: '{{ old('os_type', $firewall->os_type ?? 'pfsense') }}' }">
+            <form action="{{ route('firewalls.update', $firewall) }}" method="POST" enctype="multipart/form-data"
+                  x-data="{ osType: {{ Illuminate\Support\Js::from(old('os_type', $firewall->os_type ?? 'pfsense')) }} }">
                 @csrf
                 @method('PUT')
 
@@ -93,7 +93,7 @@
 
                     {{-- ── API Connection ───────────────────────────────── --}}
                     <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg flex flex-col"
-                         x-data="{ authMethod: '{{ old('auth_method', $firewall->auth_method ?? 'basic') }}' }">
+                         x-data="{ authMethod: {{ Illuminate\Support\Js::from(old('auth_method', $firewall->auth_method ?? 'basic')) }} }">
                         <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
                             <h3 class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">API Connection</h3>
                         </div>
@@ -106,6 +106,8 @@
                                     class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm">
                                 @error('url')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                             </div>
+
+                            @include('firewalls.partials.tls-trust')
 
                             <div>
                                 <label for="auth_method" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Authentication Method</label>
@@ -188,6 +190,15 @@
                                 </div>
                             </div>
 
+                            <div class="mb-4">
+                                <label for="ssh_host_key_fingerprint" class="block text-sm font-medium mb-2">Verified SSH host key fingerprint</label>
+                                <input type="text" name="ssh_host_key_fingerprint" id="ssh_host_key_fingerprint"
+                                    value="{{ old('ssh_host_key_fingerprint', $firewall->ssh_host_key_fingerprint) }}" placeholder="SHA256:..."
+                                    class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                <p class="text-xs text-gray-500 mt-1">Obtain this fingerprint from the firewall console or another trusted channel. SSH backups require a matching key. Re-enter the password when changing the host, port, username, or fingerprint.</p>
+                                @error('ssh_host_key_fingerprint')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                            </div>
+
                             <p class="text-xs text-gray-400 dark:text-gray-500 mt-auto">
                                 Used for SFTP config backup only. Separate from API credentials above.
                             </p>
@@ -261,6 +272,15 @@
                                 </ul>
                             </div>
 
+                            <div class="mb-4">
+                                <label for="ssh_host_key_fingerprint" class="block text-sm font-medium mb-2">Verified SSH host key fingerprint</label>
+                                <input type="text" name="ssh_host_key_fingerprint" id="ssh_host_key_fingerprint"
+                                    value="{{ old('ssh_host_key_fingerprint', $firewall->ssh_host_key_fingerprint) }}" placeholder="SHA256:..."
+                                    class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                <p class="text-xs text-gray-500 mt-1">Obtain this fingerprint from the firewall console or another trusted channel. SSH backups require a matching key. Re-enter the password when changing the host, port, username, or fingerprint.</p>
+                                @error('ssh_host_key_fingerprint')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                            </div>
+
                             <p class="text-xs text-gray-400 dark:text-gray-500 mt-auto">
                                 Pins the firewall on the map view. Click × to change the address.
                             </p>
@@ -289,11 +309,11 @@
     <script>
         function addressAutocomplete() {
             return {
-                searchQuery: '{{ old('address', $firewall->address) }}',
-                address:     '{{ old('address', $firewall->address) }}',
+                searchQuery: {{ Illuminate\Support\Js::from(old('address', $firewall->address)) }},
+                address:     {{ Illuminate\Support\Js::from(old('address', $firewall->address)) }},
                 suggestions: [],
-                lat:         '{{ old('latitude',  $firewall->latitude) }}',
-                lon:         '{{ old('longitude', $firewall->longitude) }}',
+                lat:         {{ Illuminate\Support\Js::from(old('latitude',  $firewall->latitude)) }},
+                lon:         {{ Illuminate\Support\Js::from(old('longitude', $firewall->longitude)) }},
                 loading:     false,
 
                 searchAddress() {

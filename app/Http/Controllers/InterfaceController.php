@@ -104,6 +104,10 @@ class InterfaceController extends Controller
             }
             $interface['type6'] = $ipv6Type;
 
+            if (auth()->user()->isReadOnly()) {
+                unset($interface['pppoe_password']);
+            }
+
             return view('interfaces.edit', compact('firewall', 'interface', 'interfaceId'));
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to fetch interface details: ' . $e->getMessage());

@@ -32,6 +32,10 @@ class ServicesMonitController extends Controller
             $error = $e->getMessage();
         }
 
+        if (auth()->user()->isReadOnly()) {
+            unset($settings['password']);
+        }
+
         return view('services.monit.index', compact('firewall', 'status', 'settings', 'services', 'alerts', 'tests', 'error'));
     }
 
@@ -255,4 +259,3 @@ class ServicesMonitController extends Controller
         }
     }
 }
-

@@ -22,6 +22,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Authentication emails must use the configured origin, never a caller's Host header.
+        \Illuminate\Support\Facades\URL::forceRootUrl(config('app.url'));
+        \Illuminate\Support\Facades\URL::forceScheme(parse_url(config('app.url'), PHP_URL_SCHEME) ?: 'https');
+
         // Prevent DB access during installation/pre-setup
         if (!env('APP_INSTALLED', false)) {
             \Illuminate\Support\Facades\View::share('settings', []);

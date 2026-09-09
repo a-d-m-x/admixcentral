@@ -286,6 +286,8 @@ class FirewallController extends Controller implements HasMiddleware
             'name' => 'required|string|max:255',
             'os_type' => 'nullable|in:pfsense,opnsense',
             'url' => 'required|url',
+            'tls_public_key_pin' => ['nullable', 'string', 'regex:~\Asha256//[A-Za-z0-9+/]{43}=\z~'],
+            'tls_certificate' => 'nullable|file|max:64',
             'auth_method' => 'required|in:basic,token',
             'api_key' => 'nullable|string',
             'api_secret' => 'nullable|string',
@@ -293,7 +295,8 @@ class FirewallController extends Controller implements HasMiddleware
             'opn_username' => 'nullable|string',
             'opn_password' => 'nullable|string',
             'description' => 'nullable|string',
-            'ssh_port' => 'nullable|integer',
+            'ssh_port' => 'nullable|integer|between:1,65535',
+            'ssh_host_key_fingerprint' => ['nullable', 'string', 'regex:/\ASHA256:[A-Za-z0-9+\/]{43}\z/'],
             'ssh_username' => 'nullable|string|max:255',
             'ssh_password' => 'nullable|string',
         ]);
@@ -307,6 +310,11 @@ class FirewallController extends Controller implements HasMiddleware
         }
 
         $this->validateFirewallUrl($validated['url']);
+        $validated = $this->enrollTlsCertificate($request, $validated);
+
+        if (array_key_exists('ssh_port', $validated)) {
+            $validated['ssh_port'] ??= 22;
+        }
 
         $validated['os_type'] = $validated['os_type'] ?? 'pfsense';
 
@@ -315,14 +323,15 @@ class FirewallController extends Controller implements HasMiddleware
                 $keys = \App\Services\OpnSenseApiService::provisionApiKeyFromCredentials(
                     $validated['url'],
                     $validated['opn_username'],
-                    $validated['opn_password']
+                    $validated['opn_password'],
+                    $validated['tls_public_key_pin'] ?? null
                 );
                 $validated['auth_method'] = 'basic';
                 $validated['api_key'] = $keys['key'];
                 $validated['api_secret'] = $keys['secret'];
             } catch (\Exception $e) {
                 return back()
-                    ->withInput()
+                    ->withInput($request->except(['api_key', 'api_secret', 'api_token', 'ssh_password', 'opn_password']))
                     ->with('error', 'OPNsense API key auto-generation failed: ' . $e->getMessage())
                     ->withErrors(['url' => $e->getMessage()]);
             }
@@ -331,12 +340,12 @@ class FirewallController extends Controller implements HasMiddleware
 
         if ($validated['auth_method'] === 'basic' && (empty($validated['api_key']) || empty($validated['api_secret']))) {
             return back()
-                ->withInput()
+                ->withInput($request->except(['api_key', 'api_secret', 'api_token', 'ssh_password', 'opn_password']))
                 ->withErrors(['api_key' => 'API Key and Secret are required for Basic Authentication.']);
         }
         if ($validated['auth_method'] === 'token' && empty($validated['api_token'])) {
             return back()
-                ->withInput()
+                ->withInput($request->except(['api_key', 'api_secret', 'api_token', 'ssh_password', 'opn_password']))
                 ->withErrors(['api_token' => 'API Token is required for Token Authentication.']);
         }
 
@@ -352,7 +361,7 @@ class FirewallController extends Controller implements HasMiddleware
             }
         } catch (\Exception $e) {
             return back()
-                ->withInput()
+                ->withInput($request->except(['api_key', 'api_secret', 'api_token', 'ssh_password', 'opn_password']))
                 ->with('error', 'Connection failed: ' . $e->getMessage())
                 ->withErrors(['url' => 'Connection failed: ' . $e->getMessage()]);
         }
@@ -363,7 +372,7 @@ class FirewallController extends Controller implements HasMiddleware
             // Check if violation is on netgate_id
             if (str_contains($e->getMessage(), 'firewalls_netgate_id_unique')) {
                 return back()
-                    ->withInput()
+                    ->withInput($request->except(['api_key', 'api_secret', 'api_token', 'ssh_password', 'opn_password']))
                     ->with('error', 'This firewall is already managed by Admix Central (Duplicate Netgate ID).');
             }
             throw $e;
@@ -433,6 +442,8 @@ class FirewallController extends Controller implements HasMiddleware
             'name' => 'required|string|max:255',
             'os_type' => 'nullable|in:pfsense,opnsense',
             'url' => 'required|url',
+            'tls_public_key_pin' => ['nullable', 'string', 'regex:~\Asha256//[A-Za-z0-9+/]{43}=\z~'],
+            'tls_certificate' => 'nullable|file|max:64',
             'auth_method' => 'required|in:basic,token',
             'api_key' => 'nullable|string',
             'api_secret' => 'nullable|string',
@@ -441,12 +452,18 @@ class FirewallController extends Controller implements HasMiddleware
             'address' => 'nullable|string|max:255',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
-            'ssh_port' => 'nullable|integer',
+            'ssh_port' => 'nullable|integer|between:1,65535',
+            'ssh_host_key_fingerprint' => ['nullable', 'string', 'regex:/\ASHA256:[A-Za-z0-9+\/]{43}\z/'],
             'ssh_username' => 'nullable|string|max:255',
             'ssh_password' => 'nullable|string',
         ]);
 
         $this->validateFirewallUrl($validated['url']);
+        $validated = $this->enrollTlsCertificate($request, $validated);
+
+        if (array_key_exists('ssh_port', $validated)) {
+            $validated['ssh_port'] ??= 22;
+        }
 
         if (!$user->isGlobalAdmin()) {
             if ((int) $validated['company_id'] !== (int) $firewall->company_id) {
@@ -456,40 +473,57 @@ class FirewallController extends Controller implements HasMiddleware
         }
 
         $urlChanged = (rtrim($validated['url'], '/') !== rtrim($firewall->url, '/'));
+        $newTlsPin = array_key_exists('tls_public_key_pin', $validated)
+            ? $validated['tls_public_key_pin'] : $firewall->tls_public_key_pin;
+        $connectionChanged = $urlChanged || $newTlsPin !== $firewall->tls_public_key_pin;
 
         if ($validated['auth_method'] === 'token') {
             $validated['api_key'] = null;
             $validated['api_secret'] = null;
             if (empty($validated['api_token'])) {
-                if ($urlChanged) {
-                    return back()->withErrors(['api_token' => 'A new API Token is required when changing the firewall URL.'])->withInput();
+                if ($connectionChanged) {
+                    return back()->withErrors(['api_token' => 'A new API Token is required when changing the firewall URL or trusted TLS key.'])->withInput($request->except(['api_key', 'api_secret', 'api_token', 'ssh_password', 'opn_password']));
                 }
                 if ($firewall->auth_method !== 'token' || empty($firewall->api_token)) {
-                    return back()->withErrors(['api_token' => 'API Token is required for Token Authentication.'])->withInput();
+                    return back()->withErrors(['api_token' => 'API Token is required for Token Authentication.'])->withInput($request->except(['api_key', 'api_secret', 'api_token', 'ssh_password', 'opn_password']));
                 }
                 unset($validated['api_token']);
             }
         } else {
             $validated['api_token'] = null;
             if (empty($validated['api_key'])) {
-                if ($urlChanged || $firewall->auth_method !== 'basic' || empty($firewall->api_key)) {
-                    return back()->withErrors(['api_key' => 'API Key/Username is required for Basic Authentication.'])->withInput();
+                if ($connectionChanged || $firewall->auth_method !== 'basic' || empty($firewall->api_key)) {
+                    return back()->withErrors(['api_key' => 'API Key/Username is required for Basic Authentication.'])->withInput($request->except(['api_key', 'api_secret', 'api_token', 'ssh_password', 'opn_password']));
                 }
                 unset($validated['api_key']);
             }
             if (empty($validated['api_secret'])) {
-                if ($urlChanged) {
-                    return back()->withErrors(['api_secret' => 'Password is required when changing the firewall URL.'])->withInput();
+                if ($connectionChanged) {
+                    return back()->withErrors(['api_secret' => 'Password is required when changing the firewall URL or trusted TLS key.'])->withInput($request->except(['api_key', 'api_secret', 'api_token', 'ssh_password', 'opn_password']));
                 }
                 if (empty($firewall->api_secret) && $firewall->auth_method !== 'basic') {
-                    return back()->withErrors(['api_secret' => 'Password is required when switching to Basic Authentication.'])->withInput();
+                    return back()->withErrors(['api_secret' => 'Password is required when switching to Basic Authentication.'])->withInput($request->except(['api_key', 'api_secret', 'api_token', 'ssh_password', 'opn_password']));
                 }
                 unset($validated['api_secret']);
             }
         }
 
+        $newSshPort = array_key_exists('ssh_port', $validated) ? ($validated['ssh_port'] ?? 22) : ($firewall->ssh_port ?? 22);
+        $newSshUsername = array_key_exists('ssh_username', $validated) ? $validated['ssh_username'] : $firewall->ssh_username;
+        $newSshFingerprint = array_key_exists('ssh_host_key_fingerprint', $validated)
+            ? $validated['ssh_host_key_fingerprint'] : $firewall->ssh_host_key_fingerprint;
+        $sshDestinationChanged = $urlChanged
+            || (int) $newSshPort !== (int) ($firewall->ssh_port ?? 22)
+            || $newSshUsername !== $firewall->ssh_username
+            || $newSshFingerprint !== $firewall->ssh_host_key_fingerprint;
+
         if (empty($validated['ssh_password'])) {
-            unset($validated['ssh_password']);
+            if ($sshDestinationChanged) {
+                // Never send a saved password to a new host, port, or account.
+                $validated['ssh_password'] = null;
+            } else {
+                unset($validated['ssh_password']);
+            }
         }
 
         $firewall->update($validated);
@@ -509,19 +543,39 @@ class FirewallController extends Controller implements HasMiddleware
         return redirect()->route('firewalls.index')->with('success', 'Firewall deleted successfully.');
     }
 
+    private function enrollTlsCertificate(Request $request, array $validated): array
+    {
+        if ($request->hasFile('tls_certificate')) {
+            try {
+                $validated['tls_public_key_pin'] = \App\Services\FirewallHttpOptions::pinFromCertificate(
+                    $request->file('tls_certificate')->getContent()
+                );
+            } catch (\InvalidArgumentException $e) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['tls_certificate' => $e->getMessage()]);
+            }
+        }
+        unset($validated['tls_certificate']);
+
+        return $validated;
+    }
+
     protected function validateFirewallUrl(string $url): void
     {
         $parsed = parse_url($url);
-        if (!isset($parsed['scheme']) || !in_array(strtolower($parsed['scheme']), ['http', 'https'], true)) {
-            abort(422, 'Invalid URL scheme. Only HTTP and HTTPS are permitted.');
+        if (!isset($parsed['scheme']) || strtolower($parsed['scheme']) !== 'https') {
+            abort(422, 'Firewall management requires HTTPS. Native self-signed certificates can be trusted by uploading their public certificate.');
         }
 
-        $host = $parsed['host'] ?? '';
+        $host = trim($parsed['host'] ?? '', '[]');
         if (empty($host)) {
             abort(422, 'Invalid firewall URL.');
         }
 
-        $lowerHost = strtolower($host);
+        if (isset($parsed['user']) || isset($parsed['pass']) || isset($parsed['query']) || isset($parsed['fragment'])) {
+            abort(422, 'Firewall URLs cannot contain credentials, a query, or a fragment.');
+        }
+
+        $lowerHost = strtolower(rtrim($host, '.'));
         if (in_array($lowerHost, ['localhost', 'metadata.google.internal', 'instance-data'], true) || str_ends_with($lowerHost, '.localhost')) {
             abort(422, 'Target hostname is restricted.');
         }
@@ -534,9 +588,28 @@ class FirewallController extends Controller implements HasMiddleware
             if ($resolved) {
                 $ips = $resolved;
             }
+            // Check IPv6 DNS records too; the HTTP client may prefer them.
+            foreach (@dns_get_record($host, DNS_AAAA) ?: [] as $record) {
+                if (isset($record['ipv6'])) {
+                    $ips[] = $record['ipv6'];
+                }
+            }
         }
 
         foreach ($ips as $ip) {
+            $packed = @inet_pton($ip);
+            if ($packed !== false && strlen($packed) === 16) {
+                // Normalize compressed IPv6 and IPv4-mapped IPv6 before testing.
+                if (substr($packed, 0, 12) === str_repeat("\0", 10) . "\xff\xff") {
+                    $ip = inet_ntop(substr($packed, 12));
+                } else {
+                    $ip = inet_ntop($packed);
+                    if ((ord($packed[0]) === 0xfe && (ord($packed[1]) & 0xc0) === 0x80)
+                        || ord($packed[0]) === 0xff) {
+                        abort(422, 'Target resolves to a link-local or multicast address.');
+                    }
+                }
+            }
             if ($ip === '::1' || str_starts_with($ip, '127.')) {
                 abort(422, 'Target resolves to a loopback address.');
             }

@@ -49,6 +49,8 @@ class InterfacesVxlanTest extends TestCase
         [$user, $fw] = $this->fixture();
 
         Http::fake([
+            '*api/interfaces/overview/interfacesInfo*' => Http::response(['rows' => []], 200),
+            '*api/diagnostics/interface/getInterfaceStatistics*' => Http::response(['statistics' => []], 200),
             '*api/interfaces/vxlan_settings/searchItem*' => Http::response([
                 'rows' => [
                     [

@@ -9,7 +9,7 @@
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 dark:text-gray-100">
-                    <form action="{{ route('firewalls.store') }}" method="POST">
+                    <form action="{{ route('firewalls.store') }}" method="POST" enctype="multipart/form-data">
                         @csrf
 
                         {{-- Company Selection --}}
@@ -17,7 +17,7 @@
                             <div class="mb-4" x-data="{
                                     open: false,
                                     filter: '',
-                                    selectedId: '{{ old('company_id', request('company_id')) }}',
+                                    selectedId: {{ Illuminate\Support\Js::from(old('company_id', request('company_id'))) }},
                                     selectedName: '',
                                     companies: {{ $companies->map(fn($c) => ['id' => $c->id, 'name' => $c->name])->values()->toJson() }},
                                     init() {
@@ -114,8 +114,8 @@
                         @endif
 
                         <div x-data="{ 
-                            osType: '{{ old('os_type', 'pfsense') }}',
-                            authMethod: '{{ old('auth_method', 'basic') }}',
+                            osType: {{ Illuminate\Support\Js::from(old('os_type', 'pfsense')) }},
+                            authMethod: {{ Illuminate\Support\Js::from(old('auth_method', 'basic')) }},
                             autoGen: false
                         }">
                             {{-- Firewall OS Platform --}}
@@ -199,6 +199,8 @@
                                 @enderror
                             </div>
 
+                            @include('firewalls.partials.tls-trust')
+
                             <div class="mb-4">
                                 <label for="auth_method"
                                     class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Authentication
@@ -273,6 +275,15 @@
                                 @error('ssh_username')
                                     <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                                 @enderror
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="ssh_host_key_fingerprint" class="block text-sm font-medium mb-2">Verified SSH host key fingerprint</label>
+                                <input type="text" name="ssh_host_key_fingerprint" id="ssh_host_key_fingerprint"
+                                    value="{{ old('ssh_host_key_fingerprint') }}" placeholder="SHA256:..."
+                                    class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                <p class="text-xs text-gray-500 mt-1">Obtain this fingerprint from the firewall console or another trusted channel. SSH backups require a matching key. Re-enter the password when changing the host, port, username, or fingerprint.</p>
+                                @error('ssh_host_key_fingerprint')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                             </div>
 
                             <div class="mb-4">

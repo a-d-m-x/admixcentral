@@ -42,10 +42,10 @@ class MagicLoginController extends Controller
 
         $signature = $request->query('signature');
         $cacheKey = 'magic_link_consumed_' . $signature;
-        if (Cache::has($cacheKey)) {
+        // An atomic insert prevents two simultaneous requests consuming one link.
+        if (!Cache::add($cacheKey, true, now()->addMinutes(15))) {
             abort(401, 'This magic login link has already been used.');
         }
-        Cache::put($cacheKey, true, now()->addMinutes(15));
 
         $user = User::findOrFail($id);
 

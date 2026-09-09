@@ -26,15 +26,11 @@ class OpnSenseApiService
      * Bootstrap helper: logs in to OPNsense web GUI session with username/password,
      * calls /api/auth/user/add_api_key/{username}, and returns ['key' => ..., 'secret' => ..., 'hostname' => ...]
      */
-    public static function provisionApiKeyFromCredentials(string $url, string $username, string $password): array
+    public static function provisionApiKeyFromCredentials(string $url, string $username, string $password, ?string $tlsPublicKeyPin = null): array
     {
         $base = rtrim($url, '/');
         $jar = new \GuzzleHttp\Cookie\CookieJar();
-        $client = Http::withOptions([
-            'verify' => false,
-            'cookies' => $jar,
-            'allow_redirects' => false,
-        ])->timeout(12);
+        $client = Http::withOptions(FirewallHttpOptions::get($tlsPublicKeyPin, $url) + ['cookies' => $jar])->timeout(12);
 
         // 1. Fetch login page to extract CSRF token and session cookie
         $loginPage = $client->get("{$base}/index.php");
@@ -98,6 +94,18 @@ class OpnSenseApiService
      */
     protected int $apiTimeout = 20;
 
+    private function poolResponseData(mixed $response): array
+    {
+        if ($response instanceof \Throwable) {
+            throw new \RuntimeException('Firewall connection failed: ' . $response->getMessage(), 0, $response);
+        }
+        if (!$response instanceof \Illuminate\Http\Client\Response || !$response->successful()) {
+            throw new \RuntimeException('Firewall returned an unsuccessful status response.');
+        }
+
+        return $response->json() ?? [];
+    }
+
     public function setApiTimeout(int $seconds): static
     {
         $this->apiTimeout = $seconds;
@@ -111,7 +119,7 @@ class OpnSenseApiService
     {
         $url = $this->baseUrl . '/' . ltrim($endpoint, '/');
 
-        $client = Http::withOptions(['verify' => false])
+        $client = Http::withOptions(FirewallHttpOptions::get($this->firewall->tls_public_key_pin, $this->firewall->url))
             ->acceptJson()
             ->timeout($this->apiTimeout);
 
@@ -266,20 +274,20 @@ class OpnSenseApiService
         $now = time();
 
         $responses = Http::pool(fn ($pool) => [
-            $pool->as('time')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/diagnostics/system/systemTime?_t=$now"),
-            $pool->as('resources')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/diagnostics/system/systemResources?_t=$now"),
-            $pool->as('disk')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/diagnostics/system/systemDisk?_t=$now"),
-            $pool->as('gateways')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/routes/gateway/status?_t=$now"),
-            $pool->as('ifOverview')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/interfaces/overview/interfacesInfo?_t=$now"),
-            $pool->as('ifStats')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/diagnostics/interface/getInterfaceStatistics?_t=$now"),
+            $pool->as('time')->withOptions(FirewallHttpOptions::get($this->firewall->tls_public_key_pin, $this->firewall->url))->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/diagnostics/system/systemTime?_t=$now"),
+            $pool->as('resources')->withOptions(FirewallHttpOptions::get($this->firewall->tls_public_key_pin, $this->firewall->url))->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/diagnostics/system/systemResources?_t=$now"),
+            $pool->as('disk')->withOptions(FirewallHttpOptions::get($this->firewall->tls_public_key_pin, $this->firewall->url))->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/diagnostics/system/systemDisk?_t=$now"),
+            $pool->as('gateways')->withOptions(FirewallHttpOptions::get($this->firewall->tls_public_key_pin, $this->firewall->url))->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/routes/gateway/status?_t=$now"),
+            $pool->as('ifOverview')->withOptions(FirewallHttpOptions::get($this->firewall->tls_public_key_pin, $this->firewall->url))->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/interfaces/overview/interfacesInfo?_t=$now"),
+            $pool->as('ifStats')->withOptions(FirewallHttpOptions::get($this->firewall->tls_public_key_pin, $this->firewall->url))->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/diagnostics/interface/getInterfaceStatistics?_t=$now"),
         ]);
 
-        $timeData  = $responses['time']->json()      ?? [];
-        $resData   = $responses['resources']->json() ?? [];
-        $diskData  = $responses['disk']->json()      ?? [];
-        $gwData    = $responses['gateways']->json()  ?? [];
-        $ifOverview = $responses['ifOverview']->json() ?? [];
-        $ifStats   = $responses['ifStats']->json()   ?? [];
+        $timeData  = $this->poolResponseData($responses['time']);
+        $resData   = $this->poolResponseData($responses['resources']);
+        $diskData  = $this->poolResponseData($responses['disk']);
+        $gwData    = $this->poolResponseData($responses['gateways']);
+        $ifOverview = $this->poolResponseData($responses['ifOverview']);
+        $ifStats   = $this->poolResponseData($responses['ifStats']);
 
 
         // CPU calculation from real-time 1m load average without spawning heavy 'top'
@@ -642,12 +650,12 @@ class OpnSenseApiService
         $now = time();
 
         $res = Http::pool(fn ($pool) => [
-            $pool->as('overview')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/interfaces/overview/interfacesInfo?_t=$now"),
-            $pool->as('stats')->withOptions(['verify' => false])->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/diagnostics/interface/getInterfaceStatistics?_t=$now"),
+            $pool->as('overview')->withOptions(FirewallHttpOptions::get($this->firewall->tls_public_key_pin, $this->firewall->url))->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/interfaces/overview/interfacesInfo?_t=$now"),
+            $pool->as('stats')->withOptions(FirewallHttpOptions::get($this->firewall->tls_public_key_pin, $this->firewall->url))->timeout(15)->withBasicAuth($key, $secret)->get("$base/api/diagnostics/interface/getInterfaceStatistics?_t=$now"),
         ]);
 
-        $overview = $res['overview']->json() ?? [];
-        $statsResp = $res['stats']->json() ?? [];
+        $overview = $this->poolResponseData($res['overview']);
+        $statsResp = $this->poolResponseData($res['stats']);
         $stats = $statsResp['statistics'] ?? [];
 
         $formatted = [];
@@ -1978,7 +1986,7 @@ class OpnSenseApiService
     public function downloadBackup(): string
     {
         $url = $this->baseUrl . '/api/core/backup/download/this';
-        $response = Http::withOptions(['verify' => false])
+        $response = Http::withOptions(FirewallHttpOptions::get($this->firewall->tls_public_key_pin, $this->firewall->url))
             ->timeout(30)
             ->withBasicAuth($this->apiKey, $this->apiSecret)
             ->get($url);

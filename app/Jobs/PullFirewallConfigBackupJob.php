@@ -58,7 +58,18 @@ class PullFirewallConfigBackupJob implements ShouldQueue
                     return;
                 }
 
+                if (empty($firewall->ssh_host_key_fingerprint)) {
+                    $backupRecord->update(['status' => 'failed', 'error_message' => 'A verified SSH host key fingerprint is required in firewall settings before sending credentials.']);
+                    return;
+                }
+
                 $sftp = new SFTP($host, (int) ($firewall->ssh_port ?? 22), 15);
+
+                if (!\App\Services\SshHostKeyVerifier::verify($sftp, $firewall->ssh_host_key_fingerprint)) {
+                    $sftp->disconnect();
+                    $backupRecord->update(['status' => 'failed', 'error_message' => 'SSH host key verification failed. Verify the fingerprint through the firewall console.']);
+                    return;
+                }
 
                 if (!$sftp->login($firewall->ssh_username, $firewall->ssh_password)) {
                     $backupRecord->update(['status' => 'failed', 'error_message' => 'SSH authentication failed. Check username and password.']);

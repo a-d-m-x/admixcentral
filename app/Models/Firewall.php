@@ -13,6 +13,7 @@ class Firewall extends Model
         'name',
         'os_type',
         'url',
+        'tls_public_key_pin',
         'auth_method',
         'api_key',
         'api_secret',
@@ -24,6 +25,7 @@ class Firewall extends Model
         'latitude',
         'longitude',
         'ssh_port',
+        'ssh_host_key_fingerprint',
         'ssh_username',
         'ssh_password',
     ];

@@ -131,7 +131,7 @@
                                                 <button @click="openGatewayModal({{ json_encode($gateway) }})"
                                                     class="text-indigo-600 hover:text-indigo-900 mr-4">Edit</button>
                                                 <button
-                                                    @click="confirmDelete('{{ route('firewall.system.routing.gateways.destroy', ['firewall' => $firewall, 'id' => $gateway['id']]) }}')"
+                                                    @click="confirmDelete({{ Js::from(route('firewall.system.routing.gateways.destroy', ['firewall' => $firewall, 'id' => $gateway['id']])) }})"
                                                     class="text-red-600 hover:text-red-900">Delete</button>
                                             </td>
                                             @endif
@@ -185,7 +185,7 @@
                                                 <button @click="openStaticRouteModal({{ json_encode($route) }})"
                                                     class="text-indigo-600 hover:text-indigo-900 mr-4">Edit</button>
                                                 <button
-                                                    @click="confirmDelete('{{ route('firewall.system.routing.static-routes.destroy', ['firewall' => $firewall, 'id' => $route['id']]) }}')"
+                                                    @click="confirmDelete({{ Js::from(route('firewall.system.routing.static-routes.destroy', ['firewall' => $firewall, 'id' => $route['id']])) }})"
                                                     class="text-red-600 hover:text-red-900">Delete</button>
                                             </td>
                                             @endif
@@ -274,7 +274,7 @@
                                                 <button @click="openGatewayGroupModal({{ json_encode($group) }})"
                                                     class="text-indigo-600 hover:text-indigo-900 mr-4">Edit</button>
                                                 <button
-                                                    @click="confirmDelete('{{ route('firewall.system.routing.gateway-groups.destroy', ['firewall' => $firewall, 'id' => $group['id'] ?? '']) }}')"
+                                                    @click="confirmDelete({{ Js::from(route('firewall.system.routing.gateway-groups.destroy', ['firewall' => $firewall, 'id' => $group['id'] ?? ''])) }})"
                                                     class="text-red-600 hover:text-red-900">Delete</button>
                                             </td>
                                             @endif

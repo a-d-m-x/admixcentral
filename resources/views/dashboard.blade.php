@@ -1092,7 +1092,6 @@
                     console.log('Dashboard Intervals Loaded:', {
                         realtime: this.realtimeMs,
                         fallback: this.fallbackMs,
-                        rawSettings: @json($settings)
                     });
                     this.timer = null;
 

@@ -12,6 +12,7 @@ class AuthenticationTest extends TestCase
 
     public function test_login_screen_can_be_rendered(): void
     {
+        User::factory()->create(); // Complete first-run setup for this login-page test.
         $response = $this->get('/login');
 
         $response->assertStatus(200);

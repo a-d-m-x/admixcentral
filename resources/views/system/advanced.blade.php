@@ -198,7 +198,7 @@
                                         <div class="border-t border-gray-200 pt-6 mt-2">
                                             <h4 class="text-md font-medium text-gray-900 mb-4">{{ __('Authentication') }}</h4>
                                             <div class="grid grid-cols-1 gap-6"
-                                                x-data="{ auth_mech: '{{ $data['notifications']['authentication_mechanism'] ?? 'PLAIN' }}' }">
+                                                x-data="{ auth_mech: {{ Js::from($data['notifications']['authentication_mechanism'] ?? 'PLAIN') }} }">
                                                 <div>
                                                     <x-input-label for="authentication_mechanism" :value="__('Notification E-Mail Auth Mechanism')" />
                                                     <select id="authentication_mechanism" name="authentication_mechanism"
@@ -381,10 +381,10 @@
                                                         @if(!auth()->user()->isReadOnly())
                                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                             <button type="button"
-                                                                @click="showModal = true; editing = true; form = { id: '{{ $tunable['id'] ?? $tunable['tunable'] ?? '' }}', tunable: '{{ $tunable['tunable'] ?? '' }}', value: '{{ $tunable['value'] ?? '' }}', descr: '{{ $tunable['descr'] ?? '' }}' }"
+                                                                @click="showModal = true; editing = true; form = {{ Js::from(['id' => $tunable['id'] ?? $tunable['tunable'] ?? '', 'tunable' => $tunable['tunable'] ?? '', 'value' => $tunable['value'] ?? '', 'descr' => $tunable['descr'] ?? '']) }}"
                                                                 class="text-indigo-600 hover:text-indigo-900 mr-4">Edit</button>
                                                             <button type="button"
-                                                                @click="deleteTunable('{{ $tunable['id'] ?? $tunable['tunable'] ?? '' }}')"
+                                                                @click="deleteTunable({{ Js::from($tunable['id'] ?? $tunable['tunable'] ?? '') }})"
                                                                 class="text-red-600 hover:text-red-900">Delete</button>
                                                         </td>
                                                         @endif

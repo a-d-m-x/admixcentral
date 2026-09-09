@@ -96,7 +96,7 @@
                                                         </form>
                                                     @endif
                                                     <form action="{{ route('system.package_manager.reinstall', $firewall) }}" method="POST" class="inline-block"
-                                                        onsubmit="return confirm('Are you sure you want to reinstall {{ $pkg['name'] ?? 'this package' }}?');">
+                                                        onsubmit="return confirm({{ Js::from('Are you sure you want to reinstall ' . ($pkg['name'] ?? 'this package') . '?') }});">
                                                         @csrf
                                                         <input type="hidden" name="name" value="{{ $pkg['name'] ?? '' }}">
                                                         <button type="submit" class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">Reinstall</button>
@@ -104,7 +104,7 @@
                                                 @endif
                                                 <form action="{{ route('system.package_manager.uninstall', $firewall) }}"
                                                     method="POST" class="inline-block"
-                                                    onsubmit="return confirm('Are you sure you want to uninstall {{ $pkg['name'] ?? 'this package' }}?');">
+                                                    onsubmit="return confirm({{ Js::from('Are you sure you want to uninstall ' . ($pkg['name'] ?? 'this package') . '?') }});">
                                                     @csrf
                                                     {{-- API uses 0-based array index as ID for package operations --}}
                                                     <input type="hidden" name="id" value="{{ $loop->index }}">
@@ -115,7 +115,7 @@
                                             @else
                                                 <form action="{{ route('system.package_manager.install', $firewall) }}"
                                                     method="POST" class="inline-block"
-                                                    onsubmit="return confirm('Are you sure you want to install {{ $pkg['name'] ?? 'this package' }}?');">
+                                                    onsubmit="return confirm({{ Js::from('Are you sure you want to install ' . ($pkg['name'] ?? 'this package') . '?') }});">
                                                     @csrf
                                                     <input type="hidden" name="name" value="{{ $pkg['name'] ?? '' }}">
                                                     <button type="submit"
