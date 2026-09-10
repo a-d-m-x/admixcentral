@@ -9,7 +9,8 @@
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 dark:text-gray-100">
-                    <form action="{{ route('firewalls.store') }}" method="POST" enctype="multipart/form-data">
+                    <form action="{{ route('firewalls.store') }}" method="POST" enctype="multipart/form-data"
+                        @submit="if ($refs.urlInput && $refs.urlInput.value.startsWith('http://')) { $refs.urlInput.value = 'https://' + $refs.urlInput.value.substring(7); } else if ($refs.urlInput && $refs.urlInput.value && !$refs.urlInput.value.startsWith('https://')) { $refs.urlInput.value = 'https://' + $refs.urlInput.value; }">
                         @csrf
 
                         {{-- Company Selection --}}
@@ -198,6 +199,8 @@
                                 <label for="url"
                                     class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">URL</label>
                                 <input type="url" name="url" id="url" value="{{ old('url') }}" required
+                                    x-ref="urlInput"
+                                    @blur="if ($el.value.startsWith('http://')) { $el.value = 'https://' + $el.value.substring(7); } else if ($el.value && !$el.value.startsWith('https://')) { $el.value = 'https://' + $el.value; }"
                                     class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
                                     placeholder="https://192.168.1.1:443">
                                 @error('url')

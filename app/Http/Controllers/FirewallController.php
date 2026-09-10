@@ -281,6 +281,18 @@ class FirewallController extends Controller implements HasMiddleware
             abort(403);
         }
 
+        // Auto-upgrade http:// or bare host to https:// for web form submissions
+        if (!$request->expectsJson()) {
+            $rawUrl = trim($request->input('url', ''));
+            if (!empty($rawUrl)) {
+                if (str_starts_with(strtolower($rawUrl), 'http://')) {
+                    $request->merge(['url' => 'https://' . substr($rawUrl, 7)]);
+                } elseif (!str_starts_with(strtolower($rawUrl), 'https://')) {
+                    $request->merge(['url' => 'https://' . $rawUrl]);
+                }
+            }
+        }
+
         $validated = $request->validate([
             'company_id' => 'required|exists:companies,id',
             'name' => 'required|string|max:255',
@@ -318,22 +330,42 @@ class FirewallController extends Controller implements HasMiddleware
 
         $validated['os_type'] = $validated['os_type'] ?? 'pfsense';
 
-        if ($validated['os_type'] === 'opnsense' && !empty($validated['opn_username']) && !empty($validated['opn_password'])) {
+        // Auto-detect OPNsense from server response headers if not explicitly specified
+        if ($validated['os_type'] !== 'opnsense' && !empty($validated['url'])) {
             try {
-                $keys = \App\Services\OpnSenseApiService::provisionApiKeyFromCredentials(
-                    $validated['url'],
-                    $validated['opn_username'],
-                    $validated['opn_password'],
-                    $validated['tls_public_key_pin'] ?? null
-                );
-                $validated['auth_method'] = 'basic';
-                $validated['api_key'] = $keys['key'];
-                $validated['api_secret'] = $keys['secret'];
-            } catch (\Exception $e) {
-                return back()
-                    ->withInput($request->except(['api_key', 'api_secret', 'api_token', 'ssh_password', 'opn_password']))
-                    ->with('error', 'OPNsense API key auto-generation failed: ' . $e->getMessage())
-                    ->withErrors(['url' => $e->getMessage()]);
+                $pin = $validated['tls_public_key_pin'] ?? null;
+                $opts = \App\Services\FirewallHttpOptions::get($pin, $validated['url']);
+                $opts['timeout'] = 2;
+                $probe = \Illuminate\Support\Facades\Http::withOptions($opts)->get($validated['url']);
+                if (str_contains(strtolower($probe->header('Server') ?? ''), 'opnsense')) {
+                    $validated['os_type'] = 'opnsense';
+                }
+            } catch (\Throwable $e) {
+                // Ignore probe failure
+            }
+        }
+
+        if ($validated['os_type'] === 'opnsense') {
+            $opnUser = $validated['opn_username'] ?? (isset($validated['api_key']) && strlen($validated['api_key']) < 32 ? $validated['api_key'] : null);
+            $opnPass = $validated['opn_password'] ?? ($opnUser ? ($validated['api_secret'] ?? null) : null);
+
+            if (!empty($opnUser) && !empty($opnPass)) {
+                try {
+                    $keys = \App\Services\OpnSenseApiService::provisionApiKeyFromCredentials(
+                        $validated['url'],
+                        $opnUser,
+                        $opnPass,
+                        $validated['tls_public_key_pin'] ?? null
+                    );
+                    $validated['auth_method'] = 'basic';
+                    $validated['api_key'] = $keys['key'];
+                    $validated['api_secret'] = $keys['secret'];
+                } catch (\Exception $e) {
+                    return back()
+                        ->withInput($request->except(['api_key', 'api_secret', 'api_token', 'ssh_password', 'opn_password']))
+                        ->with('error', 'OPNsense API key auto-generation failed: ' . $e->getMessage())
+                        ->withErrors(['url' => $e->getMessage()]);
+                }
             }
         }
         unset($validated['opn_username'], $validated['opn_password']);
@@ -435,6 +467,18 @@ class FirewallController extends Controller implements HasMiddleware
         $user = auth()->user();
         if (!$user || (!$user->isGlobalAdmin() && !($user->isCompanyAdmin() && (int)$firewall->company_id === (int)$user->company_id))) {
             abort(403);
+        }
+
+        // Auto-upgrade http:// or bare host to https:// for web form submissions
+        if (!$request->expectsJson()) {
+            $rawUrl = trim($request->input('url', ''));
+            if (!empty($rawUrl)) {
+                if (str_starts_with(strtolower($rawUrl), 'http://')) {
+                    $request->merge(['url' => 'https://' . substr($rawUrl, 7)]);
+                } elseif (!str_starts_with(strtolower($rawUrl), 'https://')) {
+                    $request->merge(['url' => 'https://' . $rawUrl]);
+                }
+            }
         }
 
         $validated = $request->validate([
@@ -576,21 +620,29 @@ class FirewallController extends Controller implements HasMiddleware
     {
         $parsed = parse_url($url);
         if (!isset($parsed['scheme']) || strtolower($parsed['scheme']) !== 'https') {
-            abort(422, 'Firewall management requires HTTPS. Native self-signed certificates can be trusted by uploading their public certificate.');
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'url' => 'Firewall management requires HTTPS. Native self-signed certificates are automatically trusted.',
+            ]);
         }
 
         $host = trim($parsed['host'] ?? '', '[]');
         if (empty($host)) {
-            abort(422, 'Invalid firewall URL.');
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'url' => 'Invalid firewall URL.',
+            ]);
         }
 
         if (isset($parsed['user']) || isset($parsed['pass']) || isset($parsed['query']) || isset($parsed['fragment'])) {
-            abort(422, 'Firewall URLs cannot contain credentials, a query, or a fragment.');
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'url' => 'Firewall URLs cannot contain credentials, a query, or a fragment.',
+            ]);
         }
 
         $lowerHost = strtolower(rtrim($host, '.'));
         if (in_array($lowerHost, ['localhost', 'metadata.google.internal', 'instance-data'], true) || str_ends_with($lowerHost, '.localhost')) {
-            abort(422, 'Target hostname is restricted.');
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'url' => 'Target hostname is restricted.',
+            ]);
         }
 
         $ips = [];
@@ -619,18 +671,26 @@ class FirewallController extends Controller implements HasMiddleware
                     $ip = inet_ntop($packed);
                     if ((ord($packed[0]) === 0xfe && (ord($packed[1]) & 0xc0) === 0x80)
                         || ord($packed[0]) === 0xff) {
-                        abort(422, 'Target resolves to a link-local or multicast address.');
+                        throw \Illuminate\Validation\ValidationException::withMessages([
+                            'url' => 'Target resolves to a link-local or multicast address.',
+                        ]);
                     }
                 }
             }
             if ($ip === '::1' || str_starts_with($ip, '127.')) {
-                abort(422, 'Target resolves to a loopback address.');
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'url' => 'Target resolves to a loopback address.',
+                ]);
             }
             if (str_starts_with($ip, '169.254.') || str_starts_with(strtolower($ip), 'fe80:')) {
-                abort(422, 'Target resolves to a link-local or metadata address.');
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'url' => 'Target resolves to a link-local or metadata address.',
+                ]);
             }
             if ($ip === '0.0.0.0' || $ip === '::') {
-                abort(422, 'Target resolves to an invalid address.');
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'url' => 'Target resolves to an invalid address.',
+                ]);
             }
         }
     }
