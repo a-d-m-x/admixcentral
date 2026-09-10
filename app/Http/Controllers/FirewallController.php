@@ -528,7 +528,12 @@ class FirewallController extends Controller implements HasMiddleware
 
         $firewall->update($validated);
 
-        return redirect()->route('firewalls.index')->with('success', 'Firewall updated successfully.');
+        $successMessage = 'Firewall settings saved.';
+        if ($request->hasFile('tls_certificate')) {
+            $successMessage .= ' Certificate enrolled successfully.';
+        }
+
+        return redirect()->route('firewalls.edit', $firewall)->with('success', $successMessage);
     }
 
     public function destroy(Firewall $firewall)
