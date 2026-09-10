@@ -370,6 +370,13 @@ class FirewallController extends Controller implements HasMiddleware
         }
         unset($validated['opn_username'], $validated['opn_password']);
 
+        if ($validated['os_type'] === 'opnsense') {
+            $validated['ssh_port'] = null;
+            $validated['ssh_username'] = null;
+            $validated['ssh_password'] = null;
+            $validated['ssh_host_key_fingerprint'] = null;
+        }
+
         if ($validated['auth_method'] === 'basic' && (empty($validated['api_key']) || empty($validated['api_secret']))) {
             return back()
                 ->withInput($request->except(['api_key', 'api_secret', 'api_token', 'ssh_password', 'opn_password']))
@@ -552,21 +559,29 @@ class FirewallController extends Controller implements HasMiddleware
             }
         }
 
-        $newSshPort = array_key_exists('ssh_port', $validated) ? ($validated['ssh_port'] ?? 22) : ($firewall->ssh_port ?? 22);
-        $newSshUsername = array_key_exists('ssh_username', $validated) ? $validated['ssh_username'] : $firewall->ssh_username;
-        $newSshFingerprint = array_key_exists('ssh_host_key_fingerprint', $validated)
-            ? $validated['ssh_host_key_fingerprint'] : $firewall->ssh_host_key_fingerprint;
-        $sshDestinationChanged = $urlChanged
-            || (int) $newSshPort !== (int) ($firewall->ssh_port ?? 22)
-            || $newSshUsername !== $firewall->ssh_username
-            || $newSshFingerprint !== $firewall->ssh_host_key_fingerprint;
+        $targetOsType = $validated['os_type'] ?? $firewall->os_type ?? 'pfsense';
+        if ($targetOsType === 'opnsense') {
+            $validated['ssh_port'] = null;
+            $validated['ssh_username'] = null;
+            $validated['ssh_password'] = null;
+            $validated['ssh_host_key_fingerprint'] = null;
+        } else {
+            $newSshPort = array_key_exists('ssh_port', $validated) ? ($validated['ssh_port'] ?? 22) : ($firewall->ssh_port ?? 22);
+            $newSshUsername = array_key_exists('ssh_username', $validated) ? $validated['ssh_username'] : $firewall->ssh_username;
+            $newSshFingerprint = array_key_exists('ssh_host_key_fingerprint', $validated)
+                ? $validated['ssh_host_key_fingerprint'] : $firewall->ssh_host_key_fingerprint;
+            $sshDestinationChanged = $urlChanged
+                || (int) $newSshPort !== (int) ($firewall->ssh_port ?? 22)
+                || $newSshUsername !== $firewall->ssh_username
+                || $newSshFingerprint !== $firewall->ssh_host_key_fingerprint;
 
-        if (empty($validated['ssh_password'])) {
-            if ($sshDestinationChanged) {
-                // Never send a saved password to a new host, port, or account.
-                $validated['ssh_password'] = null;
-            } else {
-                unset($validated['ssh_password']);
+            if (empty($validated['ssh_password'])) {
+                if ($sshDestinationChanged) {
+                    // Never send a saved password to a new host, port, or account.
+                    $validated['ssh_password'] = null;
+                } else {
+                    unset($validated['ssh_password']);
+                }
             }
         }
 
