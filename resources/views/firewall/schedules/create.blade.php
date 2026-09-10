@@ -54,12 +54,11 @@
                             </p>
                         </div>
 
-                        <div class="flex items-center justify-end mt-4">
-                            <a href="{{ route('firewall.schedules.index', $firewall) }}"
-                                class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mr-4">Cancel</a>
-                            <x-primary-button class="ml-4">
-                                {{ __('Save') }}
-                            </x-primary-button>
+                        <div class="flex items-center gap-3 mt-4">
+                            <x-primary-button>{{ __('Save') }}</x-primary-button>
+                            <a href="{{ route('firewall.schedules.index', $firewall) }}">
+                                <x-secondary-button type="button">{{ __('Cancel') }}</x-secondary-button>
+                            </a>
                         </div>
                     </form>
                 </div>

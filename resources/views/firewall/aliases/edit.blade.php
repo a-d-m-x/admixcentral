@@ -203,19 +203,16 @@
                         </div>
 
                         {{-- Actions --}}
-                        <div class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                            <a href="{{ route('firewall.aliases.index', $firewall) }}"
-                                class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                                Cancel
-                            </a>
-                            <button type="submit"
-                                class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700">
+                        <div class="flex items-center gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <x-primary-button>
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M5 13l4 4L19 7"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                 </svg>
-                                Save
-                            </button>
+                                {{ __('Save') }}
+                            </x-primary-button>
+                            <a href="{{ route('firewall.aliases.index', $firewall) }}">
+                                <x-secondary-button type="button">{{ __('Cancel') }}</x-secondary-button>
+                            </a>
                         </div>
                     </div>
                 </form>

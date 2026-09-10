@@ -118,13 +118,11 @@
                             <p class="mt-2 text-sm text-gray-500">You may enter a description here for your reference.</p>
                         </div>
 
-                        <div class="flex items-center justify-end mt-4">
-                            <a href="{{ route('firewall.vlans.index', $firewall) }}"
-                                class="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 mr-4">Cancel</a>
-                            <button type="submit"
-                                class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                                {{ isset($vlan['id']) ? 'Update VLAN' : 'Add VLAN' }}
-                            </button>
+                        <div class="flex items-center gap-3 mt-4">
+                            <x-primary-button>{{ isset($vlan['id']) ? __('Update VLAN') : __('Add VLAN') }}</x-primary-button>
+                            <a href="{{ route('firewall.vlans.index', $firewall) }}">
+                                <x-secondary-button type="button">{{ __('Cancel') }}</x-secondary-button>
+                            </a>
                         </div>
                     </form>
                 </div>

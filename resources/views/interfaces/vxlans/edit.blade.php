@@ -118,13 +118,10 @@
                             </div>
                         </div>
 
-                        <div class="flex items-center gap-4 mt-6">
-                            <x-primary-button>
-                                {{ __('Update VXLAN') }}
-                            </x-primary-button>
-                            <a href="{{ route('interfaces.vxlans.index', $firewall) }}"
-                                class="text-sm text-gray-600 dark:text-gray-400 hover:underline">
-                                {{ __('Cancel') }}
+                        <div class="flex items-center gap-3 mt-6">
+                            <x-primary-button>{{ __('Update VXLAN') }}</x-primary-button>
+                            <a href="{{ route('interfaces.vxlans.index', $firewall) }}">
+                                <x-secondary-button type="button">{{ __('Cancel') }}</x-secondary-button>
                             </a>
                         </div>
                     </form>

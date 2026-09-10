@@ -169,14 +169,11 @@
                             </div>
                         </div>
 
-                        <div class="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700 mt-6">
-                            <a href="{{ route('firewall.nat.port-forward', $firewall) }}"
-                                class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100">
-                                Cancel
+                        <div class="flex items-center gap-3 pt-6 border-t border-gray-200 dark:border-gray-700 mt-6">
+                            <x-primary-button>{{ __('Save Rule') }}</x-primary-button>
+                            <a href="{{ route('firewall.nat.port-forward', $firewall) }}">
+                                <x-secondary-button type="button">{{ __('Cancel') }}</x-secondary-button>
                             </a>
-                            <button type="submit" class="pf-btn pf-btn-primary">
-                                Save Rule
-                            </button>
                         </div>
                     </div>
                 </form>
