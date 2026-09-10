@@ -25,16 +25,15 @@ class FirewallHttpOptions
 
             // For an explicitly enrolled self-signed certificate:
             //   • Skip CA-chain verification  — the enrolled public-key pin IS the trust anchor.
-            //   • Retain hostname verification — the server hostname must still match the cert CN/SAN.
+            //   • Allow access by IP/mismatched name — default pfSense/OPNsense certs lack IP SANs.
             //   • Enforce the pinned key      — cURL rejects the handshake if the key differs.
             //
             // We pass cURL options directly because Guzzle's `verify => false` shorthand maps to
-            // CURLOPT_SSL_VERIFYPEER=0 AND CURLOPT_SSL_VERIFYHOST=0, which would also disable
-            // hostname verification. We need only VERIFYPEER disabled.
+            // CURLOPT_SSL_VERIFYPEER=0 AND CURLOPT_SSL_VERIFYHOST=0.
             $options['verify'] = false; // Guzzle: disables VERIFYPEER — handled below via curl
             $options['curl']   = [
                 CURLOPT_SSL_VERIFYPEER  => false, // don't require a publicly trusted CA chain
-                CURLOPT_SSL_VERIFYHOST  => 2,     // still enforce hostname match (SNI + CN/SAN)
+                CURLOPT_SSL_VERIFYHOST  => 0,     // allow native self-signed certs accessed by IP (pinned key is the trust anchor)
                 CURLOPT_PINNEDPUBLICKEY => $publicKeyPin,
             ];
         }
