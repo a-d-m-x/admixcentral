@@ -455,18 +455,39 @@ To manage a pfSense firewall, ensure the [pfSense REST API (pfRest)](https://git
 
 ### Adding an OPNsense Firewall
 
-OPNsense includes a built-in REST API out of the box — no third-party packages are required.
+OPNsense includes a built-in REST API out of the box — no third-party packages are required. You can add an OPNsense firewall using manual API keys or AdmixCentral's automatic provisioning.
 
-1. In your OPNsense Web GUI:
-   - Navigate to **System > Access > Users**.
-   - Edit an administrative user (or create a dedicated API user with appropriate permissions).
-   - Under the **API keys** section, click the `+` icon.
-   - Your browser will automatically download an `apikey.txt` file containing your `key` and `secret`.
-2. In AdmixCentral:
-   - Navigate to **Firewalls > Add Firewall**.
+#### Method A — Manual API Key & Secret (Recommended)
+
+1. **Generate the API Key in OPNsense**:
+   - In your OPNsense Web GUI, navigate to **System > Access > Users** (`/ui/auth/user`).
+   - In the **Users** table, locate your administrative user (e.g. `root`).
+   - Under the **Commands** column on the right side of the row, click the **Key icon** (API keys).
+   - Your browser will immediately download a text file (`apikey.txt` or `key_<username>.txt`) containing:
+     ```ini
+     key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+     secret=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+     ```
+   - *(Alternatively, you can click the **ApiKeys** tab at the top of the Users page to view and manage existing keys).*
+
+2. **Add to AdmixCentral**:
+   - In AdmixCentral, navigate to **Firewalls > Add Firewall**.
    - Select **OPNsense** as the firewall type.
-   - Enter the **Firewall Name**, **URL** (e.g. `https://192.168.240.11`), **API Key**, and **API Secret**.
-3. Click **Connect**. AdmixCentral will verify connectivity via `/api/core/firmware/status`, retrieve interface configurations, and register the firewall.
+   - Enter the **Firewall Name** and **URL** (e.g. `https://192.168.240.11`).
+   - Paste the 80-character `key` string from the downloaded file into **OPNsense API Key** and the `secret` string into **OPNsense API Secret**.
+   > **Important:** OPNsense's REST API (`/api/*`) strictly authenticates using the generated API Key and Secret pair. Do **not** enter your login username (`root`) or Web GUI password in the API Key/Secret fields.
+   - If your OPNsense instance uses a self-signed or internal certificate, expand **Trust a native or self-signed HTTPS certificate** and upload your exported `.crt`/`.pem` certificate file.
+3. Click **Connect** (or **Save Changes**). AdmixCentral will verify connectivity, fetch system telemetry and interfaces, and register the firewall.
+
+#### Method B — Automatic API Key Provisioning
+
+If you prefer not to create the API key manually:
+1. In AdmixCentral, go to **Firewalls > Add Firewall** and select **OPNsense**.
+2. Enter the **Firewall Name** and **URL**.
+3. Check the box **"Auto-generate API Keys using Web GUI credentials"**.
+4. Enter your OPNsense Web GUI **Username** (e.g. `root`) and **Password**.
+5. If using a self-signed certificate, upload the `.crt`/`.pem` certificate file.
+6. Click **Connect**. AdmixCentral will securely authenticate once against your OPNsense Web GUI session, automatically provision a dedicated API key and secret, and save them.
 
 ---
 
