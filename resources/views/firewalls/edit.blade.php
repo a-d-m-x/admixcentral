@@ -721,4 +721,90 @@
             };
         }
     </script>
+
+    {{-- ── Toast notifications ─────────────────────────────────────────── --}}
+    <div class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 items-end pointer-events-none">
+
+        @if(session('success'))
+            <div x-data="{
+                    show: true,
+                    progress: 100,
+                    init() {
+                        const interval = setInterval(() => {
+                            this.progress -= 2.5;
+                            if (this.progress <= 0) { clearInterval(interval); this.show = false; }
+                        }, 100);
+                    }
+                 }"
+                 x-show="show"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-x-8 scale-95"
+                 x-transition:enter-end="opacity-100 translate-x-0 scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-x-0 scale-100"
+                 x-transition:leave-end="opacity-0 translate-x-8 scale-95"
+                 class="pointer-events-auto w-80 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <div class="flex items-start gap-3 px-4 py-3.5">
+                <div class="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="flex-1 min-w-0 pt-0.5">
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Saved</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ session('success') }}</p>
+                </div>
+                <button type="button" @click="show = false"
+                        class="text-gray-300 hover:text-gray-500 dark:hover:text-gray-200 transition-colors shrink-0 mt-0.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            {{-- Auto-dismiss progress bar --}}
+            <div class="h-0.5 bg-gray-100 dark:bg-gray-700">
+                <div class="h-full bg-green-500 dark:bg-green-400 transition-all duration-100 ease-linear"
+                     :style="`width: ${progress}%`"></div>
+            </div>
+        </div>
+        @endif
+
+        @if($errors->any())
+            <div x-data="{ show: true }"
+                 x-show="show"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-x-8 scale-95"
+                 x-transition:enter-end="opacity-100 translate-x-0 scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-x-0 scale-100"
+                 x-transition:leave-end="opacity-0 translate-x-8 scale-95"
+                 class="pointer-events-auto w-80 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+            <div class="flex items-start gap-3 px-4 py-3.5">
+                <div class="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </div>
+                <div class="flex-1 min-w-0 pt-0.5">
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Couldn't save</p>
+                    <ul class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 space-y-0.5">
+                        @foreach($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+                <button type="button" @click="show = false"
+                        class="text-gray-300 hover:text-gray-500 dark:hover:text-gray-200 transition-colors shrink-0 mt-0.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="h-0.5 bg-red-200 dark:bg-red-900/60"></div>
+        </div>
+        @endif
+
+    </div>
+    {{-- /toasts --}}
+
 </x-app-layout>
