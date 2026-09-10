@@ -62,4 +62,76 @@ class FirewallHttpOptions
 
         return 'sha256//' . base64_encode(hash('sha256', $der, true));
     }
+
+    /**
+     * Checks if a firewall URL requires a public key pin (i.e. fails CA verification).
+     * Returns false if the certificate is signed by a trusted CA.
+     */
+    public static function requiresPin(string $url, int $timeout = 5): bool
+    {
+        if (strtolower(parse_url($url, PHP_URL_SCHEME) ?? '') !== 'https') {
+            return false;
+        }
+
+        try {
+            \Illuminate\Support\Facades\Http::withOptions([
+                'verify'          => config('services.firewall.ca_bundle') ?: true,
+                'timeout'         => $timeout,
+                'allow_redirects' => false,
+            ])->get($url);
+
+            return false;
+        } catch (\Throwable $e) {
+            // CA verification, hostname check, or self-signed error occurred
+            return true;
+        }
+    }
+
+    /**
+     * Connects to a firewall over TLS, retrieves its presented server certificate,
+     * and derives its SubjectPublicKeyInfo SHA-256 pin.
+     */
+    public static function fetchPinFromUrl(string $url, int $timeout = 5): ?string
+    {
+        $parsed = parse_url($url);
+        $host = $parsed['host'] ?? null;
+        $port = $parsed['port'] ?? 443;
+        if (!$host) {
+            return null;
+        }
+
+        $host = trim($host, '[]');
+
+        $ctx = stream_context_create([
+            'ssl' => [
+                'capture_peer_cert' => true,
+                'verify_peer'       => false,
+                'verify_peer_name'  => false,
+            ]
+        ]);
+
+        $client = @stream_socket_client("ssl://{$host}:{$port}", $errno, $errstr, $timeout, STREAM_CLIENT_CONNECT, $ctx);
+        if (!$client) {
+            return null;
+        }
+
+        $params = stream_context_get_params($client);
+        fclose($client);
+
+        $peerCert = $params['options']['ssl']['peer_certificate'] ?? null;
+        if (!$peerCert) {
+            return null;
+        }
+
+        $certPem = '';
+        if (!openssl_x509_export($peerCert, $certPem) || empty($certPem)) {
+            return null;
+        }
+
+        try {
+            return self::pinFromCertificate($certPem);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
 }

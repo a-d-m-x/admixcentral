@@ -558,6 +558,14 @@ class FirewallController extends Controller implements HasMiddleware
             } catch (\InvalidArgumentException $e) {
                 throw \Illuminate\Validation\ValidationException::withMessages(['tls_certificate' => $e->getMessage()]);
             }
+        } elseif (empty($validated['tls_public_key_pin']) && !empty($validated['url'])) {
+            // Auto-pin: Check if firewall presents a self-signed or unverified certificate
+            if (\App\Services\FirewallHttpOptions::requiresPin($validated['url'])) {
+                $pin = \App\Services\FirewallHttpOptions::fetchPinFromUrl($validated['url']);
+                if ($pin) {
+                    $validated['tls_public_key_pin'] = $pin;
+                }
+            }
         }
         unset($validated['tls_certificate']);
 
