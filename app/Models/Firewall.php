@@ -52,13 +52,14 @@ class Firewall extends Model
 
     public function getRouteKeyName()
     {
-        return 'netgate_id';
+        return 'id';
     }
 
     public function resolveRouteBinding($value, $field = null)
     {
-        return $this->where('netgate_id', $value)
-            ->orWhere('id', $value)
+        // Accept both numeric id and netgate_id for backwards compatibility
+        return $this->where('id', $value)
+            ->orWhere('netgate_id', $value)
             ->first() ?? abort(404);
     }
 

@@ -738,9 +738,9 @@
                                     <div class="relative flex-1">
                                         {{-- Offline Overlay (Body Only) --}}
                                         <div x-cloak x-show="!online && !loading"
-                                            class="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none"
+                                            class="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-auto"
                                             style="background-color: rgba(255,255,255,.80);">
-                                            <div class="backdrop-blur-md p-6 rounded-lg shadow-xl text-center w-full max-w-sm mx-4 pointer-events-auto"
+                                            <div class="backdrop-blur-md p-6 rounded-lg shadow-xl text-center w-full max-w-sm mx-4"
                                                 style="background-color: rgba(255, 255, 255, 0.80);">
                                                 <svg class="w-10 h-10 mx-auto text-red-500 mb-3" fill="none"
                                                     stroke="currentColor" viewBox="0 0 24 24">

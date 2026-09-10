@@ -353,8 +353,8 @@
                                 x-bind:class="{'opacity-50 cursor-not-allowed': emailError || role === '' || companyId === '' || isCheckingEmail || (password.length > 0 && passwordScore < 3) || (password.length > 0 && password !== passwordConfirm)}">
                                 {{ __('Update User') }}
                             </x-primary-button>
-                            <a href="{{ route('users.index') }}" class="inline-flex items-center">
-                                <span class="text-gray-600 dark:text-gray-400 hover:underline">{{ __('Cancel') }}</span>
+                            <a href="{{ route('users.index') }}">
+                                <x-secondary-button type="button">{{ __('Cancel') }}</x-secondary-button>
                             </a>
                         </div>
                     </form>

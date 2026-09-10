@@ -126,13 +126,11 @@
                             @enderror
                         </div>
 
-                        <div class="flex items-center gap-4">
-                            <button type="submit"
-                                class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded transition ease-in-out duration-150">
-                                Update Company
-                            </button>
-                            <a href="{{ route('companies.index') }}"
-                                class="text-gray-600 dark:text-gray-400 hover:underline">Cancel</a>
+                        <div class="flex items-center gap-3">
+                            <x-primary-button>{{ __('Update Company') }}</x-primary-button>
+                            <a href="{{ route('companies.index') }}">
+                                <x-secondary-button type="button">{{ __('Cancel') }}</x-secondary-button>
+                            </a>
                         </div>
                     </form>
 

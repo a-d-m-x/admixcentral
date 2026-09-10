@@ -458,12 +458,11 @@
                             <p class="text-red-500">Unknown Bulk Action Type: {{ $type }}</p>
                         @endif
 
-                        <div class="mt-6 flex items-center justify-end">
-                            <a href="{{ route('firewalls.index') }}"
-                                class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mr-4">Cancel</a>
-                            <button type="submit" class="pf-btn pf-btn-primary shadow-sm">
-                                Push to Firewalls
-                            </button>
+                        <div class="mt-6 flex items-center gap-3">
+                            <x-primary-button>{{ __('Push to Firewalls') }}</x-primary-button>
+                            <a href="{{ route('firewalls.index') }}">
+                                <x-secondary-button type="button">{{ __('Cancel') }}</x-secondary-button>
+                            </a>
                         </div>
                     </form>
                 </div>

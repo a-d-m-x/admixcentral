@@ -11,7 +11,7 @@ class FirewallHttpOptions
         }
 
         $options = [
-            'verify' => config('services.firewall.ca_bundle') ?: true,
+            'verify'          => config('services.firewall.ca_bundle') ?: true,
             'allow_redirects' => false,
         ];
 
@@ -23,11 +23,20 @@ class FirewallHttpOptions
                 throw new \RuntimeException('PHP cURL with public-key pinning support is required for a self-signed firewall certificate.');
             }
 
-            // An explicitly enrolled key is the trust anchor for native/self-signed
-            // certificates, including access by IP. cURL checks this key during TLS,
-            // before sending credentials, independently of CA/hostname verification.
-            $options['verify'] = false;
-            $options['curl'] = [CURLOPT_PINNEDPUBLICKEY => $publicKeyPin];
+            // For an explicitly enrolled self-signed certificate:
+            //   • Skip CA-chain verification  — the enrolled public-key pin IS the trust anchor.
+            //   • Retain hostname verification — the server hostname must still match the cert CN/SAN.
+            //   • Enforce the pinned key      — cURL rejects the handshake if the key differs.
+            //
+            // We pass cURL options directly because Guzzle's `verify => false` shorthand maps to
+            // CURLOPT_SSL_VERIFYPEER=0 AND CURLOPT_SSL_VERIFYHOST=0, which would also disable
+            // hostname verification. We need only VERIFYPEER disabled.
+            $options['verify'] = false; // Guzzle: disables VERIFYPEER — handled below via curl
+            $options['curl']   = [
+                CURLOPT_SSL_VERIFYPEER  => false, // don't require a publicly trusted CA chain
+                CURLOPT_SSL_VERIFYHOST  => 2,     // still enforce hostname match (SNI + CN/SAN)
+                CURLOPT_PINNEDPUBLICKEY => $publicKeyPin,
+            ];
         }
 
         return $options;

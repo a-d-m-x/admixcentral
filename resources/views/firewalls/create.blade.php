@@ -127,6 +127,9 @@
                                     <label class="relative flex items-center p-3.5 border rounded-lg cursor-pointer transition"
                                            :class="osType === 'pfsense' ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 ring-2 ring-indigo-500' : 'border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50'">
                                         <input type="radio" name="os_type" value="pfsense" x-model="osType" class="text-indigo-600 focus:ring-indigo-500">
+                                        <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/pfsense.svg"
+                                             alt="pfSense" width="28" height="28"
+                                             class="ml-3 shrink-0 rounded">
                                         <div class="ml-3 flex-1">
                                             <div class="flex items-center space-x-2">
                                                 <span class="font-semibold text-sm text-gray-900 dark:text-gray-100">pfSense</span>
@@ -139,12 +142,15 @@
                                     <label class="relative flex items-center p-3.5 border rounded-lg cursor-pointer transition"
                                            :class="osType === 'opnsense' ? 'border-amber-600 bg-amber-50/50 dark:bg-amber-950/30 ring-2 ring-amber-500' : 'border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50'">
                                         <input type="radio" name="os_type" value="opnsense" x-model="osType" class="text-amber-600 focus:ring-amber-500">
+                                        <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/opnsense.svg"
+                                             alt="OPNsense" width="28" height="28"
+                                             class="ml-3 shrink-0 rounded">
                                         <div class="ml-3 flex-1">
                                             <div class="flex items-center space-x-2">
                                                 <span class="font-semibold text-sm text-gray-900 dark:text-gray-100">OPNsense</span>
                                                 <span class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Native Core API</span>
                                             </div>
-                                            <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">Built-in REST API (Basic Auth with Key & Secret)</span>
+                                            <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">Built-in REST API (Basic Auth with Key &amp; Secret)</span>
                                         </div>
                                     </label>
                                 </div>

@@ -13,6 +13,7 @@ AdmixCentral is a centralized firewall management dashboard engineered for manag
 - **Two-Factor Authentication (2FA)**: TOTP-based 2FA (Google Authenticator, Authy) with recovery codes and password confirmation for sensitive actions.
 - **Secure Architecture**: Isolated multi-tenancy scopes, secure session management, and CSRF protection.
 - **Role-Based Access**: Granular control over company and user permissions (Superadmin, Company Admin, Read-Only).
+- **TLS Certificate Enforcement**: All firewall API connections require HTTPS. Public CA-signed certificates (including ACME/Let's Encrypt) work without any extra steps. Native and self-signed certificates are supported via public-key pinning — AdmixCentral stores the enrolled key and rejects connections if it changes, eliminating the need to disable TLS verification.
 
 ### 📱 Mobile-First Experience
 - **Progressive Web App (PWA)**: Installable on iOS/Android for a native app-like experience.
@@ -219,7 +220,7 @@ Required PHP extensions:
 ### 2. Clone the Repository
 
 ```bash
-git clone https://github.com/admxlz/admixcentral.git
+git clone https://github.com/a-d-m-x/admixcentral.git
 cd admixcentral
 ```
 
@@ -466,6 +467,80 @@ OPNsense includes a built-in REST API out of the box — no third-party packages
    - Select **OPNsense** as the firewall type.
    - Enter the **Firewall Name**, **URL** (e.g. `https://192.168.240.11`), **API Key**, and **API Secret**.
 3. Click **Connect**. AdmixCentral will verify connectivity via `/api/core/firmware/status`, retrieve interface configurations, and register the firewall.
+
+---
+
+## Firewall HTTPS Certificate Requirements
+
+AdmixCentral requires **HTTPS** for every firewall API connection. The API credentials are never sent over plain HTTP. How you satisfy this requirement depends on the certificate in use on the firewall's web interface.
+
+### Option 1 — ACME / Let's Encrypt (Recommended)
+
+ACME certificates are issued by a public CA (Let's Encrypt) and are the recommended approach for firewalls with a publicly resolvable hostname. You must configure ACME on the firewall first:
+
+- **pfSense:** Install the **ACME** package (*System → Package Manager*), configure an account, add a certificate with your firewall's FQDN, and set it as the WebGUI certificate under *System → Advanced → Admin Access*.
+- **OPNsense:** Use the built-in **Let's Encrypt** plugin (*System → Trust → ACME Client*) to issue a certificate, then select it under *System → Settings → Administration*.
+
+Once an ACME certificate is active on the firewall, **no extra steps are needed in AdmixCentral.** The certificate is signed by a public CA that AdmixCentral already trusts — simply enter the firewall URL using its public hostname (e.g. `https://fw.example.com`) and proceed normally.
+
+---
+
+### Option 2 — Commercially Signed Certificate
+
+Any certificate signed by a publicly trusted Certificate Authority (DigiCert, Sectigo, etc.) works without additional configuration, the same as ACME. Enter the firewall URL and proceed normally.
+
+---
+
+### Option 3 — Self-Signed or Private CA Certificate
+
+Firewalls using a self-signed certificate or a certificate issued by an internal/private CA require **certificate enrollment** in AdmixCentral. Without enrollment, connections will fail with a TLS error such as:
+
+```
+cURL error 60: SSL certificate problem: self-signed certificate in certificate chain
+```
+
+AdmixCentral stores the certificate's public key and enforces it on every subsequent connection. If the key ever changes unexpectedly, the connection is refused — providing stronger protection than simply disabling TLS verification.
+
+#### Requirements for the firewall certificate
+
+The certificate must have a **Subject Alternative Name (SAN)** or **Common Name (CN)** that matches the hostname or IP address in the Firewall URL you configure in AdmixCentral. A certificate without a matching hostname/SAN will be rejected by TLS hostname verification even after enrollment.
+
+> **Using a bare IP address (e.g. `https://192.168.1.1`)?**
+> The certificate must include that IP address as an IP SAN (`IP:192.168.1.1`), not just as the CN. Most firewall web GUIs do not add IP SANs to auto-generated certificates. Using a hostname is strongly recommended.
+
+#### Step 1 — Create a private CA and certificate on the firewall
+
+**pfSense:**
+1. Go to **System → Cert. Manager → CAs** → click **Add**. Fill in the descriptive name, key type (RSA 2048 or higher), and lifetime, then click **Save** to create your internal CA.
+2. Go to **System → Cert. Manager → Certificates** → click **Add/Sign**. Choose *Create an internal certificate*, select your CA, set the **Common Name** to the firewall's hostname (e.g. `fw.example.com`) or IP address, add the same value as an **Alternative Name** (type `DNS` for a hostname, `IP` for an IP address), then **Save**.
+3. Go to **System → Advanced → Admin Access**. Under *SSL/TLS Certificate*, select the certificate you just created, then **Save** and accept the browser warning on your next login.
+
+**OPNsense:**
+1. Go to **System → Trust → Authorities** → click **Add**. Fill in the name, method (*Create an internal Certificate Authority*), key size, and lifetime, then **Save**.
+2. Go to **System → Trust → Certificates** → click **Add**. Choose *Create an internal Certificate*, select your CA, set the **Common Name** to the firewall hostname or IP, add the same value as an **Alternative Name**, then **Save**.
+3. Go to **System → Settings → Administration**. Under *SSL Certificate*, select your new certificate, **Save**, and **Apply**.
+
+#### Step 2 — Export the certificate
+
+**pfSense:** System → Cert. Manager → Certificates → click the **Export Certificate** icon (⬇) next to your certificate. Save the `.crt` file.
+
+**OPNsense:** System → Trust → Certificates → click the **Export** icon next to your certificate, choose *Certificate only*. Save the `.crt` file.
+
+> **Important:** Export only the *public certificate* (`.pem` / `.crt`). Never export or upload the private key.
+
+#### Step 3 — Enroll the certificate in AdmixCentral
+
+1. In AdmixCentral, navigate to **Firewalls** and click **Edit** on the firewall, or click **Add Firewall** for a new one.
+2. In the **API Connection** section, find the **"Trust a native or self-signed HTTPS certificate"** panel.
+3. Click **Choose File** and select the `.crt` file exported in Step 2.
+4. Re-enter the API credentials (required whenever the trust anchor changes).
+5. Click **Save**. AdmixCentral will extract the certificate's public key, store it, and immediately verify connectivity.
+
+From this point on, AdmixCentral will only connect to that firewall if the public key matches the enrolled value. Certificate renewals using the same key (e.g. extended lifetime with the same RSA/ECDSA key pair) continue to work without re-enrollment.
+
+#### Changing or removing an enrolled certificate
+
+To update the enrolled key (e.g. after generating a new key pair), edit the firewall and upload the new certificate. You will be required to re-enter API credentials. To stop using certificate pinning entirely (switching to a public CA cert), clear the *Advanced: trusted public-key fingerprint* field and leave the file upload empty, then re-enter credentials and save.
 
 ---
 
