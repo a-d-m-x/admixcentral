@@ -542,7 +542,18 @@ class PfSenseApiService
 
         $requestUrl = isset($fullUrl) ? $fullUrl : $url;
         $responseBody = $response->json();
-        $apiMessage = $responseBody['message'] ?? $response->body();
+        $apiMessage = $responseBody['message'] ?? null;
+        if (empty($apiMessage)) {
+            $rawBody = trim($response->body());
+            if ($response->status() === 404) {
+                $apiMessage = 'pfSense REST API is not installed or unreachable (HTTP 404). Please ensure pfSense-pkg-RESTAPI (pfRest) is installed on the firewall.';
+            } elseif (str_starts_with($rawBody, '<!') || str_starts_with($rawBody, '<html') || str_contains($rawBody, '<body')) {
+                $clean = trim(preg_replace('/\s+/', ' ', strip_tags($rawBody)));
+                $apiMessage = 'HTTP ' . $response->status() . (!empty($clean) ? ': ' . substr($clean, 0, 150) : '');
+            } else {
+                $apiMessage = !empty($rawBody) ? $rawBody : ('HTTP ' . $response->status());
+            }
+        }
         throw new \Exception($apiMessage, $response->status());
     }
 

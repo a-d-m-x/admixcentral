@@ -25,16 +25,15 @@ class FirewallHttpOptions
 
             // For an explicitly enrolled self-signed certificate:
             //   • Skip CA-chain verification  — the enrolled public-key pin IS the trust anchor.
-            //   • Retain hostname verification — the server hostname must still match the cert CN/SAN.
+            //   • Allow access by IP/mismatched name — default pfSense/OPNsense certs lack IP SANs.
             //   • Enforce the pinned key      — cURL rejects the handshake if the key differs.
             //
             // We pass cURL options directly because Guzzle's `verify => false` shorthand maps to
-            // CURLOPT_SSL_VERIFYPEER=0 AND CURLOPT_SSL_VERIFYHOST=0, which would also disable
-            // hostname verification. We need only VERIFYPEER disabled.
+            // CURLOPT_SSL_VERIFYPEER=0 AND CURLOPT_SSL_VERIFYHOST=0.
             $options['verify'] = false; // Guzzle: disables VERIFYPEER — handled below via curl
             $options['curl']   = [
                 CURLOPT_SSL_VERIFYPEER  => false, // don't require a publicly trusted CA chain
-                CURLOPT_SSL_VERIFYHOST  => 2,     // still enforce hostname match (SNI + CN/SAN)
+                CURLOPT_SSL_VERIFYHOST  => 0,     // allow native self-signed certs accessed by IP (pinned key is the trust anchor)
                 CURLOPT_PINNEDPUBLICKEY => $publicKeyPin,
             ];
         }
@@ -62,5 +61,77 @@ class FirewallHttpOptions
         }
 
         return 'sha256//' . base64_encode(hash('sha256', $der, true));
+    }
+
+    /**
+     * Checks if a firewall URL requires a public key pin (i.e. fails CA verification).
+     * Returns false if the certificate is signed by a trusted CA.
+     */
+    public static function requiresPin(string $url, int $timeout = 5): bool
+    {
+        if (strtolower(parse_url($url, PHP_URL_SCHEME) ?? '') !== 'https') {
+            return false;
+        }
+
+        try {
+            \Illuminate\Support\Facades\Http::withOptions([
+                'verify'          => config('services.firewall.ca_bundle') ?: true,
+                'timeout'         => $timeout,
+                'allow_redirects' => false,
+            ])->get($url);
+
+            return false;
+        } catch (\Throwable $e) {
+            // CA verification, hostname check, or self-signed error occurred
+            return true;
+        }
+    }
+
+    /**
+     * Connects to a firewall over TLS, retrieves its presented server certificate,
+     * and derives its SubjectPublicKeyInfo SHA-256 pin.
+     */
+    public static function fetchPinFromUrl(string $url, int $timeout = 5): ?string
+    {
+        $parsed = parse_url($url);
+        $host = $parsed['host'] ?? null;
+        $port = $parsed['port'] ?? 443;
+        if (!$host) {
+            return null;
+        }
+
+        $host = trim($host, '[]');
+
+        $ctx = stream_context_create([
+            'ssl' => [
+                'capture_peer_cert' => true,
+                'verify_peer'       => false,
+                'verify_peer_name'  => false,
+            ]
+        ]);
+
+        $client = @stream_socket_client("ssl://{$host}:{$port}", $errno, $errstr, $timeout, STREAM_CLIENT_CONNECT, $ctx);
+        if (!$client) {
+            return null;
+        }
+
+        $params = stream_context_get_params($client);
+        fclose($client);
+
+        $peerCert = $params['options']['ssl']['peer_certificate'] ?? null;
+        if (!$peerCert) {
+            return null;
+        }
+
+        $certPem = '';
+        if (!openssl_x509_export($peerCert, $certPem) || empty($certPem)) {
+            return null;
+        }
+
+        try {
+            return self::pinFromCertificate($certPem);
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }
