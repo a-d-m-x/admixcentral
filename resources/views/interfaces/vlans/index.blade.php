@@ -4,6 +4,7 @@
     </x-slot>
 
     <div class="py-12">
+        <x-confirm-delete-modal>
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             <x-card>
                 <x-card-header title="VLAN Interfaces">
@@ -53,15 +54,8 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <a href="{{ route('interfaces.vlans.edit', ['firewall' => $firewall, 'id' => $loop->index]) }}"
                                                 class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 mr-2">Edit</a>
-                                            <form
-                                                action="{{ route('interfaces.vlans.destroy', ['firewall' => $firewall, 'id' => $loop->index]) }}"
-                                                method="POST" class="inline"
-                                                onsubmit="return confirm('Are you sure you want to delete this VLAN?');">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit"
-                                                    class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">Delete</button>
-                                            </form>
+                                            <button type="button" @click="openDelete('{{ route('interfaces.vlans.destroy', ['firewall' => $firewall, 'id' => $loop->index]) }}', '{{ addslashes($vlan['if'] ?? 'this VLAN') }}')"
+                                                class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">Delete</button>
                                         </td>
                                     </tr>
                                 @empty
@@ -76,5 +70,6 @@
                 </div>
             </x-card>
         </div>
+        </x-confirm-delete-modal>
     </div>
 </x-app-layout>

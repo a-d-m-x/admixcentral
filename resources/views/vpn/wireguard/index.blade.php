@@ -4,6 +4,7 @@
     </x-slot>
 
     <div class="py-12" x-data="wireguardApp()">
+        <x-confirm-delete-modal>
         <div class="max-w-full mx-auto sm:px-6 lg:px-8 space-y-6">
 
             @if (session('success'))
@@ -245,11 +246,7 @@
                                                 @if($firewall->isOpnSense() && !auth()->user()->isReadOnly())
                                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                                                     <button @click='openEditTunnelModal(@json($tunnel))' class="text-indigo-600 dark:text-indigo-400 hover:underline">Edit</button>
-                                                    <form method="POST" action="{{ route('vpn.wireguard.tunnels.destroy', [$firewall, $tunnel['id']]) }}" class="inline" onsubmit="return confirm('Are you sure you want to delete this WireGuard instance?');">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit" class="text-red-600 dark:text-red-400 hover:underline">Delete</button>
-                                                    </form>
+                                                    <button type="button" @click="openDelete('{{ route('vpn.wireguard.tunnels.destroy', [$firewall, $tunnel['id']]) }}', '{{ addslashes($tunnel['name'] ?? 'this instance') }}')" class="text-red-600 dark:text-red-400 hover:underline inline">Delete</button>
                                                 </td>
                                                 @endif
                                             </tr>
@@ -343,11 +340,7 @@
                                                 @if($firewall->isOpnSense() && !auth()->user()->isReadOnly())
                                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                                                     <button @click='openEditPeerModal(@json($peer))' class="text-indigo-600 dark:text-indigo-400 hover:underline">Edit</button>
-                                                    <form method="POST" action="{{ route('vpn.wireguard.peers.destroy', [$firewall, $peer['id']]) }}" class="inline" onsubmit="return confirm('Are you sure you want to delete this WireGuard endpoint?');">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit" class="text-red-600 dark:text-red-400 hover:underline">Delete</button>
-                                                    </form>
+                                                    <button type="button" @click="openDelete('{{ route('vpn.wireguard.peers.destroy', [$firewall, $peer['id']]) }}', '{{ addslashes($peer['name'] ?? $peer['descr'] ?? 'this endpoint') }}')" class="text-red-600 dark:text-red-400 hover:underline inline">Delete</button>
                                                 </td>
                                                 @endif
                                             </tr>
@@ -638,6 +631,7 @@
             </div>
 
         </div>
+        </x-confirm-delete-modal>
     </div>
 
     <script>

@@ -4,6 +4,7 @@
     </x-slot>
 
     <div class="py-12">
+        <x-confirm-delete-modal>
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             <x-card>
                 <div class="p-6">
@@ -35,15 +36,9 @@
                                             @if(!auth()->user()->isReadOnly())
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 @if(!in_array($key, ['wan', 'lan']))
-                                                    <form
-                                                        action="{{ route('interfaces.assignments.destroy', ['firewall' => $firewall, 'id' => $key]) }}"
-                                                        method="POST" class="inline"
-                                                        onsubmit="return confirm('Are you sure you want to unassign this interface?');">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit"
-                                                            class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">Unassign</button>
-                                                    </form>
+                                                    <button type="button"
+                                                        @click="openDelete('{{ route('interfaces.assignments.destroy', ['firewall' => $firewall, 'id' => $key]) }}', 'this interface assignment')"
+                                                        class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">Unassign</button>
                                                 @else
                                                     <span class="text-gray-400">Cannot Unassign</span>
                                                 @endif
@@ -92,5 +87,6 @@
                 </div>
             </x-card>
         </div>
+        </x-confirm-delete-modal>
     </div>
 </x-app-layout>

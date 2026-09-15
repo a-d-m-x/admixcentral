@@ -10,6 +10,7 @@
                     @include('firewall.nat.tabs', ['active' => 'one-to-one'])
 
                     <div x-data="natOneToOneHandler()" @open-create-modal.window="openModal()">
+                        <x-confirm-delete-modal>
                         <div class="flex justify-between items-center mb-4 mt-4">
                             <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ $firewall->isOpnSense() ? '1:1 (BINAT) Mappings' : '1:1 Mappings' }}</h3>
                             @if(!auth()->user()->isReadOnly())
@@ -86,15 +87,9 @@
                                             <td class="px-3 py-2 whitespace-nowrap text-sm font-medium">
                                                 <button @click="editRule({{ Js::from($rule['id'] ?? $index) }}, {{ json_encode($rule) }})"
                                                     class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
-                                                <form
-                                                    action="{{ route('firewall.nat.one-to-one.destroy', ['firewall' => $firewall, 'id' => $rule['id'] ?? $index]) }}"
-                                                    method="POST" class="inline-block"
-                                                    onsubmit="return confirm('Are you sure you want to delete this rule?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit"
-                                                        class="text-red-600 hover:text-red-900">Delete</button>
-                                                </form>
+                                                <button type="button"
+                                                    @click="openDelete('{{ route('firewall.nat.one-to-one.destroy', ['firewall' => $firewall, 'id' => $rule['id'] ?? $index]) }}', '{{ addslashes($rule['descr'] ?? 'this mapping') }}')"
+                                                    class="text-red-600 hover:text-red-900">Delete</button>
                                             </td>
                                             @endif
                                         </tr>
@@ -221,6 +216,7 @@
                                 </div>
                             </div>
                         </div>
+                        </x-confirm-delete-modal>
                     </div>
 
                     <script>

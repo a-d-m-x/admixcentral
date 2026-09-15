@@ -34,6 +34,7 @@
             this.showModal = true;
         }
     }">
+        <x-confirm-delete-modal>
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 dark:text-gray-100">
@@ -101,11 +102,9 @@
                                             @if(!auth()->user()->isReadOnly())
                                             <button @click="openEditModal({{ Js::from($category) }})"
                                                 class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900">Edit</button>
-                                            <form method="POST" action="{{ route('firewall.categories.destroy', ['firewall' => $firewall, 'uuid' => $category['uuid'] ?? $category['id']]) }}" class="inline" onsubmit="return confirm('Are you sure you want to delete this category?');">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-900">Delete</button>
-                                            </form>
+                                            <button type="button"
+                                                @click="openDelete('{{ route('firewall.categories.destroy', ['firewall' => $firewall, 'uuid' => $category['uuid'] ?? $category['id']]) }}', '{{ addslashes($category['name'] ?? 'this category') }}')"
+                                                class="text-red-600 dark:text-red-400 hover:text-red-900">Delete</button>
                                             @endif
                                         </td>
                                     </tr>
@@ -174,5 +173,6 @@
                 </div>
             </div>
         </div>
+        </x-confirm-delete-modal>
     </div>
 </x-app-layout>

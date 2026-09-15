@@ -540,10 +540,18 @@ class PfSenseApiService
             return $response->json();
         }
 
-        $requestUrl = isset($fullUrl) ? $fullUrl : $url;
-        $responseBody = $response->json();
-        $apiMessage = $responseBody['message'] ?? $response->body();
-        throw new \Exception($apiMessage, $response->status());
+        $requestUrl    = isset($fullUrl) ? $fullUrl : $url;
+        $responseBody  = $response->json();
+        $status        = $response->status();
+        $apiMessage    = $responseBody['message'] ?? $response->body();
+
+        // Log full details to Laravel log for debugging
+        \Log::error("pfSense API error [{$status}] {$method} {$requestUrl}", [
+            'sent'     => $data,
+            'response' => $responseBody ?? $response->body(),
+        ]);
+
+        throw new \Exception("[HTTP {$status}] {$apiMessage}", $status);
     }
 
     /**
@@ -1967,6 +1975,97 @@ class PfSenseApiService
     }
 
     /**
+     * Build a map of cert refid => [service label, ...] for pfSense.
+     * Scans Web GUI, OpenVPN, IPsec, and Users for cert references.
+     * OPNsense exposes in_use natively, so this is pfSense-only.
+     *
+     * @return array|null  null = scan could not run; empty = ran but no refs found
+     */
+    public function getCertInUseMap(): ?array
+    {
+        if ($this->opnSense) {
+            return null; // Not needed for OPNsense
+        }
+
+        $usageMap = [];
+        $scanned  = false;
+
+        $addUsage = function (string $refid, string $label) use (&$usageMap): void {
+            if (!$refid) return;
+            $usageMap[$refid][] = $label;
+        };
+
+        // 1 ── Web GUI certificate ───────────────────────────────────────────
+        try {
+            $webgui  = $this->get('/system/webgui/settings')['data'] ?? [];
+            $certref = $webgui['ssl_certref']
+                    ?? $webgui['ssl-certref']
+                    ?? $webgui['sslcertref']
+                    ?? null;
+            if ($certref) {
+                $addUsage($certref, 'Web GUI');
+            }
+            $scanned = true;
+        } catch (\Throwable) {}
+
+        // 2 ── OpenVPN Servers ───────────────────────────────────────────────
+        try {
+            $servers = $this->get('/vpn/openvpn/servers')['data'] ?? [];
+            foreach ($servers as $server) {
+                $name = $server['description'] ?? $server['descr'] ?? ('Server #' . ($server['vpnid'] ?? '?'));
+                foreach (['certref', 'cert', 'tlsref'] as $field) {
+                    if (!empty($server[$field])) {
+                        $addUsage($server[$field], 'OpenVPN: ' . $name);
+                    }
+                }
+            }
+            $scanned = true;
+        } catch (\Throwable) {}
+
+        // 3 ── OpenVPN Clients ───────────────────────────────────────────────
+        try {
+            $clients = $this->get('/vpn/openvpn/clients')['data'] ?? [];
+            foreach ($clients as $client) {
+                $name = $client['description'] ?? $client['descr'] ?? ('Client #' . ($client['vpnid'] ?? '?'));
+                foreach (['certref', 'cert'] as $field) {
+                    if (!empty($client[$field])) {
+                        $addUsage($client[$field], 'OpenVPN Client: ' . $name);
+                    }
+                }
+            }
+            $scanned = true;
+        } catch (\Throwable) {}
+
+        // 4 ── IPsec Phase 1 ─────────────────────────────────────────────────
+        try {
+            $phase1s = $this->get('/vpn/ipsec/phase1s')['data'] ?? [];
+            foreach ($phase1s as $p1) {
+                if (!empty($p1['certref'])) {
+                    $name = $p1['descr'] ?? $p1['description'] ?? ('IPsec #' . ($p1['ikeid'] ?? '?'));
+                    $addUsage($p1['certref'], 'IPsec: ' . $name);
+                }
+            }
+            $scanned = true;
+        } catch (\Throwable) {}
+
+        // 5 ── Users ─────────────────────────────────────────────────────────
+        try {
+            $users = $this->get('/users')['data'] ?? [];
+            foreach ($users as $user) {
+                $certs = $user['cert'] ?? [];
+                foreach ((array) $certs as $certref) {
+                    if ($certref) {
+                        $addUsage($certref, 'User: ' . ($user['name'] ?? '?'));
+                    }
+                }
+            }
+            $scanned = true;
+        } catch (\Throwable) {}
+
+        return $scanned ? $usageMap : null;
+    }
+
+    /**
      * Create Certificate Authority (Import)
      */
     public function createCertificateAuthority(array $data)
@@ -1974,11 +2073,13 @@ class PfSenseApiService
         if ($this->opnSense) {
             return $this->opnSense->createCertificateAuthority($data);
         }
+        $data['method'] = 'existing';
         return $this->post('/system/certificate_authority', $data);
     }
 
     /**
      * Generate Certificate Authority (Internal)
+     * pfSense REST API v2 endpoint: POST /system/certificate_authority/generate
      */
     public function generateCertificateAuthority(array $data)
     {
@@ -2146,7 +2247,19 @@ class PfSenseApiService
         if ($this->opnSense) {
             return $this->opnSense->deleteCertificateAuthority($id);
         }
-        return $this->delete("/system/certificate_authority", ['id' => $id]);
+
+        // Use the plural endpoint with a stable refid filter.
+        // The refid is generated by pfSense via uniqid() at CA creation and stored in config.xml.
+        // This is a permanent, stable identifier — unlike the numeric array-index 'id', which
+        // shifts every time a CA is added or removed and could delete the wrong entry.
+        //
+        // pfSense-pkg-RESTAPI: DELETE /certificate_authorities with {"refid":"X"} calls
+        // delete_many(query_params: ['refid' => 'X']), which filters by field value and
+        // only deletes CAs whose stored refid matches exactly.
+        \Log::info('PfSense deleteCertificateAuthority', ['refid' => $id]);
+        $response = $this->delete("/system/certificate_authorities", ['refid' => $id]);
+        \Log::info('PfSense deleteCertificateAuthority response', ['response' => $response]);
+        return $response;
     }
 
     /**
@@ -2157,7 +2270,9 @@ class PfSenseApiService
         if ($this->opnSense) {
             return $this->opnSense->deleteCertificate($id);
         }
-        return $this->delete("/system/certificate", ['id' => $id]);
+        // Same safe pattern as deleteCertificateAuthority: use the plural endpoint
+        // with a refid field-value filter to avoid the del_config("cert/$id") integer bug.
+        return $this->delete("/system/certificates", ['refid' => $id]);
     }
 
     /**

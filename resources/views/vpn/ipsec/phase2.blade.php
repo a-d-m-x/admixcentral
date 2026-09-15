@@ -44,6 +44,7 @@
             return [];
         }
     }">
+        <x-confirm-delete-modal>
         <div class="max-w-full mx-auto sm:px-6 lg:px-8 space-y-6">
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 dark:text-gray-100">
@@ -108,15 +109,7 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                                 {{ $p2['descr'] ?? '' }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                                <form
-                                                    action="{{ route('vpn.ipsec.phase2.destroy', [$firewall, $phase1Id, $p2['uniqid'] ?? $p2['id']]) }}"
-                                                    method="POST" class="inline-block"
-                                                    onsubmit="return confirm('Are you sure you want to delete this Phase 2 entry?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit"
-                                                        class="text-red-600 hover:text-red-900">Delete</button>
-                                                </form>
+                                                <button type="button" @click="openDelete('{{ route('vpn.ipsec.phase2.destroy', [$firewall, $phase1Id, $p2['uniqid'] ?? $p2['id']]) }}', '{{ addslashes($p2['descr'] ?? 'this entry') }}')" class="text-red-600 hover:text-red-900 inline-block">Delete</button>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -325,5 +318,6 @@
                 </div>
             </div>
         </div>
+        </x-confirm-delete-modal>
     </div>
 </x-app-layout>

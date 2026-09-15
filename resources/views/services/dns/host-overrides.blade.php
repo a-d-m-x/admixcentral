@@ -18,6 +18,7 @@
             @endif
 
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                <x-confirm-delete-modal>
                 <div class="p-6 text-gray-900 dark:text-gray-100">
 
                     {{-- Tabs --}}
@@ -89,11 +90,7 @@
                                         <td data-label="Description">{{ $host['descr'] ?? '' }}</td>
                                         @if(!auth()->user()->isReadOnly())
                                         <td data-label="Actions">
-                                            <form action="{{ route('services.dns.host-overrides.destroy', ['firewall' => $firewall, 'id' => $host['id'] ?? ($host['uuid'] ?? $loop->index)]) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this host override?');" class="inline">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="text-red-600 hover:text-red-900 dark:text-red-400 font-medium">Delete</button>
-                                            </form>
+                                            <button type="button" @click="openDelete('{{ route('services.dns.host-overrides.destroy', ['firewall' => $firewall, 'id' => $host['id'] ?? ($host['uuid'] ?? $loop->index)]) }}', '{{ addslashes($host['host'] ?? 'this override') }}')" class="text-red-600 hover:text-red-900 dark:text-red-400 font-medium">Delete</button>
                                         </td>
                                         @endif
                                     </tr>
@@ -108,6 +105,7 @@
                         </table>
                     </div>
                 </div>
+                </x-confirm-delete-modal>
             </div>
         </div>
     </div>

@@ -12,6 +12,7 @@
     </x-slot>
 
     <div class="py-12">
+        <x-confirm-delete-modal>
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             @if(session('error'))
                 <div class="bg-red-500 text-white p-4 rounded-lg mb-4">
@@ -144,17 +145,10 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <a href="{{ route('firewall.rules.edit', [$firewall, $rule['tracker']]) }}"
                                                     class="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-600 mr-3">Edit</a>
-                                                <form
-                                                    action="{{ route('firewall.rules.destroy', [$firewall, $rule['tracker']]) }}"
-                                                    method="POST" class="inline-block"
-                                                    onsubmit="return confirm('Are you sure you want to delete this rule?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit"
-                                                        class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
-                                                        Delete
-                                                    </button>
-                                                </form>
+                                                <button type="button" @click="openDelete('{{ route('firewall.rules.destroy', [$firewall, $rule['tracker']]) }}', '{{ addslashes($rule['descr'] ?? $rule['description'] ?? 'this rule') }}')"
+                                                    class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
+                                                    Delete
+                                                </button>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -168,5 +162,6 @@
                 </div>
             </div>
         </div>
+        </x-confirm-delete-modal>
     </div>
 </x-app-layout>

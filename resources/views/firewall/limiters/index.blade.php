@@ -6,6 +6,7 @@
     <div class="py-12">
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             <x-card x-data="limiterHandler()" @open-create-modal.window="openModal()">
+                <x-confirm-delete-modal>
                 <x-card-header title="Limiters">
                     @if(!auth()->user()->isReadOnly())
                     <x-button-add @click="$dispatch('open-create-modal')">
@@ -63,15 +64,9 @@
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <button @click="editLimiter({{ Js::from($limiter['uuid'] ?? ($limiter['id'] ?? $index)) }}, {{ json_encode($limiter) }})"
                                             class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
-                                        <form
-                                            action="{{ route('firewall.limiters.destroy', ['firewall' => $firewall->id, 'limiter' => $limiter['uuid'] ?? ($limiter['id'] ?? $index)]) }}"
-                                            method="POST" class="inline-block"
-                                            onsubmit="return confirm('Are you sure you want to delete this limiter?');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit"
-                                                class="text-red-600 hover:text-red-900">Delete</button>
-                                        </form>
+                                        <button type="button"
+                                            @click="openDelete('{{ route('firewall.limiters.destroy', ['firewall' => $firewall->id, 'limiter' => $limiter['uuid'] ?? ($limiter['id'] ?? $index)]) }}', '{{ addslashes($limiter['name'] ?? 'this limiter') }}')"
+                                            class="text-red-600 hover:text-red-900">Delete</button>
                                     </td>
                                     @endif
                                 </tr>
@@ -197,6 +192,7 @@
                         </div>
                     </div>
                 </div>
+                </x-confirm-delete-modal>
             </x-card>
         </div>
     </div>
