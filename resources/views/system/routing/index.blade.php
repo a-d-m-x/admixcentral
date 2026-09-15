@@ -4,6 +4,7 @@
     </x-slot>
 
     <div class="py-12">
+        <x-confirm-delete-modal>
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 bg-white border-b border-gray-200">
@@ -89,15 +90,7 @@
                                                 <a href="{{ route('system.routing.gateways.edit', [$firewall->id, $gateway['id']]) }}"
                                                     class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
                                                 <!-- Delete usually restricted for default gateways, but we'll show it for now -->
-                                                <form
-                                                    action="{{ route('system.routing.gateways.destroy', [$firewall->id, $gateway['id']]) }}"
-                                                    method="POST" class="inline-block"
-                                                    onsubmit="return confirm('Are you sure?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit"
-                                                        class="text-red-600 hover:text-red-900">Delete</button>
-                                                </form>
+                                                <button type="button" @click="openDelete('{{ route('system.routing.gateways.destroy', [$firewall->id, $gateway['id']]) }}', '{{ addslashes($gateway['name'] ?? 'this gateway') }}')" class="text-red-600 hover:text-red-900 inline-block">Delete</button>
                                             </td>
                                             @endif
                                         </tr>
@@ -159,15 +152,7 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <a href="{{ route('system.routing.static_routes.edit', [$firewall->id, $route['id']]) }}"
                                                     class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
-                                                <form
-                                                    action="{{ route('system.routing.static_routes.destroy', [$firewall->id, $route['id']]) }}"
-                                                    method="POST" class="inline-block"
-                                                    onsubmit="return confirm('Are you sure?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit"
-                                                        class="text-red-600 hover:text-red-900">Delete</button>
-                                                </form>
+                                                <button type="button" @click="openDelete('{{ route('system.routing.static_routes.destroy', [$firewall->id, $route['id']]) }}', '{{ addslashes($route['network'] ?? 'this route') }}')" class="text-red-600 hover:text-red-900 inline-block">Delete</button>
                                             </td>
                                             @endif
                                         </tr>
@@ -189,5 +174,6 @@
                 </div>
             </div>
         </div>
+        </x-confirm-delete-modal>
     </div>
 </x-app-layout>

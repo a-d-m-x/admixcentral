@@ -42,6 +42,7 @@
             return [];
         }
     }" @open-create-phase1.window="showModal = true">
+        <x-confirm-delete-modal>
         <div class="max-w-full mx-auto sm:px-6 lg:px-8 space-y-6">
             <!-- Phase 1 -->
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
@@ -87,11 +88,7 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                                 <a href="{{ route('vpn.ipsec.phase2', [$firewall, $p1['ikeid']]) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">Phase 2</a>
                                                 @if(!auth()->user()->isReadOnly())
-                                                <form action="{{ route('vpn.ipsec.phase1.destroy', [$firewall, $p1['id'] ?? $p1['ikeid']]) }}" method="POST" class="inline-block" onsubmit="return confirm('Are you sure you want to delete this tunnel?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
-                                                </form>
+                                                <button type="button" @click="openDelete('{{ route('vpn.ipsec.phase1.destroy', [$firewall, $p1['id'] ?? $p1['ikeid']]) }}', '{{ addslashes($p1['descr'] ?? 'this tunnel') }}')" class="text-red-600 hover:text-red-900 inline-block">Delete</button>
                                                 @endif
                                             </td>
                                         </tr>
@@ -324,5 +321,6 @@
             </div>
         </div>
         @endif
+        </x-confirm-delete-modal>
     </div>
 </x-app-layout>

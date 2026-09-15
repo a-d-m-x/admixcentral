@@ -4,6 +4,7 @@
     </x-slot>
 
     <div class="py-12">
+        <x-confirm-delete-modal>
         <div class="max-w-full mx-auto sm:px-6 lg:px-8 space-y-6">
             @if(session('success'))
                 <div class="p-4 mb-4 text-sm text-emerald-800 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-2">
@@ -570,16 +571,9 @@
                                             <td class="py-3 px-4 font-mono text-xs text-gray-500 dark:text-gray-400">{{ $sa['data'] ?? '-' }}</td>
                                             <td class="py-3 px-4 text-right">
                                                 @if(!auth()->user()->isReadOnly())
-                                                    <form method="POST" action="{{ route('status.ipsec.sad.destroy', $firewall) }}" class="inline-block" onsubmit="return confirm('Delete this SAD entry?');">
-                                                        @csrf
-                                                        <input type="hidden" name="src" value="{{ $sa['src'] ?? '' }}">
-                                                        <input type="hidden" name="dst" value="{{ $sa['dst'] ?? '' }}">
-                                                        <input type="hidden" name="proto" value="{{ $sa['proto'] ?? 'esp' }}">
-                                                        <input type="hidden" name="spi" value="{{ $sa['spi'] ?? '' }}">
-                                                        <button type="submit" class="text-rose-600 hover:text-rose-900 dark:text-rose-400 dark:hover:text-rose-300 p-1 transition" title="{{ __('Delete SAD entry') }}">
-                                                            <i class="fa-solid fa-trash-can"></i>
-                                                        </button>
-                                                    </form>
+                                                    <button type="button" @click="openDelete('{{ route('status.ipsec.sad.destroy', ['firewall' => $firewall, 'src' => $sa['src'] ?? '', 'dst' => $sa['dst'] ?? '', 'proto' => $sa['proto'] ?? 'esp', 'spi' => $sa['spi'] ?? '']) }}', '{{ addslashes($sa['spi'] ?? 'this SAD entry') }}')" class="text-rose-600 hover:text-rose-900 dark:text-rose-400 dark:hover:text-rose-300 p-1 transition" title="{{ __('Delete SAD entry') }}">
+                                                        <i class="fa-solid fa-trash-can"></i>
+                                                    </button>
                                                 @endif
                                             </td>
                                         </tr>
@@ -663,5 +657,6 @@
                 </div>
             </div>
         </div>
+        </x-confirm-delete-modal>
     </div>
 </x-app-layout>

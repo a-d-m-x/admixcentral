@@ -3907,9 +3907,14 @@ class OpnSenseApiService
     public function getCertificateAuthorities(): array
     {
         $response = $this->get('/api/trust/ca/search');
+        $rows = array_map(function ($row) {
+            // OPNsense uses uuid; normalize to refid so views work uniformly
+            $row['refid'] = $row['refid'] ?? $row['uuid'] ?? null;
+            return $row;
+        }, $response['rows'] ?? []);
         return [
             'status' => 200,
-            'data' => $response['rows'] ?? [],
+            'data'   => $rows,
         ];
     }
 
@@ -4001,9 +4006,29 @@ class OpnSenseApiService
     public function getCertificates(): array
     {
         $response = $this->get('/api/trust/cert/search');
+        $rows = array_map(function ($row) {
+            // OPNsense uses uuid; normalize to refid so views work uniformly
+            $row['refid'] = $row['refid'] ?? $row['uuid'] ?? null;
+
+            // OPNsense returns in_use as a string "0"/"1" — cast to proper bool
+            if (array_key_exists('in_use', $row)) {
+                $row['in_use'] = (bool)(int)$row['in_use'];
+            } else {
+                $refcount = $row['refcount'] ?? $row['certcount'] ?? null;
+                $row['in_use'] = $refcount !== null ? (int)$refcount > 0 : null;
+            }
+
+            // OPNsense returns a human-readable 'issuer' field — map it to issuer_name
+            // so the controller's CA lookup is used only as a fallback for pfSense
+            if (!empty($row['issuer'])) {
+                $row['issuer_name'] = $row['issuer'];
+            }
+
+            return $row;
+        }, $response['rows'] ?? []);
         return [
             'status' => 200,
-            'data' => $response['rows'] ?? [],
+            'data'   => $rows,
         ];
     }
 
@@ -4110,16 +4135,17 @@ class OpnSenseApiService
         $mapped = [];
         foreach ($rows as $r) {
             $mapped[] = [
-                'refid' => $r['refid'] ?? '',
+                // OPNsense uses uuid; normalize to refid so the delete route receives a valid ID
+                'refid' => $r['uuid'] ?? $r['refid'] ?? '',
                 'descr' => !empty($r['crl_descr']) ? $r['crl_descr'] : ($r['descr'] ?? 'CRL'),
                 'caref' => $r['descr'] ?? $r['caref'] ?? '',
-                'cert' => $r['cert'] ?? [],
+                'cert'  => $r['cert'] ?? [],
             ];
         }
 
         return [
             'status' => 200,
-            'data' => $mapped,
+            'data'   => $mapped,
         ];
     }
 

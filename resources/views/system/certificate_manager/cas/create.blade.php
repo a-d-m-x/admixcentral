@@ -31,6 +31,29 @@
                             <x-input-error :messages="$errors->get('descr')" class="mt-2" />
                         </div>
 
+                        <!-- Trust Store -->
+                        <div class="mb-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="hidden" name="trust" value="0">
+                                <input type="checkbox" name="trust" value="1" id="trust"
+                                    class="rounded border-gray-300 dark:border-gray-700 dark:bg-gray-900 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                                    {{ old('trust') ? 'checked' : '' }}>
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Add to Operating System Trust Store</span>
+                            </label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">When enabled, this CA's contents will be added to the OS trust store.</p>
+                        </div>
+
+                        <!-- Randomize Serial -->
+                        <div class="mb-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="hidden" name="randomserial" value="0">
+                                <input type="checkbox" name="randomserial" value="1" id="randomserial"
+                                    class="rounded border-gray-300 dark:border-gray-700 dark:bg-gray-900 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                                    {{ old('randomserial') ? 'checked' : '' }}>
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Use random serial numbers when signing certificates</span>
+                            </label>
+                        </div>
+
                         <!-- Internal CA Fields -->
                         <div x-show="method === 'internal'">
                             <div class="mb-4">
@@ -64,36 +87,67 @@
                             </div>
 
                             <h3 class="text-lg font-medium mt-6 mb-2">Subject Information</h3>
+                            <p class="text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-md px-3 py-2 mb-4">
+                                <strong>pfSense:</strong> Country, State, City, Organization, Organizational Unit, and Common Name are
+                                <strong>required</strong> — pfSense passes all values directly to OpenSSL, which rejects empty fields and returns an unknown error.
+                            </p>
+
+                            {{-- Common Name: full-width, required, above the optional grid --}}
+                            <div class="mb-4">
+                                <label for="dn_commonname" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Common Name <span class="text-red-500">*</span>
+                                </label>
+                                <x-text-input id="dn_commonname" class="block mt-1 w-full" type="text"
+                                    name="dn_commonname" :value="old('dn_commonname')"
+                                    placeholder="e.g. My Internal CA or myca.example.com"
+                                    required />
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    The CN embedded in the certificate — identifies this CA to browsers and systems.
+                                </p>
+                            </div>
+
+                            {{-- Required + Optional DN fields in 2-column grid --}}
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <x-input-label for="dn_country" :value="__('Country Code')" />
+                                    <label for="dn_country" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Country Code <span class="text-red-500">*</span>
+                                    </label>
                                     <x-text-input id="dn_country" class="block mt-1 w-full" type="text"
-                                        name="dn_country" :value="old('dn_country', 'US')" maxlength="2" />
+                                        name="dn_country" :value="old('dn_country', 'US')" maxlength="2" required />
                                 </div>
                                 <div>
-                                    <x-input-label for="dn_state" :value="__('State or Province')" />
+                                    <label for="dn_state" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        State or Province <span class="text-red-500">*</span>
+                                    </label>
                                     <x-text-input id="dn_state" class="block mt-1 w-full" type="text" name="dn_state"
-                                        :value="old('dn_state')" />
+                                        :value="old('dn_state')" required />
                                 </div>
                                 <div>
-                                    <x-input-label for="dn_city" :value="__('City')" />
+                                    <label for="dn_city" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        City <span class="text-red-500">*</span>
+                                    </label>
                                     <x-text-input id="dn_city" class="block mt-1 w-full" type="text" name="dn_city"
-                                        :value="old('dn_city')" />
+                                        :value="old('dn_city')" required />
                                 </div>
                                 <div>
-                                    <x-input-label for="dn_organization" :value="__('Organization')" />
+                                    <label for="dn_organization" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Organization <span class="text-red-500">*</span>
+                                    </label>
                                     <x-text-input id="dn_organization" class="block mt-1 w-full" type="text"
-                                        name="dn_organization" :value="old('dn_organization')" />
+                                        name="dn_organization" :value="old('dn_organization')" required />
+                                </div>
+                                <div>
+                                    <label for="dn_ou" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Organizational Unit <span class="text-red-500">*</span>
+                                    </label>
+                                    <x-text-input id="dn_ou" class="block mt-1 w-full" type="text"
+                                        name="dn_ou" :value="old('dn_ou')"
+                                        placeholder="e.g. IT Department" required />
                                 </div>
                                 <div>
                                     <x-input-label for="dn_email" :value="__('Email Address')" />
                                     <x-text-input id="dn_email" class="block mt-1 w-full" type="email" name="dn_email"
-                                        :value="old('dn_email')" />
-                                </div>
-                                <div>
-                                    <x-input-label for="dn_commonname" :value="__('Common Name')" />
-                                    <x-text-input id="dn_commonname" class="block mt-1 w-full" type="text"
-                                        name="dn_commonname" :value="old('dn_commonname')" />
+                                        :value="old('dn_email')" placeholder="optional" />
                                 </div>
                             </div>
                         </div>

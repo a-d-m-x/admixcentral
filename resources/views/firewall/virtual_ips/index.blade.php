@@ -6,6 +6,7 @@
     <div class="py-12">
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             <x-card x-data="vipHandler()" @open-create-modal.window="openModal()">
+                <x-confirm-delete-modal>
                 <x-card-header title="Virtual IPs">
                     @if(!auth()->user()->isReadOnly())
                     <x-button-add @click="$dispatch('open-create-modal')">
@@ -63,15 +64,9 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <button @click="editVip({{ $index }}, {{ json_encode($vip) }})"
                                                     class="text-blue-600 hover:text-blue-900 mr-3">Edit</button>
-                                                <form
-                                                    action="{{ route('firewall.virtual_ips.destroy', ['firewall' => $firewall->id, 'virtual_ip' => $index]) }}"
-                                                    method="POST" class="inline-block"
-                                                    onsubmit="return confirm('Are you sure you want to delete this Virtual IP?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit"
-                                                        class="text-red-600 hover:text-red-900">Delete</button>
-                                                </form>
+                                                <button type="button"
+                                                    @click="openDelete('{{ route('firewall.virtual_ips.destroy', ['firewall' => $firewall->id, 'virtual_ip' => $index]) }}', '{{ addslashes($vip['subnet'] ?? 'this virtual IP') }}')"
+                                                    class="text-red-600 hover:text-red-900">Delete</button>
                                             </td>
                                             @endif
                                         </tr>
@@ -190,6 +185,7 @@
                                 </div>
                             </div>
                         </div>
+                </x-confirm-delete-modal>
             </x-card>
         </div>
     </div>

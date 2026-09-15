@@ -40,15 +40,9 @@
                         {{ isset($crl['cert']) ? count($crl['cert']) : 0 }}</td>
                     @if(!auth()->user()->isReadOnly())
                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <form
-                            action="{{ route('system.certificate_manager.crls.destroy', [$firewall, $crl['refid'] ?? $loop->index]) }}"
-                            method="POST" class="inline-block"
-                            onsubmit="return confirm('Are you sure you want to delete this CRL?');">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit"
+                        <button type="button"
+                                @click="openDelete('{{ route('system.certificate_manager.crls.destroy', [$firewall, $crl['refid'] ?? $loop->index]) }}', '{{ addslashes($crl['descr'] ?? 'this CRL') }}')"
                                 class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-200">Delete</button>
-                        </form>
                     </td>
                     @endif
                 </tr>

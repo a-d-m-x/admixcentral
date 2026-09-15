@@ -11,6 +11,7 @@
     </x-slot>
 
     <div class="py-12">
+        <x-confirm-delete-modal>
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             @if(session('success'))
                 <div class="pf-alert pf-alert-success mb-4">
@@ -136,11 +137,7 @@
                                                     </td>
                                                     @if(!auth()->user()->isReadOnly())
                                                     <td class="text-right" data-label="Actions">
-                                                        <form action="{{ route('status.system-logs.destinations.destroy', ['firewall' => $firewall, 'uuid' => $dest['uuid'] ?? '']) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this remote syslog destination?');" class="inline">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <button type="submit" class="text-red-600 hover:text-red-900 dark:text-red-400 font-medium text-sm">Delete</button>
-                                                        </form>
+                                                        <button type="button" @click="openDelete('{{ route('status.system-logs.destinations.destroy', ['firewall' => $firewall, 'uuid' => $dest['uuid'] ?? '']) }}', '{{ addslashes($dest['hostname'] ?? 'this destination') }}')" class="text-red-600 hover:text-red-900 dark:text-red-400 font-medium text-sm inline">Delete</button>
                                                     </td>
                                                     @endif
                                                 </tr>
@@ -215,5 +212,6 @@
                 </div>
             </div>
         </div>
+        </x-confirm-delete-modal>
     </div>
 </x-app-layout>

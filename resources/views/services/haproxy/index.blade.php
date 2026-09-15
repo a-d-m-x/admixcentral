@@ -41,6 +41,7 @@
             @endif
 
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
+                <x-confirm-delete-modal>
 
                 {{-- Settings Tab --}}
                 @if($tab === 'settings')
@@ -114,14 +115,7 @@
                                             <td class="px-6 py-4 text-right">
                                                 <a href="{{ route('services.haproxy.frontends.edit', ['firewall' => $firewall, 'id' => $frontend['id'] ?? $frontend['name']]) }}"
                                                     class="font-medium text-blue-600 dark:text-blue-500 hover:underline mr-3">Edit</a>
-                                                <form
-                                                    action="{{ route('services.haproxy.frontends.destroy', ['firewall' => $firewall, 'id' => $frontend['id'] ?? $frontend['name']]) }}"
-                                                    method="POST" onsubmit="return confirm('Are you sure?');" class="inline">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit"
-                                                        class="font-medium text-red-600 dark:text-red-500 hover:underline">Delete</button>
-                                                </form>
+                                                <button type="button" @click="openDelete('{{ route('services.haproxy.frontends.destroy', ['firewall' => $firewall, 'id' => $frontend['id'] ?? $frontend['name']]) }}', '{{ addslashes($frontend['name'] ?? 'this frontend') }}')" class="font-medium text-red-600 dark:text-red-500 hover:underline">Delete</button>
                                             </td>
                                         </tr>
                                     @empty
@@ -167,14 +161,7 @@
                                             <td class="px-6 py-4 text-right">
                                                 <a href="{{ route('services.haproxy.backends.edit', ['firewall' => $firewall, 'id' => $backend['id'] ?? $backend['name']]) }}"
                                                     class="font-medium text-blue-600 dark:text-blue-500 hover:underline mr-3">Edit</a>
-                                                <form
-                                                    action="{{ route('services.haproxy.backends.destroy', ['firewall' => $firewall, 'id' => $backend['id'] ?? $backend['name']]) }}"
-                                                    method="POST" onsubmit="return confirm('Are you sure?');" class="inline">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit"
-                                                        class="font-medium text-red-600 dark:text-red-500 hover:underline">Delete</button>
-                                                </form>
+                                                <button type="button" @click="openDelete('{{ route('services.haproxy.backends.destroy', ['firewall' => $firewall, 'id' => $backend['id'] ?? $backend['name']]) }}', '{{ addslashes($backend['name'] ?? 'this backend') }}')" class="font-medium text-red-600 dark:text-red-500 hover:underline">Delete</button>
                                             </td>
                                         </tr>
                                     @empty
@@ -188,6 +175,7 @@
                     </div>
                 @endif
 
+                </x-confirm-delete-modal>
             </div>
         </div>
     </div>

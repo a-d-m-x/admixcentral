@@ -18,6 +18,7 @@
             @endif
 
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
+                <x-confirm-delete-modal>
                 <div class="p-6 text-gray-900 dark:text-gray-100">
                     @if($firewall->isOpnSense())
                         {{-- Service Status & Summary --}}
@@ -103,11 +104,7 @@
                                                 <td class="text-gray-500 dark:text-gray-400" data-label="Description">{{ $override['descr'] ?? '' }}</td>
                                                 @if(!auth()->user()->isReadOnly())
                                                 <td class="text-right" data-label="Actions">
-                                                    <form action="{{ route('services.dns-forwarder.hosts.destroy', ['firewall' => $firewall, 'uuid' => $override['uuid'] ?? '']) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this host override?');" class="inline">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit" class="text-red-600 hover:text-red-900 dark:text-red-400 font-medium text-sm">Delete</button>
-                                                    </form>
+                                                    <button type="button" @click="openDelete('{{ route('services.dns-forwarder.hosts.destroy', ['firewall' => $firewall, 'uuid' => $override['uuid'] ?? '']) }}', '{{ addslashes($override['host'] ?? 'this override') }}')" class="text-red-600 hover:text-red-900 dark:text-red-400 font-medium text-sm">Delete</button>
                                                 </td>
                                                 @endif
                                             </tr>
@@ -126,6 +123,7 @@
                         <x-api-not-supported :firewall="$firewall" urlSuffix="services_dnsmasq.php" featureName="DNS Forwarder" />
                     @endif
                 </div>
+                </x-confirm-delete-modal>
             </div>
         </div>
     </div>

@@ -4,6 +4,7 @@
     </x-slot>
 
     <div class="py-12">
+        <x-confirm-delete-modal>
         <div class="max-w-full mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 bg-white border-b border-gray-200">
@@ -83,11 +84,7 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <a href="{{ route('system.user_manager.users.edit', [$firewall->id, $user['id']]) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
                                                 @if(!in_array($user['name'], ['admin', 'root']))
-                                                    <form action="{{ route('system.user_manager.users.destroy', [$firewall->id, $user['id']]) }}" method="POST" class="inline-block" onsubmit="return confirm({{ Js::from('Are you sure you want to delete user ' . $user['name'] . '?') }});">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
-                                                    </form>
+                                                    <button type="button" @click="openDelete('{{ route('system.user_manager.users.destroy', [$firewall->id, $user['id']]) }}', '{{ addslashes($user['name'] ?? 'this user') }}')" class="text-red-600 hover:text-red-900 inline-block">Delete</button>
                                                 @endif
                                             </td>
                                             @endif
@@ -132,11 +129,7 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <a href="{{ route('system.user_manager.groups.edit', [$firewall->id, $group['id']]) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">Edit</a>
                                                 @if(!in_array($group['name'], ['all', 'admins']))
-                                                    <form action="{{ route('system.user_manager.groups.destroy', [$firewall->id, $group['id']]) }}" method="POST" class="inline-block" onsubmit="return confirm({{ Js::from('Are you sure you want to delete group ' . $group['name'] . '?') }});">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit" class="text-red-600 hover:text-red-900">Delete</button>
-                                                    </form>
+                                                    <button type="button" @click="openDelete('{{ route('system.user_manager.groups.destroy', [$firewall->id, $group['id']]) }}', '{{ addslashes($group['name'] ?? 'this group') }}')" class="text-red-600 hover:text-red-900 inline-block">Delete</button>
                                                 @endif
                                             </td>
                                             @endif
@@ -157,5 +150,6 @@
                 </div>
             </div>
         </div>
+        </x-confirm-delete-modal>
     </div>
 </x-app-layout>

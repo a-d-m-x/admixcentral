@@ -52,6 +52,7 @@
             @endif
 
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
+                <x-confirm-delete-modal>
                 
                 {{-- Account Keys Tab --}}
                 @if($tab === 'account_keys')
@@ -132,11 +133,7 @@
                                                 N/A
                                             </td>
                                             <td class="px-6 py-4 text-right">
-                                                <form action="{{ route('services.acme.account-keys.destroy', ['firewall' => $firewall, 'id' => $key['id'] ?? $key['name']]) }}" method="POST" onsubmit="return confirm('Are you sure?');" class="inline">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="font-medium text-red-600 dark:text-red-500 hover:underline">Delete</button>
-                                                </form>
+                                                <button type="button" @click="openDelete('{{ route('services.acme.account-keys.destroy', ['firewall' => $firewall, 'id' => $key['id'] ?? $key['name']]) }}', '{{ addslashes($key['name'] ?? 'this key') }}')" class="font-medium text-red-600 dark:text-red-500 hover:underline">Delete</button>
                                             </td>
                                         </tr>
                                     @empty
@@ -334,6 +331,7 @@
                     </div>
                 @endif
                 
+                </x-confirm-delete-modal>
             </div>
         </div>
     </div>
