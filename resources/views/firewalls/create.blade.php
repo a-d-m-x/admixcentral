@@ -9,7 +9,8 @@
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 dark:text-gray-100">
-                    <form action="{{ route('firewalls.store') }}" method="POST" enctype="multipart/form-data">
+                    <form action="{{ route('firewalls.store') }}" method="POST" enctype="multipart/form-data"
+                        @submit="if ($refs.urlInput && $refs.urlInput.value.startsWith('http://')) { $refs.urlInput.value = 'https://' + $refs.urlInput.value.substring(7); } else if ($refs.urlInput && $refs.urlInput.value && !$refs.urlInput.value.startsWith('https://')) { $refs.urlInput.value = 'https://' + $refs.urlInput.value; }">
                         @csrf
 
                         {{-- Company Selection --}}
@@ -198,6 +199,8 @@
                                 <label for="url"
                                     class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">URL</label>
                                 <input type="url" name="url" id="url" value="{{ old('url') }}" required
+                                    x-ref="urlInput"
+                                    @blur="if ($el.value.startsWith('http://')) { $el.value = 'https://' + $el.value.substring(7); } else if ($el.value && !$el.value.startsWith('https://')) { $el.value = 'https://' + $el.value; }"
                                     class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
                                     placeholder="https://192.168.1.1:443">
                                 @error('url')
@@ -259,47 +262,51 @@
                                     @enderror
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="mt-8 mb-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                            <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">SSH Access for Config Backup</h3>
-                            
-                            <div class="mb-4">
-                                <label for="ssh_port" class="block text-sm font-medium mb-2">SSH Port</label>
-                                <input type="number" name="ssh_port" id="ssh_port" value="{{ old('ssh_port', 22) }}" required
-                                    class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
-                                @error('ssh_port')
-                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                                @enderror
-                            </div>
+                            {{-- SSH Section (pfSense only - OPNsense uses native REST API backup) --}}
+                            <div x-show="osType === 'pfsense'" x-cloak class="mt-8 mb-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">SSH Access for Config Backup</h3>
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">pfSense only</span>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <label for="ssh_port" class="block text-sm font-medium mb-2">SSH Port</label>
+                                    <input type="number" name="ssh_port" id="ssh_port" value="{{ old('ssh_port', 22) }}"
+                                        class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                    @error('ssh_port')
+                                        <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
 
-                            <div class="mb-4">
-                                <label for="ssh_username" class="block text-sm font-medium mb-2">SSH Username</label>
-                                <input type="text" name="ssh_username" id="ssh_username" value="{{ old('ssh_username') }}"
-                                    class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                                    placeholder="admin">
-                                @error('ssh_username')
-                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                                @enderror
-                            </div>
+                                <div class="mb-4">
+                                    <label for="ssh_username" class="block text-sm font-medium mb-2">SSH Username</label>
+                                    <input type="text" name="ssh_username" id="ssh_username" value="{{ old('ssh_username') }}"
+                                        class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                                        placeholder="admin">
+                                    @error('ssh_username')
+                                        <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
 
-                            <div class="mb-4">
-                                <label for="ssh_host_key_fingerprint" class="block text-sm font-medium mb-2">Verified SSH host key fingerprint</label>
-                                <input type="text" name="ssh_host_key_fingerprint" id="ssh_host_key_fingerprint"
-                                    value="{{ old('ssh_host_key_fingerprint') }}" placeholder="SHA256:..."
-                                    class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
-                                <p class="text-xs text-gray-500 mt-1">Obtain this fingerprint from the firewall console or another trusted channel. SSH backups require a matching key. Re-enter the password when changing the host, port, username, or fingerprint.</p>
-                                @error('ssh_host_key_fingerprint')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
-                            </div>
+                                <div class="mb-4">
+                                    <label for="ssh_host_key_fingerprint" class="block text-sm font-medium mb-2">Verified SSH host key fingerprint</label>
+                                    <input type="text" name="ssh_host_key_fingerprint" id="ssh_host_key_fingerprint"
+                                        value="{{ old('ssh_host_key_fingerprint') }}" placeholder="SHA256:..."
+                                        class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                    <p class="text-xs text-gray-500 mt-1">Obtain this fingerprint from the firewall console or another trusted channel. SSH backups require a matching key. Re-enter the password when changing the host, port, username, or fingerprint.</p>
+                                    @error('ssh_host_key_fingerprint')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+                                </div>
 
-                            <div class="mb-4">
-                                <label for="ssh_password" class="block text-sm font-medium mb-2">SSH Password</label>
-                                <input type="password" name="ssh_password" id="ssh_password"
-                                    class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                                    placeholder="Enter SSH password">
-                                @error('ssh_password')
-                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                                @enderror
+                                <div class="mb-4">
+                                    <label for="ssh_password" class="block text-sm font-medium mb-2">SSH Password</label>
+                                    <input type="password" name="ssh_password" id="ssh_password"
+                                        class="w-full rounded-md shadow-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                                        placeholder="Enter SSH password">
+                                    @error('ssh_password')
+                                        <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
                             </div>
                         </div>
 

@@ -12,9 +12,14 @@
          }
      }">
     <div class="flex items-start justify-between mb-1">
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Trust a native or self-signed HTTPS certificate
-        </label>
+        <div class="flex items-center gap-2 flex-wrap">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Trust a native or self-signed HTTPS certificate
+            </label>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                Optional — auto-discovered if blank
+            </span>
+        </div>
         @if(!empty($firewall->tls_public_key_pin))
             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 text-[10px] font-medium shrink-0 ml-3">
                 <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
@@ -22,7 +27,7 @@
             </span>
         @endif
     </div>
-    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Export the firewall's current HTTPS server certificate using a trusted administrator connection, then upload its public PEM/CRT file here. AdmixCentral will remember its public key and refuse connections if that key changes. No certificate authority is required. Never upload a private key.</p>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Optional for both pfSense and OPNsense. If left blank, AdmixCentral will automatically discover and securely pin the firewall's certificate on first connection. To manually pin instead, upload the public PEM/CRT file here or specify the fingerprint below. Never upload a private key.</p>
 
     {{-- Drop zone --}}
     <div class="relative"

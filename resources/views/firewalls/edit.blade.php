@@ -184,8 +184,8 @@
                         </div>
                     </div>
 
-                    {{-- ── SSH Backup ────────────────────────────────────── --}}
-                    <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg flex flex-col">
+                    {{-- ── SSH Backup (pfSense only) ────────────────────── --}}
+                    <div x-show="osType === 'pfsense'" x-cloak class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg flex flex-col">
                         <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2.5">
                             <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold shrink-0">3</span>
                             <h3 class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">SSH — Config Backup</h3>
@@ -273,7 +273,8 @@
                          x-data="addressAutocomplete()">
                         <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                             <div class="flex items-center gap-2.5">
-                                <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold shrink-0">4</span>
+                                <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold shrink-0"
+                                      x-text="osType === 'opnsense' ? '3' : '4'">4</span>
                                 <h3 class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Location</h3>
                             </div>
                             <span x-show="lat" class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400" style="display:none;">
@@ -547,15 +548,16 @@
                     const needsSecret   = connChanged && authMethod === 'basic'  && !apiSecretVal;
                     const needsToken    = connChanged && authMethod === 'token'   && !apiTokenVal;
 
-                    // SSH destination change — warn that stored password will be cleared
+                    // SSH destination change — warn that stored password will be cleared (pfSense only)
+                    const isPfSense      = (this.osType === 'pfsense');
                     const sshPort        = parseInt(form.querySelector('[name=ssh_port]')?.value ?? 22);
                     const sshUsername    = form.querySelector('[name=ssh_username]')?.value ?? '';
                     const sshFingerprint = form.querySelector('[name=ssh_host_key_fingerprint]')?.value ?? '';
-                    const sshChanged     = urlChanged
+                    const sshChanged     = isPfSense && (urlChanged
                         || sshPort        !== orig.sshPort
                         || sshUsername    !== (orig.sshUsername    ?? '')
-                        || sshFingerprint !== (orig.sshFingerprint ?? '');
-                    const sshWarning     = sshChanged && orig.hasSshPassword;
+                        || sshFingerprint !== (orig.sshFingerprint ?? ''));
+                    const sshWarning     = isPfSense && sshChanged && orig.hasSshPassword;
 
                     // Nothing to intercept — submit directly
                     if (!needsSecret && !needsToken && !sshWarning) {

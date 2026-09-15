@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Firewall;
 use App\Services\FirewallApiFactory;
+use App\Services\FirewallHttpOptions;
 use App\Services\PfSenseApiService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -86,6 +87,22 @@ class CheckFirewallStatusJob implements ShouldQueue, ShouldBeUnique
             }
 
             $lockAcquired = true;
+
+            // Self-healing TOFU auto-enrollment for unpinned firewalls
+            if (empty($firewall->tls_public_key_pin) && str_starts_with(strtolower($firewall->url), 'https://')) {
+                try {
+                    if (FirewallHttpOptions::requiresPin($firewall->url, 3)) {
+                        $autoPin = FirewallHttpOptions::fetchPinFromUrl($firewall->url, 3);
+                        if ($autoPin) {
+                            $firewall->update(['tls_public_key_pin' => $autoPin]);
+                            $firewall->tls_public_key_pin = $autoPin;
+                            Log::info("Firewall [{$firewall->id}] auto-enrolled TLS public key pin: {$autoPin}");
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    // Proceed to normal poll attempt
+                }
+            }
 
             $api  = FirewallApiFactory::make($firewall);
 
