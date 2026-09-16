@@ -47,7 +47,12 @@
                                                 {{ $interface['descr'] ?? $interface['description'] ?? '-' }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap">
-                                                @if(isset($interface['enable']) && $interface['enable'])
+                                                @php
+                                                    $isEnabled = !empty($interface['enable'])
+                                                        || !empty($interface['enabled'])
+                                                        || (strtolower($interface['status'] ?? '') === 'up');
+                                                @endphp
+                                                @if($isEnabled)
                                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
                                                         Enabled
                                                     </span>
