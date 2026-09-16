@@ -51,6 +51,7 @@
                         @system-update-started.window="installing = true; updateAvailable = false; message = 'Update started...';"
                         @system-update-failed.window="installing = false; isError = true; message = $event.detail?.message || 'Update failed.'; checkForUpdates();"
                         @system-update-status.window="handleStatus($event.detail)">
+                        @php $envLocked = config('services.github.allow_prereleases') !== null; @endphp
                         <div class="card-header-modern">
                             <div class="card-icon-wrapper">
                                 <svg class="card-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -58,9 +59,48 @@
                                         d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                 </svg>
                             </div>
-                            <div>
+                            <div class="flex-1">
                                 <h3 class="card-title-modern">System Updates</h3>
                                 <p class="card-subtitle-modern">Update your system to the latest version.</p>
+                            </div>
+
+                            <!-- Pre-release toggle — right-side header slot -->
+                            <div class="flex items-center gap-3 flex-shrink-0">
+                                @if($envLocked)
+                                    <!-- Env-locked: text label + lock badge -->
+                                    <div class="text-right">
+                                        <div class="text-xs font-medium text-gray-700 dark:text-gray-300">Pre-release updates</div>
+                                        <div class="text-xs text-gray-400 dark:text-gray-500">Include pre-release and beta builds</div>
+                                    </div>
+                                    <span class="inline-flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/40 rounded-full px-2 py-0.5"
+                                        title="ALLOW_PRERELEASES is set in .env — cannot be changed from the UI">
+                                        <svg class="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                        </svg>
+                                        Locked by .env
+                                    </span>
+                                @else
+                                    <!-- Text label (two lines) + spinner + toggle -->
+                                    <div class="text-right">
+                                        <div class="text-xs font-medium text-gray-700 dark:text-gray-300 select-none">Pre-release updates</div>
+                                        <div class="text-xs text-gray-400 dark:text-gray-500 select-none">Include pre-release and beta builds</div>
+                                    </div>
+                                    <svg x-show="savingChannel" x-cloak class="animate-spin h-3.5 w-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <button type="button" role="switch"
+                                        :aria-checked="allowPrereleases.toString()"
+                                        @click="saveUpdateChannel()"
+                                        :disabled="savingChannel"
+                                        :class="allowPrereleases ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-600'"
+                                        class="relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 cursor-pointer disabled:cursor-wait disabled:opacity-70">
+                                        <span class="sr-only">Include pre-release updates</span>
+                                        <span :class="allowPrereleases ? 'translate-x-4' : 'translate-x-0'"
+                                            class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out">
+                                        </span>
+                                    </button>
+                                @endif
                             </div>
                         </div>
                         <div class="card-body-modern">
@@ -79,8 +119,11 @@
                                 <div
                                     class="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg p-4 flex items-center justify-between">
                                     <div>
-                                        <div class="text-sm font-bold text-blue-700 dark:text-blue-300">
+                                        <div class="text-sm font-bold text-blue-700 dark:text-blue-300 flex items-center gap-2">
                                             Update Available: <span x-text="version"></span>
+                                            <template x-if="isPrerelease">
+                                                <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-bold bg-amber-400 text-amber-900">PRE-RELEASE</span>
+                                            </template>
                                         </div>
                                         <div class="text-xs text-blue-600 dark:text-blue-400 mt-1">
                                             A new version is ready to install.
@@ -233,6 +276,9 @@
                                 isError: false,
                                 version: '',
                                 pollInterval: null,
+                                isPrerelease: false,
+                                allowPrereleases: {{ ($settings['allow_prereleases'] ?? '0') === '1' ? 'true' : 'false' }},
+                                savingChannel: false,
 
                                 init() {
                                     // Check if we are already installing
@@ -280,12 +326,14 @@
                                 async checkForUpdates(force = false) {
                                     this.checking = true;
                                     try {
-                                        // Use check-global as it returns the comprehensive data structure we expect
                                         let url = '{{ route("system.updates.check-global") }}';
                                         if (force) url += '?force=1';
 
                                         const response = await fetch(url);
                                         const data = await response.json();
+
+                                        this.isPrerelease     = !!data.is_prerelease;
+                                        this.allowPrereleases = !!data.allow_prereleases;
 
                                         if (data.update_available && !this.installing) {
                                             this.updateAvailable = true;
@@ -298,6 +346,38 @@
                                         console.error('Update check failed:', e);
                                     } finally {
                                         this.checking = false;
+                                    }
+                                },
+
+                                async saveUpdateChannel() {
+                                    if (this.savingChannel) return;
+                                    // Optimistically toggle first for instant feedback
+                                    this.allowPrereleases = !this.allowPrereleases;
+                                    this.savingChannel = true;
+                                    try {
+                                        const response = await fetch('{{ route("system.updates.channel") }}', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                            },
+                                            body: JSON.stringify({ allow_prereleases: this.allowPrereleases })
+                                        });
+                                        if (response.ok) {
+                                            const label = this.allowPrereleases ? 'Pre-release updates enabled.' : 'Stable updates only.';
+                                            window.showSuccessToast(label + ' Refreshing…');
+                                            await this.checkForUpdates(true);
+                                        } else {
+                                            // Revert on failure
+                                            this.allowPrereleases = !this.allowPrereleases;
+                                            window.showErrorToast('Failed to save update channel.');
+                                        }
+                                    } catch (e) {
+                                        // Revert on failure
+                                        this.allowPrereleases = !this.allowPrereleases;
+                                        window.showErrorToast('An error occurred saving the update channel.');
+                                    } finally {
+                                        this.savingChannel = false;
                                     }
                                 },
 
@@ -322,10 +402,6 @@
                                     // Dispatch global event for app.blade.php to handle
                                     window.dispatchEvent(new CustomEvent('system-update-install-confirmed'));
                                 },
-
-
-
-
                             }
                         }
                     </script>
@@ -1248,6 +1324,22 @@
                                         </div>
                                     </div>
 
+                                    <!-- Privilege wrappers not installed warning -->
+                                    <div x-show="statusLoaded && !wrappersInstalled"
+                                        class="flex items-start gap-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 p-3.5">
+                                        <svg class="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                        </svg>
+                                        <div class="text-sm text-amber-800 dark:text-amber-300">
+                                            <p class="font-semibold mb-1">Server setup required before SSL can be installed</p>
+                                            <p class="text-xs mb-2">The SSL privilege wrappers are not installed. This is a one-time server step that requires root access — it cannot be done automatically by the app. SSH into your server and run:</p>
+                                            <code class="block text-xs font-mono bg-amber-100 dark:bg-amber-900/50 rounded px-2 py-1.5 select-all break-all">
+                                                sudo bash /var/www/admixcentral/scripts/setup-ssl-permissions.sh
+                                            </code>
+                                            <p class="text-xs mt-2 text-amber-700 dark:text-amber-400">After running the command, close and re-open this dialog to continue.</p>
+                                        </div>
+                                    </div>
+
                                     <!-- Error Message -->
                                     <div x-show="error" class="flex items-start gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-md p-3">
                                         <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -1258,8 +1350,9 @@
                                 <div class="mt-6 flex justify-end gap-3">
                                     <button type="button" x-on:click="$dispatch('close')"
                                         class="rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</button>
-                                    <button type="button" @click="installSsl" :disabled="loading"
-                                        class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 flex items-center gap-2">
+                                    <button type="button" @click="installSsl" :disabled="loading || !wrappersInstalled"
+                                        :title="!wrappersInstalled ? 'Run setup-ssl-permissions.sh on the server first' : ''"
+                                        class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
                                         <svg x-show="loading" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -1454,6 +1547,7 @@
                                 cfZoneId: '',
                                 cfTokenConfigured: false,
                                 sslActive: false,
+                                wrappersInstalled: true,       // assume ok until status loaded
                                 statusLoaded: false,
                                 loading: false,
                                 error: null,
@@ -1475,6 +1569,7 @@
                                         this.cfTokenConfigured    = !!s.cf_token_configured;
                                         this.cfZoneId             = s.cf_zone_id         || '';
                                         this.sslActive            = !!s.ssl_active;
+                                        this.wrappersInstalled    = s.ssl_wrappers_installed !== false;
                                         if (s.ssl_email)          this.email = s.ssl_email;
                                     } catch (_) {
                                         // Non-fatal — defaults remain
@@ -2021,31 +2116,13 @@
                 const data = await response.json();
 
                 if (data.status === 'ok') {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success!',
-                        text: `Domain is accessible via HTTP`,
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 3000,
-                        timerProgressBar: true
-                    });
+                    window.showSuccessToast('Domain is accessible via HTTP', 'Success!');
                 } else {
                     throw new Error(data.message || 'Verification Failed');
                 }
             } catch (error) {
                 console.error(error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error!',
-                    text: `Not Accessible: ${error.message || 'Unknown Error'}`,
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    timer: 5000,
-                    timerProgressBar: true
-                });
+                window.showErrorToast(`Not Accessible: ${error.message || 'Unknown Error'}`, 'Error!');
             } finally {
                 btn.disabled = false;
                 btn.innerText = originalText;

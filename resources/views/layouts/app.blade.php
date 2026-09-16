@@ -121,7 +121,7 @@
 
                             <p class="ml-3 font-medium text-white truncate">
                                 <span x-show="updateAvailable && !isInstalling && !updateComplete">
-                                    A new update is available (<span x-text="availableVersion"></span>).
+                                    A new update is available (<span x-text="availableVersion"></span><template x-if="isPrerelease"><span class="ml-1.5 inline-flex items-center rounded px-1.5 py-0.5 text-xs font-bold bg-amber-400 text-amber-900">PRE-RELEASE</span></template>).
                                 </span>
                                 <span x-show="isInstalling">
                                     Installation in progress. Please wait...
@@ -238,6 +238,76 @@
             return swalFire.apply(this, arguments);
         };
     </script>
+
+    {{-- ── Global JS toast helper (replaces Swal toasts site-wide) ──────────────────────── --}}
+    <script>
+        /**
+         * Show a toast using the same Alpine-powered design as server flash toasts.
+         * @param {'success'|'error'|'warning'|'info'} type
+         * @param {string} title  Bold heading
+         * @param {string} msg    Body text (optional)
+         * @param {number} ms     Auto-dismiss ms (default 4000; 0 = persistent)
+         */
+        window.showToast = function(type, title, msg, ms) {
+            msg = msg || '';
+            ms  = (ms === undefined) ? 4000 : ms;
+            const container = document.querySelector('.fixed.top-6.right-6');
+            if (!container) return;
+
+            const C = {
+                success: { ring:'bg-green-100 dark:bg-green-900/50', icon:'text-green-600 dark:text-green-400', bar:'bg-green-500', fill:true,
+                    svg:'<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>'},
+                error:   { ring:'bg-red-100 dark:bg-red-900/50',   icon:'text-red-600 dark:text-red-400',   bar:'bg-red-500',   fill:false,
+                    svg:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>'},
+                warning: { ring:'bg-amber-100 dark:bg-amber-900/50',icon:'text-amber-600 dark:text-amber-400',bar:'bg-amber-500',fill:false,
+                    svg:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>'},
+                info:    { ring:'bg-blue-100 dark:bg-blue-900/50',  icon:'text-blue-600 dark:text-blue-400',  bar:'bg-blue-500',  fill:false,
+                    svg:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'},
+            };
+            const c = C[type] || C.info;
+            const vb = c.fill ? '0 0 20 20' : '0 0 24 24';
+
+            const el = document.createElement('div');
+            el.className = 'pointer-events-auto w-80 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden';
+            el.style.cssText = 'opacity:0;transform:translateX(2rem) scale(.95);transition:opacity .3s,transform .3s';
+            el.innerHTML = `
+                <div class="flex items-start gap-3 px-4 py-3.5">
+                    <div class="w-8 h-8 rounded-full ${c.ring} flex items-center justify-center shrink-0">
+                        <svg class="w-4 h-4 ${c.icon}" fill="${c.fill?'currentColor':'none'}" stroke="${c.fill?'none':'currentColor'}" viewBox="${vb}">${c.svg}</svg>
+                    </div>
+                    <div class="flex-1 min-w-0 pt-0.5">
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">${title}</p>
+                        ${msg ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${msg}</p>` : ''}
+                    </div>
+                    <button type="button" class="_toast-close text-gray-300 hover:text-gray-500 dark:hover:text-gray-200 transition-colors shrink-0 mt-0.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="h-0.5 bg-gray-100 dark:bg-gray-700"><div class="_toast-bar h-full ${c.bar} transition-all duration-100 ease-linear" style="width:100%"></div></div>`;
+
+            container.appendChild(el);
+            requestAnimationFrame(() => { el.style.opacity='1'; el.style.transform='translateX(0) scale(1)'; });
+
+            const dismiss = () => { el.style.opacity='0'; el.style.transform='translateX(2rem) scale(.95)'; setTimeout(() => el.remove(), 300); };
+            el.querySelector('._toast-close').addEventListener('click', dismiss);
+
+            if (ms > 0) {
+                const bar = el.querySelector('._toast-bar');
+                let pct = 100;
+                const iv = setInterval(() => {
+                    pct -= (100 / (ms / 100));
+                    if (bar) bar.style.width = Math.max(0, pct) + '%';
+                    if (pct <= 0) { clearInterval(iv); dismiss(); }
+                }, 100);
+            }
+        };
+
+        window.showSuccessToast = (msg, title) => window.showToast('success', title || 'Success', msg);
+        window.showErrorToast   = (msg, title) => window.showToast('error',   title || 'Error',   msg);
+        window.showWarningToast = (msg, title) => window.showToast('warning', title || 'Warning', msg);
+        window.showInfoToast    = (msg, title) => window.showToast('info',    title || 'Info',    msg);
+    </script>
+
     {{-- ── Global flash toasts (top-right) ────────────────────────────── --}}
     <div class="fixed top-6 right-6 z-50 flex flex-col gap-3 items-end pointer-events-none">
 
@@ -596,6 +666,8 @@
                 dismissedSession: false,
                 currentVersion: '',
                 availableVersion: '',
+                isPrerelease: false,
+                allowPrereleases: false,
 
                 init() {
                     // Check session storage first
@@ -807,8 +879,10 @@
                     fetch('{{ route("system.updates.check-global") }}')
                         .then(response => response.json())
                         .then(data => {
-                            this.currentVersion = (data.current_version || 'unknown').replace(/^v/, '');
+                            this.currentVersion   = (data.current_version || 'unknown').replace(/^v/, '');
                             this.availableVersion = (data.version || 'unknown').replace(/^v/, '');
+                            this.isPrerelease     = !!data.is_prerelease;
+                            this.allowPrereleases = !!data.allow_prereleases;
                             if (data.update_available && !this.isInstalling) {
                                 this.updateAvailable = true;
                                 this.updateComplete = false;

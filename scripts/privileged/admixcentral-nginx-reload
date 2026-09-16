@@ -1,0 +1,5 @@
+#!/bin/bash
+# /usr/local/bin/admixcentral-nginx-reload
+# Reloads nginx. No arguments accepted.
+set -euo pipefail
+exec systemctl reload nginx

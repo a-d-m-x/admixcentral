@@ -1,0 +1,5 @@
+#!/bin/bash
+# /usr/local/bin/admixcentral-nginx-test
+# Runs nginx -t to validate config. No arguments accepted.
+set -euo pipefail
+exec nginx -t

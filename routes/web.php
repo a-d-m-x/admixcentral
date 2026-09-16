@@ -441,6 +441,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
         ->name('system.updates.dismiss');
 
+    Route::post('/system/settings/updates/channel', [App\Http\Controllers\SystemCustomizationController::class, 'updateChannel'])
+        ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])
+        ->name('system.updates.channel');
+
     // Performance Tuning
     Route::get('/system/settings/tuning/status', [App\Http\Controllers\SystemTuningController::class, 'status'])
         ->middleware([App\Http\Middleware\CheckRole::class . ':global_admin'])

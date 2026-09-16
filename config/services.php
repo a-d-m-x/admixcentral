@@ -47,8 +47,12 @@ return [
     ],
 
     'github' => [
-        'token' => env('GITHUB_TOKEN'),
-        'repository' => env('GITHUB_REPOSITORY', 'a-d-m-x/admixcentral'),
+        'token'            => env('GITHUB_TOKEN'),
+        'repository'       => env('GITHUB_REPOSITORY', 'a-d-m-x/admixcentral'),
+        // Set ALLOW_PRERELEASES=true in .env to include pre-releases in the update checker.
+        // This overrides the per-instance toggle in Settings and is ideal for staging machines.
+        // Leave unset (null) to fall back to the DB setting or the stable-only default.
+        'allow_prereleases' => env('ALLOW_PRERELEASES'),  // null = unset (fallback to DB)
     ],
 
 ];

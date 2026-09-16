@@ -540,41 +540,14 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success!',
-                        text: data.message,
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 3000,
-                        timerProgressBar: true
-                    });
+                    window.showSuccessToast(data.message, 'Success!');
                 } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error!',
-                        text: data.message,
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 5000,
-                        timerProgressBar: true
-                    });
+                    window.showErrorToast(data.message, 'Error!');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error!',
-                    text: 'An error occurred while testing SMTP settings. Check console for details.',
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    timer: 5000,
-                    timerProgressBar: true
-                });
+                window.showErrorToast('An error occurred while testing SMTP settings. Check console for details.', 'Error!');
             })
             .finally(() => {
                 btn.disabled = false;

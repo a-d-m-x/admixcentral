@@ -1,0 +1,6 @@
+#!/bin/bash
+# /usr/local/bin/admixcentral-nginx-config-write
+# Writes the AdmixCentral Nginx config from stdin to the fixed destination.
+# The path is hardcoded — www-data cannot redirect output to any other file.
+set -euo pipefail
+exec tee /etc/nginx/sites-available/admixcentral

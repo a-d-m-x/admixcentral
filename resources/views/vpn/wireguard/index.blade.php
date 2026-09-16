@@ -781,18 +781,7 @@
                     }
                 },
                 showToast(msg) {
-                    if (window.Swal) {
-                        Swal.fire({
-                            toast: true,
-                            position: 'top-end',
-                            icon: 'success',
-                            title: msg,
-                            showConfirmButton: false,
-                            timer: 2000
-                        });
-                    } else {
-                        alert(msg);
-                    }
+                    window.showSuccessToast(msg);
                 }
             };
         }

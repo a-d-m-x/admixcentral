@@ -59,32 +59,50 @@ class SystemCustomizationController extends Controller
 
         $url = $request->input('url');
 
-        // Fix CRIT-04: SSRF Protection
+        // Resolve the hostname to verify it's a real address (basic SSRF guard:
+        // we reject unresolvable hosts but allow private IPs — this app legitimately
+        // manages internal infrastructure where hostnames resolve to private addresses).
         $parsed = parse_url($url);
-        $host = $parsed['host'] ?? '';
+        $host   = $parsed['host'] ?? '';
 
-        // Resolve hostname to IP
+        if (!$host) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid URL.'], 400);
+        }
+
         $ip = gethostbyname($host);
-
-        // Filter out private/reserved ranges
-        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
-            return response()->json(['status' => 'error', 'message' => 'Internal network access denied.'], 403);
+        if ($ip === $host) {
+            // gethostbyname returns the input unchanged when DNS fails
+            return response()->json(['status' => 'error', 'message' => "Could not resolve hostname: {$host}"], 400);
         }
 
         try {
-            // Enable TLS verification
-            $client = new \GuzzleHttp\Client(['timeout' => 5, 'verify' => true, 'allow_redirects' => false]);
-            $response = $client->get($url . '/system/check-hostname');
+            // SSL verification is intentionally disabled: the caller is verifying
+            // reachability *before* issuing a new certificate for the new hostname.
+            // A cert mismatch at this stage is expected and should not block the check.
+            $client = new \GuzzleHttp\Client([
+                'timeout'         => 8,
+                'verify'          => false,
+                'allow_redirects' => true,
+            ]);
 
-            if ($response->getStatusCode() === 200) {
+            $response = $client->get($url . '/system/check-hostname');
+            $status   = $response->getStatusCode();
+
+            if ($status === 200) {
                 return response()->json(['status' => 'ok']);
             }
 
-            return response()->json(['status' => 'error', 'message' => 'Status: ' . $response->getStatusCode()], 400);
+            return response()->json([
+                'status'  => 'error',
+                'message' => "Host responded with HTTP {$status}",
+            ], 400);
+
+        } catch (\GuzzleHttp\Exception\ConnectException $e) {
+            \Illuminate\Support\Facades\Log::warning('Proxy check: connection failed', ['url' => $url, 'error' => $e->getMessage()]);
+            return response()->json(['status' => 'error', 'message' => 'Host is not reachable (connection refused or timed out).'], 400);
         } catch (\Exception $e) {
-            // Fix LOW-02: Verbose Error Messages (Log instead of return)
-            \Illuminate\Support\Facades\Log::error('Proxy check failed', ['error' => $e->getMessage(), 'url' => $url]);
-            return response()->json(['status' => 'error', 'message' => 'Connection failed.'], 400);
+            \Illuminate\Support\Facades\Log::error('Proxy check failed', ['url' => $url, 'error' => $e->getMessage()]);
+            return response()->json(['status' => 'error', 'message' => 'Verification failed.'], 400);
         }
     }
 
@@ -280,11 +298,13 @@ class SystemCustomizationController extends Controller
     public function checkGlobal(\App\Services\UpdateService $updater)
     {
         // Generate dynamic cache key based on VERSION file modification time
+        // AND the resolved prerelease flag — toggling the setting must bust the cache.
         $versionPath = base_path('VERSION');
         $timestamp = file_exists($versionPath) ? filemtime($versionPath) : 0;
         $currentVersion = file_exists($versionPath) ? trim(file_get_contents($versionPath)) : 'v0.0.0';
+        $prereleaseSuffix = $updater->allowPrereleases() ? '_pre' : '_stable';
 
-        $cacheKey = 'system_update_latest_v5_' . $timestamp;
+        $cacheKey = 'system_update_latest_v5_' . $timestamp . $prereleaseSuffix;
 
         // Allow manual bypass via query string
         if (request()->has('force')) {
@@ -333,9 +353,11 @@ class SystemCustomizationController extends Controller
         }
 
         return response()->json([
-            'update_available' => $available,
-            'version' => $newVersion,
-            'current_version' => $currentVersion
+            'update_available'   => $available,
+            'version'            => $newVersion,
+            'current_version'    => $currentVersion,
+            'is_prerelease'      => (bool) ($latest['prerelease'] ?? false),
+            'allow_prereleases'  => $updater->allowPrereleases(),
         ]);
     }
 
@@ -431,6 +453,31 @@ class SystemCustomizationController extends Controller
         SystemSetting::updateOrCreate(
             ['key' => 'ignored_update_version'],
             ['value' => $version]
+        );
+
+        return response()->json(['status' => 'success']);
+    }
+
+    /**
+     * Save the update channel preference (allow_prereleases).
+     * Rejected when ALLOW_PRERELEASES is set in .env — env always wins.
+     */
+    public function updateChannel(Request $request): \Illuminate\Http\JsonResponse
+    {
+        if (config('services.github.allow_prereleases') !== null) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Update channel is controlled by ALLOW_PRERELEASES in .env and cannot be changed here.',
+            ], 403);
+        }
+
+        $request->validate([
+            'allow_prereleases' => 'required|boolean',
+        ]);
+
+        SystemSetting::updateOrCreate(
+            ['key'   => 'allow_prereleases'],
+            ['value' => $request->boolean('allow_prereleases') ? '1' : '0']
         );
 
         return response()->json(['status' => 'success']);

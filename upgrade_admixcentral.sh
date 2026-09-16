@@ -24,6 +24,47 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Fix file ownership so the in-app updater (www-data) can write to all files.
+# This is needed when the upgrade script is run as root or another user, which
+# would leave newly-written files owned by root — causing "Permission denied"
+# errors the next time the in-app updater tries to overlay new release files.
+# ---------------------------------------------------------------------------
+if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+    echo "==> Setting ownership of ${APP_DIR} to www-data:www-data..."
+    chown -R www-data:www-data "${APP_DIR}"
+    echo "    Ownership fixed."
+else
+    # Non-root: warn if any files are not owned by the current user
+    if find "${APP_DIR}" -not -user "$(id -un)" -print -quit 2>/dev/null | grep -q .; then
+        echo "WARNING: Some files in ${APP_DIR} are not owned by $(id -un)." >&2
+        echo "         The in-app updater runs as www-data and may fail with" >&2
+        echo "         'Permission denied' when copying new release files." >&2
+        echo "         Fix: sudo chown -R www-data:www-data ${APP_DIR}" >&2
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Install/update SSL privilege wrappers.
+# These narrow wrapper scripts are the only sudo-accessible entry points for
+# certbot and nginx — granting www-data sudo access to certbot directly would
+# allow --deploy-hook injection (trivial root RCE if the web app is compromised).
+# This step is idempotent: safe to run on every upgrade.
+# ---------------------------------------------------------------------------
+SSL_PERMS_SCRIPT="${APP_DIR}/scripts/setup-ssl-permissions.sh"
+if [ -f "$SSL_PERMS_SCRIPT" ]; then
+    if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+        echo "==> Installing SSL privilege wrappers..."
+        bash "$SSL_PERMS_SCRIPT"
+    else
+        echo "INFO: Not running as root — skipping SSL wrapper install." >&2
+        echo "      Run manually if SSL certificate management is used:" >&2
+        echo "      sudo bash ${SSL_PERMS_SCRIPT}" >&2
+    fi
+else
+    echo "WARNING: ${SSL_PERMS_SCRIPT} not found; skipping SSL wrapper install." >&2
+fi
+
+# ---------------------------------------------------------------------------
 # Delegate to the host-readiness wizard for the remaining preparation steps.
 # ---------------------------------------------------------------------------
 command -v python3 >/dev/null || {

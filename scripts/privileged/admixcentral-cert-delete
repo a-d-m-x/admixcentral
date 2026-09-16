@@ -1,0 +1,18 @@
+#!/bin/bash
+# /usr/local/bin/admixcentral-cert-delete
+# Deletes a Let's Encrypt certificate by domain name.
+# Accepts ONLY a validated domain — no other certbot flags.
+set -euo pipefail
+
+DOMAIN="${1:-}"
+if [[ -z "$DOMAIN" ]] || ! [[ "$DOMAIN" =~ ^[a-zA-Z0-9]([a-zA-Z0-9.-]{0,251}[a-zA-Z0-9])?$ ]]; then
+    echo "ERROR: Invalid domain: '$DOMAIN'" >&2; exit 1
+fi
+
+CERTBOT=""
+for path in /usr/bin/certbot /snap/bin/certbot /usr/local/bin/certbot; do
+    [[ -x "$path" ]] && { CERTBOT="$path"; break; }
+done
+[[ -z "$CERTBOT" ]] && { echo "ERROR: certbot not found" >&2; exit 1; }
+
+exec "$CERTBOT" delete --cert-name "$DOMAIN" --non-interactive

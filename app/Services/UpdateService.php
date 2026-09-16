@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\SystemUpdate;
+use App\Models\SystemSetting;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -19,11 +19,37 @@ class UpdateService
     }
 
     /**
+     * Resolve whether pre-releases should be surfaced.
+     *
+     * Priority (highest wins):
+     *   1. ALLOW_PRERELEASES=true in .env  — forces on regardless of DB (ideal for staging)
+     *   2. `allow_prereleases` DB setting  — user-controlled toggle in Settings UI
+     *   3. Default: false                  — stable-only (production default)
+     */
+    public function allowPrereleases(): bool
+    {
+        // 1. Env override — takes precedence over everything
+        $envValue = config('services.github.allow_prereleases');
+        if ($envValue !== null) {
+            return filter_var($envValue, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        // 2. DB setting
+        return SystemSetting::where('key', 'allow_prereleases')->value('value') === '1';
+    }
+
+    /**
      * Fetch the latest release from GitHub.
-     * Uses Mode 1: Public GitHub API.
+     *
+     * Respects allowPrereleases() priority chain:
+     *   env ALLOW_PRERELEASES > DB allow_prereleases > stable-only default
+     *
+     * Drafts are never surfaced regardless of any setting.
      */
     public function checkForUpdates(): ?array
     {
+        $allowPrereleases = $this->allowPrereleases();
+
         // Use authenticated request if token is available to avoid rate limits
         $token = config('services.github.token');
         $headers = [
@@ -35,14 +61,14 @@ class UpdateService
         }
 
         try {
-            // Fetch releases (not just latest, to avoid drafts/prereleases if needed)
+            // Fetch releases list (not just /latest, so we can apply our own filter)
             $response = Http::withHeaders($headers)
                 ->get("https://api.github.com/repos/{$this->repository}/releases");
 
             if ($response->failed()) {
                 Log::error('UpdateService: Failed to fetch releases from GitHub.', [
                     'status' => $response->status(),
-                    'body' => $response->body(),
+                    'body'   => $response->body(),
                 ]);
                 return null;
             }
@@ -53,21 +79,21 @@ class UpdateService
                 return null;
             }
 
-            // Filter for the latest stable release (not draft, not prerelease)
-            // GitHub returns them in chronological order, so the first one that matches is the latest.
+            // GitHub returns releases newest-first.
+            // Always skip drafts. Skip pre-releases unless opted in.
             $latestRelease = null;
             foreach ($releases as $release) {
-                if (!$release['draft'] && !$release['prerelease']) {
-                    $latestRelease = $release;
-                    break;
+                if ($release['draft']) {
+                    continue;
                 }
+                if ($release['prerelease'] && !$allowPrereleases) {
+                    continue;
+                }
+                $latestRelease = $release;
+                break;
             }
 
-            if (!$latestRelease) {
-                return null;
-            }
-
-            return $latestRelease; // Contains 'tag_name', 'assets', 'body' (notes), etc.
+            return $latestRelease; // null if nothing matched
 
         } catch (\Exception $e) {
             Log::error('UpdateService: Exception while checking for updates.', [
@@ -83,9 +109,8 @@ class UpdateService
      */
     public function isNewVersionAvailable(string $currentVersion, string $latestVersion): bool
     {
-        // Normalize versions by removing 'v' prefix if present
         $current = ltrim($currentVersion, 'v');
-        $latest = ltrim($latestVersion, 'v');
+        $latest  = ltrim($latestVersion,  'v');
 
         return version_compare($latest, $current, '>');
     }
