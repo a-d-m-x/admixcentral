@@ -585,7 +585,19 @@ class FirewallController extends Controller implements HasMiddleware
             }
         }
 
-        $firewall->update($validated);
+        try {
+            $firewall->update($validated);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Firewall update failed', [
+                'firewall_id' => $firewall->id,
+                'user_id'     => auth()->id(),
+                'error'       => $e->getMessage(),
+                'trace'       => $e->getTraceAsString(),
+            ]);
+            return back()
+                ->withInput($request->except(['api_key', 'api_secret', 'api_token', 'ssh_password']))
+                ->withErrors(['general' => 'Failed to save firewall settings: ' . $e->getMessage()]);
+        }
 
         $successMessage = 'Firewall settings saved.';
         if ($request->hasFile('tls_certificate')) {
