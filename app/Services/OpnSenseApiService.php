@@ -397,14 +397,28 @@ class OpnSenseApiService
             $s = $statsMap[$dev] ?? [];
             $ip = $row['ipv4'][0]['ipaddr'] ?? ($row['ipv6'][0]['ipaddr'] ?? 'N/A');
 
+            $isUp = strtolower($row['status'] ?? '') === 'up';
+            $isEnabled = isset($row['enabled'])
+                ? (bool) $row['enabled']
+                : (isset($row['enable']) ? (bool) $row['enable'] : $isUp);
+            if (!$isEnabled && $isUp && ($dev === 'lo0' || str_starts_with($dev, 'lo'))) {
+                $isEnabled = true;
+            }
+            $mac = $row['macaddr'] ?? ($row['mac'] ?? null);
+
             $formattedIfaces[$dev] = [
                 'id'           => strtolower($row['identifier'] ?? $desc),
                 'if'           => $dev,
                 'name'         => $desc,
                 'descr'        => $desc,
                 'device'       => $dev,
-                'status'       => $row['status'] ?? 'up',
+                'hwif'         => $dev,
+                'enable'       => $isEnabled,
+                'enabled'      => $isEnabled,
+                'status'       => $row['status'] ?? ($isUp ? 'up' : 'down'),
                 'ipaddr'       => $ip,
+                'macaddr'      => $mac,
+                'mac'          => $mac,
                 'inbytes'      => (int) ($s['received-bytes'] ?? 0),
                 'outbytes'     => (int) ($s['sent-bytes'] ?? 0),
                 'in_rate_bps'  => 0,
@@ -678,6 +692,14 @@ class OpnSenseApiService
             }
 
             $ip = $row['ipv4'][0]['ipaddr'] ?? ($row['ipv6'][0]['ipaddr'] ?? 'N/A');
+            $isUp = strtolower($row['status'] ?? '') === 'up';
+            $isEnabled = isset($row['enabled'])
+                ? (bool) $row['enabled']
+                : (isset($row['enable']) ? (bool) $row['enable'] : $isUp);
+            if (!$isEnabled && $isUp && ($device === 'lo0' || str_starts_with($device, 'lo'))) {
+                $isEnabled = true;
+            }
+            $mac = $row['macaddr'] ?? ($row['mac'] ?? null);
 
             $formatted[$device] = [
                 'id' => strtolower($row['identifier'] ?? $desc),
@@ -685,8 +707,13 @@ class OpnSenseApiService
                 'name' => $desc,
                 'descr' => $desc,
                 'device' => $device,
-                'status' => $row['status'] ?? 'up',
+                'hwif' => $device,
+                'enable' => $isEnabled,
+                'enabled' => $isEnabled,
+                'status' => $row['status'] ?? ($isUp ? 'up' : 'down'),
                 'ipaddr' => $ip,
+                'macaddr' => $mac,
+                'mac' => $mac,
                 'inbytes' => $inBytes,
                 'outbytes' => $outBytes,
                 'in_rate_bps' => 0,

@@ -40,7 +40,7 @@
                                     <div class="flex items-center h-5">
                                         <input type="checkbox" id="enable" name="enable"
                                             class="rounded border-gray-300 text-blue-600 shadow-sm focus:ring-blue-500"
-                                            {{ isset($interface['enable']) && $interface['enable'] ? 'checked' : '' }}>
+                                            {{ (!empty($interface['enable']) || !empty($interface['enabled']) || (strtolower($interface['status'] ?? '') === 'up')) ? 'checked' : '' }}>
                                     </div>
                                     <div class="ml-3 text-sm">
                                         <label for="enable" class="font-medium text-gray-700 dark:text-gray-300">Enable

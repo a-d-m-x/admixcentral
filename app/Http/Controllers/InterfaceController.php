@@ -19,21 +19,31 @@ class InterfaceController extends Controller
             $interfaces = $interfacesConfig;
             if (isset($interfaces['data']) && isset($interfacesStatus['data'])) {
                 foreach ($interfaces['data'] as &$interface) {
-                    // Find matching status by interface name (id)
-                    // The status array is a list, we need to find the one where 'name' matches 'id' (e.g. 'wan')
-                    // OR 'name' matches 'descr' (e.g. 'WAN')?
-                    // Let's look at the data structure from previous steps.
-                    // Config: [{'id' => 'wan', ...}, {'id' => 'lan', ...}]
-                    // Status: [{'name' => 'wan', ...}, {'name' => 'lan', ...}]
+                    $targetId = strtolower($interface['id'] ?? $interface['if'] ?? '');
+                    $targetIf = strtolower($interface['if'] ?? '');
 
-                    $status = collect($interfacesStatus['data'])->firstWhere('name', $interface['id']);
+                    $status = collect($interfacesStatus['data'])->first(function ($s) use ($targetId, $targetIf) {
+                        return strtolower($s['id'] ?? '') === $targetId
+                            || strtolower($s['name'] ?? '') === $targetId
+                            || strtolower($s['descr'] ?? '') === $targetId
+                            || strtolower($s['if'] ?? '') === $targetId
+                            || strtolower($s['device'] ?? '') === $targetId
+                            || ($targetIf !== '' && (strtolower($s['if'] ?? '') === $targetIf || strtolower($s['device'] ?? '') === $targetIf));
+                    });
+
                     if ($status) {
                         $interface['status_data'] = $status;
                         // Override/Set specific fields for display
-                        $interface['ipaddr'] = $status['ipaddr'] ?? $interface['ipaddr'];
-                        $interface['macaddr'] = $status['macaddr'] ?? null;
-                        $interface['hwif'] = $status['hwif'] ?? null;
-                        $interface['status'] = $status['status'] ?? null;
+                        $interface['ipaddr'] = $status['ipaddr'] ?? ($interface['ipaddr'] ?? 'N/A');
+                        $interface['macaddr'] = $status['macaddr'] ?? ($status['mac'] ?? ($interface['macaddr'] ?? null));
+                        $interface['hwif'] = $status['hwif'] ?? ($status['device'] ?? ($interface['hwif'] ?? null));
+                        $interface['status'] = $status['status'] ?? ($interface['status'] ?? null);
+                        if (!isset($interface['enable'])) {
+                            $interface['enable'] = $status['enable'] ?? ($status['enabled'] ?? null);
+                        }
+                        if (!isset($interface['enabled'])) {
+                            $interface['enabled'] = $status['enabled'] ?? ($status['enable'] ?? null);
+                        }
                     }
                 }
             }
