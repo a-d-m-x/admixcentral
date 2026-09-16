@@ -1248,6 +1248,22 @@
                                         </div>
                                     </div>
 
+                                    <!-- Privilege wrappers not installed warning -->
+                                    <div x-show="statusLoaded && !wrappersInstalled"
+                                        class="flex items-start gap-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 p-3.5">
+                                        <svg class="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                        </svg>
+                                        <div class="text-sm text-amber-800 dark:text-amber-300">
+                                            <p class="font-semibold mb-1">Server setup required before SSL can be installed</p>
+                                            <p class="text-xs mb-2">The SSL privilege wrappers are not installed. This is a one-time server step that requires root access — it cannot be done automatically by the app. SSH into your server and run:</p>
+                                            <code class="block text-xs font-mono bg-amber-100 dark:bg-amber-900/50 rounded px-2 py-1.5 select-all break-all">
+                                                sudo bash /var/www/admixcentral/scripts/setup-ssl-permissions.sh
+                                            </code>
+                                            <p class="text-xs mt-2 text-amber-700 dark:text-amber-400">After running the command, close and re-open this dialog to continue.</p>
+                                        </div>
+                                    </div>
+
                                     <!-- Error Message -->
                                     <div x-show="error" class="flex items-start gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-md p-3">
                                         <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -1258,8 +1274,9 @@
                                 <div class="mt-6 flex justify-end gap-3">
                                     <button type="button" x-on:click="$dispatch('close')"
                                         class="rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600">Cancel</button>
-                                    <button type="button" @click="installSsl" :disabled="loading"
-                                        class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 flex items-center gap-2">
+                                    <button type="button" @click="installSsl" :disabled="loading || !wrappersInstalled"
+                                        :title="!wrappersInstalled ? 'Run setup-ssl-permissions.sh on the server first' : ''"
+                                        class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
                                         <svg x-show="loading" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -1454,6 +1471,7 @@
                                 cfZoneId: '',
                                 cfTokenConfigured: false,
                                 sslActive: false,
+                                wrappersInstalled: true,       // assume ok until status loaded
                                 statusLoaded: false,
                                 loading: false,
                                 error: null,
@@ -1475,6 +1493,7 @@
                                         this.cfTokenConfigured    = !!s.cf_token_configured;
                                         this.cfZoneId             = s.cf_zone_id         || '';
                                         this.sslActive            = !!s.ssl_active;
+                                        this.wrappersInstalled    = s.ssl_wrappers_installed !== false;
                                         if (s.ssl_email)          this.email = s.ssl_email;
                                     } catch (_) {
                                         // Non-fatal — defaults remain

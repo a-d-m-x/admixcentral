@@ -377,7 +377,22 @@ Adjust the web server user as required for your distribution.
 
 ---
 
-### 13. Configure Nginx
+### 13. Install SSL Privilege Wrappers
+
+AdmixCentral's built-in Let's Encrypt SSL manager requires the ability to run `certbot` and reload Nginx from the web server process. Rather than granting broad `sudo` access to those tools (which would allow arbitrary code execution via certbot's `--deploy-hook` flag), AdmixCentral installs narrow wrapper scripts that accept only the exact arguments needed and validate all inputs.
+
+```bash
+sudo bash /var/www/admixcentral/scripts/setup-ssl-permissions.sh
+```
+
+This installs five wrapper scripts into `/usr/local/bin/` and creates a sudoers entry granting `www-data` access **only** to those wrappers — not to `certbot` or `nginx` directly. This step is required before the **Install Certificate** button in Settings → Site Configuration will work.
+
+> [!NOTE]
+> This step is only required if you use AdmixCentral's built-in SSL management. If you manage SSL certificates externally, you can skip it.
+
+---
+
+### 14. Configure Nginx
 
 Set the web root to:
 
@@ -424,7 +439,9 @@ To update an existing installation:
 ```bash
 cd /var/www/admixcentral
 
-git pull
+sudo git pull
+
+sudo bash upgrade_admixcentral.sh
 
 composer install --no-dev --optimize-autoloader
 
@@ -438,6 +455,13 @@ php artisan optimize:clear
 supervisorctl restart all
 systemctl reload nginx
 ```
+
+> [!IMPORTANT]
+> `upgrade_admixcentral.sh` now automatically installs the SSL privilege wrappers (requires root). If you run the update steps without the script, run this once manually:
+> ```bash
+> sudo bash /var/www/admixcentral/scripts/setup-ssl-permissions.sh
+> ```
+> This is a one-time step for deployments upgrading from an earlier version. It is safe to run on every update.
 
 ## Adding Your First Firewall
 

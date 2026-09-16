@@ -24,6 +24,27 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Install/update SSL privilege wrappers.
+# These narrow wrapper scripts are the only sudo-accessible entry points for
+# certbot and nginx — granting www-data sudo access to certbot directly would
+# allow --deploy-hook injection (trivial root RCE if the web app is compromised).
+# This step is idempotent: safe to run on every upgrade.
+# ---------------------------------------------------------------------------
+SSL_PERMS_SCRIPT="${APP_DIR}/scripts/setup-ssl-permissions.sh"
+if [ -f "$SSL_PERMS_SCRIPT" ]; then
+    if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+        echo "==> Installing SSL privilege wrappers..."
+        bash "$SSL_PERMS_SCRIPT"
+    else
+        echo "INFO: Not running as root — skipping SSL wrapper install." >&2
+        echo "      Run manually if SSL certificate management is used:" >&2
+        echo "      sudo bash ${SSL_PERMS_SCRIPT}" >&2
+    fi
+else
+    echo "WARNING: ${SSL_PERMS_SCRIPT} not found; skipping SSL wrapper install." >&2
+fi
+
+# ---------------------------------------------------------------------------
 # Delegate to the host-readiness wizard for the remaining preparation steps.
 # ---------------------------------------------------------------------------
 command -v python3 >/dev/null || {

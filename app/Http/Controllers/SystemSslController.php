@@ -134,12 +134,26 @@ class SystemSslController extends Controller
      */
     public function status(): JsonResponse
     {
+        // Check that all five privilege wrapper scripts are installed and executable.
+        // These are required for certbot/nginx operations from www-data.
+        // They are installed by setup-ssl-permissions.sh (requires root) and cannot
+        // be set up by the in-app updater (which runs as www-data).
+        $wrappers = [
+            '/usr/local/bin/admixcentral-request-cert',
+            '/usr/local/bin/admixcentral-cert-delete',
+            '/usr/local/bin/admixcentral-nginx-config-write',
+            '/usr/local/bin/admixcentral-nginx-test',
+            '/usr/local/bin/admixcentral-nginx-reload',
+        ];
+        $wrappersInstalled = collect($wrappers)->every(fn($w) => is_executable($w));
+
         return response()->json([
-            'challenge_method'    => SystemSetting::where('key', 'ssl_challenge_method')->value('value') ?? 'http',
-            'cf_token_configured' => SystemSetting::where('key', 'cf_api_token')->exists(),
-            'cf_zone_id'          => SystemSetting::where('key', 'cf_zone_id')->value('value') ?? '',
-            'ssl_active'          => (SystemSetting::where('key', 'site_protocol')->value('value') === 'https'),
-            'ssl_email'           => SystemSetting::where('key', 'ssl_email')->value('value') ?? '',
+            'challenge_method'      => SystemSetting::where('key', 'ssl_challenge_method')->value('value') ?? 'http',
+            'cf_token_configured'   => SystemSetting::where('key', 'cf_api_token')->exists(),
+            'cf_zone_id'            => SystemSetting::where('key', 'cf_zone_id')->value('value') ?? '',
+            'ssl_active'            => (SystemSetting::where('key', 'site_protocol')->value('value') === 'https'),
+            'ssl_email'             => SystemSetting::where('key', 'ssl_email')->value('value') ?? '',
+            'ssl_wrappers_installed' => $wrappersInstalled,
         ]);
     }
 }
