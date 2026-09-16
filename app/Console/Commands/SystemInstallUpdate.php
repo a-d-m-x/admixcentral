@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Process;
 use ZipArchive;
 
 class SystemInstallUpdate extends Command
@@ -253,6 +254,11 @@ class SystemInstallUpdate extends Command
         $code = $this->call('migrate', ['--force' => true]);
         if ($code !== 0) throw new \Exception("Database migration failed with exit code $code");
 
+        // Compile frontend assets so new Tailwind classes / JS are available.
+        // Runs before cache steps so view:cache picks up the fresh asset manifest.
+        // Gracefully skipped with a warning if npm is not available on the server.
+        $this->compileFrontendAssets();
+
         $code = $this->call('config:cache');
         if ($code !== 0) throw new \Exception("Config cache failed with exit code $code");
 
@@ -262,6 +268,37 @@ class SystemInstallUpdate extends Command
         $code = $this->call('view:cache');
         if ($code !== 0) throw new \Exception("View cache failed with exit code $code");
     }
+
+    protected function compileFrontendAssets(): void
+    {
+        $this->info('Compiling frontend assets...');
+
+        // Locate npm — try the common paths used on Debian/Ubuntu servers.
+        $npmBin = trim((string) shell_exec('command -v npm 2>/dev/null || which npm 2>/dev/null'));
+
+        if (!$npmBin || !file_exists($npmBin)) {
+            $this->warn('npm not found — frontend assets not recompiled. Run manually: npm run build');
+            return;
+        }
+
+        $result = Process::path(base_path())
+            ->timeout(300)
+            ->run([$npmBin, 'run', 'build']);
+
+        if ($result->successful()) {
+            $this->info('Frontend assets compiled successfully.');
+        } else {
+            // Non-fatal: the old compiled assets still work; only new CSS/JS classes
+            // introduced in this release may be missing until a manual build is run.
+            $this->warn('npm run build failed — frontend assets may be stale.');
+            $this->warn('Run manually on the server: npm run build');
+            Log::warning('SystemInstallUpdate: npm run build failed', [
+                'output' => $result->output(),
+                'error'  => $result->errorOutput(),
+            ]);
+        }
+    }
+
 
     protected function downloadFile($url, $path)
     {
