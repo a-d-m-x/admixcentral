@@ -199,19 +199,26 @@ class SystemInstallUpdate extends Command
     protected function copyDirectory($source, $destination)
     {
         $dir = opendir($source);
-        @mkdir($destination);
+        @mkdir($destination, 0755, true);
         while (false !== ($file = readdir($dir))) {
-            if (($file != '.') && ($file != '..')) {
-                if (is_dir($source . '/' . $file)) {
-                    $this->copyDirectory($source . '/' . $file, $destination . '/' . $file);
-                } else {
-                    // Protect .env and storage/
-                    if ($file === '.env')
-                        continue;
-                    // storage is a dir, handled by recursion check above ideally, but let's be safe.
-                    // Actually, source shouldn't have .env usually.
+            if ($file === '.' || $file === '..') continue;
 
-                    copy($source . '/' . $file, $destination . '/' . $file);
+            $srcPath  = $source      . '/' . $file;
+            $dstPath  = $destination . '/' . $file;
+
+            if (is_dir($srcPath)) {
+                $this->copyDirectory($srcPath, $dstPath);
+            } else {
+                // Protect .env — never overwrite it from the zip
+                if ($file === '.env') continue;
+
+                if (!@copy($srcPath, $dstPath)) {
+                    $err = error_get_last();
+                    throw new \Exception(
+                        "Failed to copy file: {$dstPath}" .
+                        ($err ? ' — ' . $err['message'] : '') .
+                        "\n\nFix: run 'sudo chown -R www-data:www-data /var/www/admixcentral' on the server."
+                    );
                 }
             }
         }

@@ -24,6 +24,26 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Fix file ownership so the in-app updater (www-data) can write to all files.
+# This is needed when the upgrade script is run as root or another user, which
+# would leave newly-written files owned by root — causing "Permission denied"
+# errors the next time the in-app updater tries to overlay new release files.
+# ---------------------------------------------------------------------------
+if [ "${EUID:-$(id -u)}" -eq 0 ]; then
+    echo "==> Setting ownership of ${APP_DIR} to www-data:www-data..."
+    chown -R www-data:www-data "${APP_DIR}"
+    echo "    Ownership fixed."
+else
+    # Non-root: warn if any files are not owned by the current user
+    if find "${APP_DIR}" -not -user "$(id -un)" -print -quit 2>/dev/null | grep -q .; then
+        echo "WARNING: Some files in ${APP_DIR} are not owned by $(id -un)." >&2
+        echo "         The in-app updater runs as www-data and may fail with" >&2
+        echo "         'Permission denied' when copying new release files." >&2
+        echo "         Fix: sudo chown -R www-data:www-data ${APP_DIR}" >&2
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 # Install/update SSL privilege wrappers.
 # These narrow wrapper scripts are the only sudo-accessible entry points for
 # certbot and nginx — granting www-data sudo access to certbot directly would
