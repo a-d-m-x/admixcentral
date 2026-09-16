@@ -52,16 +52,7 @@
 @if (session('status') === 'password-updated')
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            Swal.fire({
-                icon: 'success',
-                title: 'Password Updated',
-                text: 'Your password has been changed successfully.',
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true
-            });
+            window.showSuccessToast('Your password has been changed successfully.', 'Password Updated');
         });
     </script>
 @endif
@@ -69,16 +60,7 @@
 @if ($errors->updatePassword->any())
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            Swal.fire({
-                icon: 'error',
-                title: 'Password Not Updated',
-                text: "{{ $errors->updatePassword->first() }}",
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 5000,
-                timerProgressBar: true
-            });
+            window.showErrorToast("{{ $errors->updatePassword->first() }}", 'Password Not Updated');
         });
     </script>
 @endif

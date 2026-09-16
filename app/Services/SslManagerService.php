@@ -76,57 +76,32 @@ class SslManagerService
 
     protected function requestCertificate(string $domain, string $email): void
     {
-        // Check if certbot exists
-        $check = Process::run('which certbot');
-        if ($check->failed()) {
-            throw new \Exception('Certbot is not installed. Please run the installer script.');
-        }
-
-        // Run certbot safely
-        // --webroot using public dir as root for challenges
-        $cmd = "sudo certbot certonly --webroot -w " . escapeshellarg(public_path()) .
-            " -d " . escapeshellarg($domain) . " --non-interactive --agree-tos -m " . escapeshellarg($email) .
-            " --deploy-hook 'sudo systemctl reload nginx'";
-
-        $result = Process::run($cmd);
+        // Run via the narrow wrapper — NOT `sudo certbot` directly.
+        // The wrapper hardcodes all certbot flags and accepts NO hook arguments,
+        // preventing --deploy-hook injection if the web app is ever compromised.
+        $result = Process::run(
+            ['sudo', '/usr/local/bin/admixcentral-request-cert', $domain, $email, 'http']
+        );
 
         if ($result->failed()) {
-            throw new \Exception("Certbot failed: " . $result->errorOutput());
+            throw new \Exception("Certbot (HTTP) failed: " . $result->errorOutput());
         }
-
-        // Verify certificates exist (skipped due to permissions - nginx -t will verify later)
-        // Note: www-data cannot read /etc/letsencrypt/live directly, causing false negatives.
     }
 
     protected function requestCertificateViaCloudflareDns(string $domain, string $email, string $cfToken): void
     {
-        // Check if certbot exists
-        $check = Process::run('which certbot');
-        if ($check->failed()) {
-            throw new \Exception('Certbot is not installed. Please run the installer script.');
-        }
-
-        // Check if the dns-cloudflare plugin Python package is importable (no sudo needed)
-        $pluginCheck = Process::run('python3 -c "import certbot_dns_cloudflare"');
-        if ($pluginCheck->failed()) {
-            throw new \Exception(
-                'The certbot-dns-cloudflare plugin is not installed. ' .
-                'Please run: sudo apt install python3-certbot-dns-cloudflare (or equivalent for your OS).'
-            );
-        }
-
         // Write temp credentials file — chmod 600 immediately, deleted in finally block
         $credPath = storage_path('app/cf-credentials-' . uniqid() . '.ini');
         file_put_contents($credPath, "dns_cloudflare_api_token = {$cfToken}\n");
         chmod($credPath, 0600);
 
         try {
-            $cmd = "sudo certbot certonly --dns-cloudflare" .
-                " --dns-cloudflare-credentials " . escapeshellarg($credPath) .
-                " -d " . escapeshellarg($domain) .
-                " --non-interactive --agree-tos -m " . escapeshellarg($email);
-
-            $result = Process::run($cmd);
+            // Run via the narrow wrapper — NOT `sudo certbot` directly.
+            // The wrapper validates that the credentials file is inside storage/app/
+            // and hardcodes all other certbot arguments.
+            $result = Process::run(
+                ['sudo', '/usr/local/bin/admixcentral-request-cert', $domain, $email, 'cloudflare', $credPath]
+            );
 
             if ($result->failed()) {
                 throw new \Exception("Certbot (DNS-01) failed: " . $result->errorOutput());
@@ -141,15 +116,12 @@ class SslManagerService
 
     public function deleteCertificate(string $domain): void
     {
-        // Delete certificate using certbot safely
-        // --cert-name matches the domain by default when creating standard certs
-        $cmd = "sudo certbot delete --cert-name " . escapeshellarg($domain) . " --non-interactive";
-
-        $result = Process::run($cmd);
+        $result = Process::run(
+            ['sudo', '/usr/local/bin/admixcentral-cert-delete', $domain]
+        );
 
         if ($result->failed()) {
-            // Log but don't throw, as the critical part (Nginx cleanup) is already done
-            Log::warning("Failed to delete certificate files for {$domain}: " . $result->errorOutput());
+            Log::warning("Failed to delete certificate for {$domain}: " . $result->errorOutput());
         }
     }
 
@@ -167,23 +139,21 @@ class SslManagerService
 
     protected function applyNginxConfig(): void
     {
-        // Write to system path using sudo tee
+        // Write to system path via wrapper (hardcoded destination — no path injection possible)
         $source = storage_path($this->nginxConfigPath);
-        $cmd = "cat {$source} | sudo tee {$this->systemConfigPath}";
-
-        $write = Process::run($cmd);
+        $write = Process::run("cat " . escapeshellarg($source) . " | sudo /usr/local/bin/admixcentral-nginx-config-write");
         if ($write->failed()) {
             throw new \Exception("Failed to write Nginx config: " . $write->errorOutput());
         }
 
-        // Test config
-        $test = Process::run("sudo nginx -t");
+        // Test config via wrapper (no arguments accepted — cannot load arbitrary config)
+        $test = Process::run(['sudo', '/usr/local/bin/admixcentral-nginx-test']);
         if ($test->failed()) {
             throw new \Exception("Nginx config test failed: " . $test->errorOutput());
         }
 
-        // Reload Nginx
-        $reload = Process::run("sudo systemctl reload nginx");
+        // Reload via wrapper (no arguments — only reloads nginx, cannot stop/restart)
+        $reload = Process::run(['sudo', '/usr/local/bin/admixcentral-nginx-reload']);
         if ($reload->failed()) {
             throw new \Exception("Failed to reload Nginx: " . $reload->errorOutput());
         }

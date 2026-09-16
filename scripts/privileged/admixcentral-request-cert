@@ -1,0 +1,58 @@
+#!/bin/bash
+# /usr/local/bin/admixcentral-request-cert
+# ---------------------------------------------------------------------------
+# Privileged certbot wrapper for AdmixCentral.
+# Grants www-data the ability to request Let's Encrypt certs WITHOUT exposing
+# full certbot access. --deploy-hook injection (a path to root RCE) is simply
+# not possible through this interface — no arbitrary flags are accepted.
+#
+# Usage:
+#   admixcentral-request-cert <domain> <email> http
+#   admixcentral-request-cert <domain> <email> cloudflare <credentials-file>
+# ---------------------------------------------------------------------------
+set -euo pipefail
+
+DOMAIN="${1:-}"
+EMAIL="${2:-}"
+METHOD="${3:-http}"
+CF_CREDS="${4:-}"
+WEBROOT="/var/www/admixcentral/public"
+
+# --- Input validation -------------------------------------------------------
+
+if [[ -z "$DOMAIN" ]] || ! [[ "$DOMAIN" =~ ^[a-zA-Z0-9]([a-zA-Z0-9.-]{0,251}[a-zA-Z0-9])?$ ]]; then
+    echo "ERROR: Invalid domain: '$DOMAIN'" >&2; exit 1
+fi
+if [[ -z "$EMAIL" ]] || ! [[ "$EMAIL" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]]; then
+    echo "ERROR: Invalid email: '$EMAIL'" >&2; exit 1
+fi
+if [[ "$METHOD" != "http" && "$METHOD" != "cloudflare" ]]; then
+    echo "ERROR: Method must be 'http' or 'cloudflare'" >&2; exit 1
+fi
+
+if [[ "$METHOD" == "cloudflare" ]]; then
+    [[ -z "$CF_CREDS" ]] && { echo "ERROR: Credentials file required" >&2; exit 1; }
+    REAL_CREDS="$(realpath "$CF_CREDS" 2>/dev/null || true)"
+    ALLOWED_DIR="/var/www/admixcentral/storage/app"
+    if [[ -z "$REAL_CREDS" ]] || [[ "${REAL_CREDS#$ALLOWED_DIR}" == "$REAL_CREDS" ]]; then
+        echo "ERROR: Credentials file must be inside $ALLOWED_DIR" >&2; exit 1
+    fi
+    [[ ! -f "$REAL_CREDS" ]] && { echo "ERROR: Credentials file not found" >&2; exit 1; }
+fi
+
+# --- Detect certbot ---------------------------------------------------------
+CERTBOT=""
+for path in /usr/bin/certbot /snap/bin/certbot /usr/local/bin/certbot; do
+    [[ -x "$path" ]] && { CERTBOT="$path"; break; }
+done
+[[ -z "$CERTBOT" ]] && { echo "ERROR: certbot not found" >&2; exit 1; }
+
+# --- Execute with hardcoded safe arguments only -----------------------------
+if [[ "$METHOD" == "cloudflare" ]]; then
+    exec "$CERTBOT" certonly --dns-cloudflare \
+        --dns-cloudflare-credentials "$REAL_CREDS" \
+        -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL"
+else
+    exec "$CERTBOT" certonly --webroot -w "$WEBROOT" \
+        -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL"
+fi

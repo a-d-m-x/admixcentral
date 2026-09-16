@@ -2021,31 +2021,13 @@
                 const data = await response.json();
 
                 if (data.status === 'ok') {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success!',
-                        text: `Domain is accessible via HTTP`,
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 3000,
-                        timerProgressBar: true
-                    });
+                    window.showSuccessToast('Domain is accessible via HTTP', 'Success!');
                 } else {
                     throw new Error(data.message || 'Verification Failed');
                 }
             } catch (error) {
                 console.error(error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error!',
-                    text: `Not Accessible: ${error.message || 'Unknown Error'}`,
-                    toast: true,
-                    position: 'top-end',
-                    showConfirmButton: false,
-                    timer: 5000,
-                    timerProgressBar: true
-                });
+                window.showErrorToast(`Not Accessible: ${error.message || 'Unknown Error'}`, 'Error!');
             } finally {
                 btn.disabled = false;
                 btn.innerText = originalText;
