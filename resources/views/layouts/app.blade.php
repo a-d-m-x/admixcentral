@@ -1,7 +1,15 @@
 <!DOCTYPE html>
 @php
-    $settings = \App\Models\SystemSetting::pluck('value', 'key')->toArray();
-    $theme = $settings['theme'] ?? 'light';
+    $settings    = \App\Models\SystemSetting::pluck('value', 'key')->toArray();
+    $systemTheme = $settings['theme'] ?? 'light';
+    $userPref    = Auth::check() ? Auth::user()->theme_preference : null;
+    // null/'default' → system setting, 'auto' → OS (SSR falls back to system),
+    // 'light'/'dark' → explicit user choice
+    $theme = match($userPref) {
+        'light'  => 'light',
+        'dark'   => 'dark',
+        default  => $systemTheme, // null (default) and 'auto' both SSR as system theme
+    };
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}"
     class="{{ $theme === 'dark' ? 'dark' : '' }} h-full bg-gray-100 dark:bg-gray-900 overflow-hidden">
@@ -10,6 +18,19 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    {{-- FOUC prevention for OS-auto mode:
+         The server renders with the system theme as a safe SSR fallback.
+         This inline script runs before any stylesheet and corrects the dark
+         class immediately based on the real OS preference. --}}
+    @if($userPref === 'auto')
+    <script>
+    (function () {
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.classList.toggle('dark', prefersDark);
+    }());
+    </script>
+    @endif
 
     <title>{{ config('app.name', 'Laravel') }}</title>
 

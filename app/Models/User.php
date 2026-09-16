@@ -25,6 +25,7 @@ class User extends Authenticatable
         'company_id',
         'role',
         'last_login_at',
+        'theme_preference',
     ];
 
     public function company()
