@@ -57,4 +57,22 @@ class ProfileController extends Controller
 
         return Redirect::to('/');
     }
+
+    /**
+     * Update the authenticated user's personal theme preference.
+     * Called via AJAX from the sidebar theme switcher — no page reload.
+     */
+    public function updateThemePreference(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $request->validate([
+            'theme_preference' => 'required|in:default,auto,light,dark',
+        ]);
+
+        // 'default' → null (inherit system setting), others stored as-is
+        $pref = $request->theme_preference === 'default' ? null : $request->theme_preference;
+
+        $request->user()->update(['theme_preference' => $pref]);
+
+        return response()->json(['status' => 'ok']);
+    }
 }

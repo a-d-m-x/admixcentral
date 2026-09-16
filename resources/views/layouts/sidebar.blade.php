@@ -203,10 +203,41 @@
 
     <!-- User Profile (Fixed Footer) -->
     <div class="border-t sidebar-border p-2">
-        <div class="relative" x-data="{ 
-                userOpen: false, 
-                canInstall: false 
-             }" @pwa-ready.window="canInstall = true" @appinstalled.window="canInstall = false"
+        <div class="relative" x-data="{
+                userOpen: false,
+                canInstall: false,
+                theme: '{{ Auth::user()->theme_preference ?? 'default' }}',
+                systemTheme: '{{ $systemTheme ?? ($settings['theme'] ?? 'light') }}',
+
+                applyTheme() {
+                    let dark;
+                    if      (this.theme === 'dark')    dark = true;
+                    else if (this.theme === 'light')   dark = false;
+                    else if (this.theme === 'auto')    dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    else                               dark = this.systemTheme === 'dark'; // 'default'
+                    document.documentElement.classList.toggle('dark', dark);
+                },
+
+                setTheme(mode) {
+                    this.theme = mode;
+                    this.applyTheme();
+                    fetch('{{ route('profile.theme') }}', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                        body: JSON.stringify({ theme_preference: mode })
+                    });
+                },
+
+                init() {
+                    // Re-apply when OS preference changes (only matters in Auto mode)
+                    window.matchMedia('(prefers-color-scheme: dark)')
+                        .addEventListener('change', () => {
+                            if (this.theme === 'auto') this.applyTheme();
+                        });
+                }
+             }"
+            @pwa-ready.window="canInstall = true"
+            @appinstalled.window="canInstall = false"
             @pwa-installed.window="canInstall = false">
             <button @click="userOpen = !userOpen"
                 class="group flex w-full items-center px-2 py-2 text-sm font-medium rounded-lg sidebar-nav-item focus:outline-none">
@@ -243,6 +274,66 @@
                 <div class="px-4 py-3 border-b sidebar-border">
                     <p class="text-sm sidebar-text">Signed in as</p>
                     <p class="text-sm font-bold truncate sidebar-text">{{ Auth::user()->email }}</p>
+                </div>
+
+                <!-- Appearance / Theme Switcher -->
+                <div class="px-3 py-2.5 border-b sidebar-border">
+                    <p class="text-[10px] font-semibold uppercase tracking-wider opacity-50 sidebar-text mb-1.5">Appearance</p>
+                    <div class="grid grid-cols-2 gap-1 p-0.5 rounded-lg bg-black/5 dark:bg-white/5">
+
+                        {{-- Default: inherit admin's system setting --}}
+                        <button @click="setTheme('default')"
+                            :class="theme === 'default'
+                                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
+                            class="flex items-center justify-center gap-1.5 text-xs py-1.5 px-2 rounded-md transition-all duration-150 font-medium"
+                            title="Use the organization's theme setting">
+                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
+                            </svg>
+                            Default
+                        </button>
+
+                        {{-- Auto: follow OS prefers-color-scheme --}}
+                        <button @click="setTheme('auto')"
+                            :class="theme === 'auto'
+                                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
+                            class="flex items-center justify-center gap-1.5 text-xs py-1.5 px-2 rounded-md transition-all duration-150 font-medium"
+                            title="Follow your OS / browser preference">
+                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0H3" />
+                            </svg>
+                            Auto
+                        </button>
+
+                        {{-- Light --}}
+                        <button @click="setTheme('light')"
+                            :class="theme === 'light'
+                                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
+                            class="flex items-center justify-center gap-1.5 text-xs py-1.5 px-2 rounded-md transition-all duration-150 font-medium"
+                            title="Always use light mode">
+                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+                            </svg>
+                            Light
+                        </button>
+
+                        {{-- Dark --}}
+                        <button @click="setTheme('dark')"
+                            :class="theme === 'dark'
+                                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'"
+                            class="flex items-center justify-center gap-1.5 text-xs py-1.5 px-2 rounded-md transition-all duration-150 font-medium"
+                            title="Always use dark mode">
+                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                            </svg>
+                            Dark
+                        </button>
+
+                    </div>
                 </div>
 
                 <a href="{{ route('profile.edit') }}"
