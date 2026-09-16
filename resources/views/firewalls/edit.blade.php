@@ -23,6 +23,12 @@
                 @csrf
                 @method('PUT')
 
+                @if($errors->has('general'))
+                <div class="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-400">
+                    {{ $errors->first('general') }}
+                </div>
+                @endif
+
                 {{-- 2-column grid on lg+, stacked on mobile --}}
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
