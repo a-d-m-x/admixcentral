@@ -236,12 +236,19 @@ class SystemInstallUpdate extends Command
 
     protected function runPostInstallSteps()
     {
-        // Flush opcache so route:cache / config:cache read the newly extracted
+        // Flush opcache so subsequent artisan commands read the newly extracted
         // files from disk rather than the pre-update in-memory compiled copies.
         if (function_exists('opcache_reset')) {
             opcache_reset();
             $this->info('Opcache flushed.');
         }
+
+        // Clear ALL caches from the old version first.
+        // Without this, route:cache / config:cache would overwrite the cache
+        // file in-place — but PHP-FPM workers may still serve the old bytecode
+        // from their own opcache, causing "Route not defined" errors on the next
+        // request. Deleting the files forces every worker to reload from disk.
+        $this->call('optimize:clear');
 
         $code = $this->call('migrate', ['--force' => true]);
         if ($code !== 0) throw new \Exception("Database migration failed with exit code $code");
