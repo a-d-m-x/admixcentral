@@ -277,7 +277,7 @@
                                 version: '',
                                 pollInterval: null,
                                 isPrerelease: false,
-                                allowPrereleases: {{ $settings['allow_prereleases'] ?? '0' ? 'true' : 'false' }},
+                                allowPrereleases: {{ ($settings['allow_prereleases'] ?? '0') === '1' ? 'true' : 'false' }},
                                 savingChannel: false,
 
                                 init() {
