@@ -59,9 +59,6 @@ class SystemCustomizationController extends Controller
 
         $url = $request->input('url');
 
-        // Resolve the hostname to verify it's a real address (basic SSRF guard:
-        // we reject unresolvable hosts but allow private IPs — this app legitimately
-        // manages internal infrastructure where hostnames resolve to private addresses).
         $parsed = parse_url($url);
         $host   = $parsed['host'] ?? '';
 
@@ -69,33 +66,41 @@ class SystemCustomizationController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Invalid URL.'], 400);
         }
 
-        $ip = gethostbyname($host);
-        if ($ip === $host) {
-            // gethostbyname returns the input unchanged when DNS fails
+        // Resolve the new hostname.
+        $newIp = gethostbyname($host);
+        if ($newIp === $host) {
             return response()->json(['status' => 'error', 'message' => "Could not resolve hostname: {$host}"], 400);
         }
 
+        // Resolve the current hostname so we can compare IPs.
+        // If both resolve to the same IP the new hostname is already pointing at
+        // this server — no HTTP round-trip needed (avoids hairpin NAT issues and
+        // the fact that nginx doesn't serve the new vhost until after the switch).
+        $currentHost = parse_url(config('app.url'), PHP_URL_HOST) ?? '';
+        $currentIp   = $currentHost ? gethostbyname($currentHost) : '';
+
+        if ($newIp === $currentIp && $newIp !== $currentHost) {
+            // Same IP → new hostname already points at this server. ✓
+            return response()->json(['status' => 'ok']);
+        }
+
+        // IPs differ (or we couldn't resolve the current host) — fall back to an
+        // HTTP probe. This handles cases like Cloudflare-proxied hostnames where
+        // the new hostname routes through a CDN IP rather than the server's own IP.
+        // We accept ANY HTTP response (including 4xx/5xx) — if a web server answers
+        // at all, DNS and routing are confirmed to be working end-to-end.
         try {
-            // SSL verification is intentionally disabled: the caller is verifying
-            // reachability *before* issuing a new certificate for the new hostname.
-            // A cert mismatch at this stage is expected and should not block the check.
             $client = new \GuzzleHttp\Client([
-                'timeout'         => 8,
-                'verify'          => false,
-                'allow_redirects' => true,
+                'timeout'           => 8,
+                'verify'            => false,
+                'allow_redirects'   => true,
+                'http_errors'       => false, // don't throw on 4xx/5xx
             ]);
 
             $response = $client->get($url . '/system/check-hostname');
-            $status   = $response->getStatusCode();
 
-            if ($status === 200) {
-                return response()->json(['status' => 'ok']);
-            }
-
-            return response()->json([
-                'status'  => 'error',
-                'message' => "Host responded with HTTP {$status}",
-            ], 400);
+            // Any HTTP response means traffic is reaching a web server. ✓
+            return response()->json(['status' => 'ok']);
 
         } catch (\GuzzleHttp\Exception\ConnectException $e) {
             \Illuminate\Support\Facades\Log::warning('Proxy check: connection failed', ['url' => $url, 'error' => $e->getMessage()]);
