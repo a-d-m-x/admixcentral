@@ -121,7 +121,7 @@
 
                             <p class="ml-3 font-medium text-white truncate">
                                 <span x-show="updateAvailable && !isInstalling && !updateComplete">
-                                    A new update is available (<span x-text="availableVersion"></span>).
+                                    A new update is available (<span x-text="availableVersion"></span><template x-if="isPrerelease"><span class="ml-1.5 inline-flex items-center rounded px-1.5 py-0.5 text-xs font-bold bg-amber-400 text-amber-900">PRE-RELEASE</span></template>).
                                 </span>
                                 <span x-show="isInstalling">
                                     Installation in progress. Please wait...
@@ -666,6 +666,8 @@
                 dismissedSession: false,
                 currentVersion: '',
                 availableVersion: '',
+                isPrerelease: false,
+                allowPrereleases: false,
 
                 init() {
                     // Check session storage first
@@ -877,8 +879,10 @@
                     fetch('{{ route("system.updates.check-global") }}')
                         .then(response => response.json())
                         .then(data => {
-                            this.currentVersion = (data.current_version || 'unknown').replace(/^v/, '');
+                            this.currentVersion   = (data.current_version || 'unknown').replace(/^v/, '');
                             this.availableVersion = (data.version || 'unknown').replace(/^v/, '');
+                            this.isPrerelease     = !!data.is_prerelease;
+                            this.allowPrereleases = !!data.allow_prereleases;
                             if (data.update_available && !this.isInstalling) {
                                 this.updateAvailable = true;
                                 this.updateComplete = false;
