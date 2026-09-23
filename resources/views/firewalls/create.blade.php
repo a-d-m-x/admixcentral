@@ -323,7 +323,7 @@
 
                         <div class="flex gap-3">
                             <x-primary-button>
-                                {{ __('Create Firewall') }}
+                                {{ __('Add Firewall') }}
                             </x-primary-button>
                             <a href="{{ route('firewalls.index') }}">
                                 <x-secondary-button>

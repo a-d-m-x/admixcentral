@@ -15,7 +15,7 @@ die(){ echo -e "\n[X] $*\n"; exit 1; }
 [[ -r /dev/tty && -w /dev/tty ]] || die "This installer requires a real interactive terminal. Download it first, then run: sudo bash install_admixcentral.sh"
 
 # ---------------- CONFIG (override via env) ----------------
-PHP_VER="${PHP_VER:-8.3}"
+PHP_VER="${PHP_VER:-8.4}"
 NODE_MAJOR="${NODE_MAJOR:-20}"
 
 REPO_URL="${REPO_URL:-https://github.com/admxlz/admixcentral.git}"
