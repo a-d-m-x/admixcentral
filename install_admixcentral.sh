@@ -15,6 +15,9 @@ die(){ echo -e "\n[X] $*\n"; exit 1; }
 [[ -r /dev/tty && -w /dev/tty ]] || die "This installer requires a real interactive terminal. Download it first, then run: sudo bash install_admixcentral.sh"
 
 # ---------------- CONFIG (override via env) ----------------
+# Capture an explicit PHP_VER before the original non-Ubuntu default is applied.
+# Ubuntu defaults to auto; PHP_VER=8.4 / PHP_VER=8.5 still selects that series.
+UBUNTU_PHP_REQUEST="${PHP_VER:-auto}"
 PHP_VER="${PHP_VER:-8.4}"
 NODE_MAJOR="${NODE_MAJOR:-20}"
 
@@ -110,6 +113,116 @@ pkg_install() {
       zypper install -y --no-recommends "$@"
       ;;
   esac
+}
+
+# Ubuntu additions: the other distribution paths below are unchanged.
+# Auto mode follows the newest stable PHP 8.x available from APT, not beta/RC
+# builds or a future major version. The production lock file is checked later;
+# package availability alone is not a claim of application compatibility.
+ubuntu_php_candidate() {
+  LC_ALL=C apt-cache policy "$1" \
+    | awk '/^[[:space:]]*Candidate:/ {print $2}'
+}
+
+ubuntu_php_packages_usable() {
+  local series="$1" package candidate upstream simulation
+  local -a packages=()
+  local suffix
+
+  for suffix in cli fpm mysql mbstring xml curl zip gd bcmath intl redis; do
+    package="php${series}-${suffix}"
+    candidate="$(ubuntu_php_candidate "$package")" || return 1
+    if [[ -z "$candidate" || "$candidate" == "(none)" ]]; then
+      log "Ubuntu: skipping PHP ${series}; ${package} has no APT candidate"
+      return 1
+    fi
+
+    if [[ "$suffix" == "cli" || "$suffix" == "fpm" ]]; then
+      # Match a stable upstream x.y.z, optionally with a Debian epoch/revision.
+      # Examples rejected here: 8.6.0beta1, 8.6.0~rc1, 8.6.0+git20260901.
+      if [[ ! "$candidate" =~ ^([0-9]+:)?([0-9]+\.[0-9]+\.[0-9]+)([-+].*)?$ ]] \
+          || [[ "${candidate,,}" =~ (alpha|beta|rc[0-9]*|dev|git|snapshot) ]]; then
+        log "Ubuntu: skipping non-stable ${package} candidate ${candidate}"
+        return 1
+      fi
+      upstream="${candidate#*:}"
+      upstream="${upstream%%[-+]*}"
+      # The dependency set reported during this install requires >= 8.4.1.
+      # This is a lower bound, not a pin to the PHP 8.4 series.
+      if ! dpkg --compare-versions "$upstream" ge 8.4.1; then
+        log "Ubuntu: skipping ${package} ${upstream}; PHP >= 8.4.1 is required"
+        return 1
+      fi
+    fi
+    packages+=("$package")
+  done
+
+  # Check package dependencies without changing the machine. Redis must be
+  # available for this series too; do not mix a generic Redis PHP metapackage
+  # from another PHP series into this selection.
+  if ! simulation="$(LC_ALL=C apt-get --simulate --no-install-recommends \
+      install "${packages[@]}" 2>&1)"; then
+    log "Ubuntu: PHP ${series} packages cannot currently be installed"
+    printf '%s\n' "$simulation"
+    return 1
+  fi
+  return 0
+}
+
+prepare_ubuntu_php() {
+  [[ "${ID:-}" == "ubuntu" ]] || return 0
+  local requested="$UBUNTU_PHP_REQUEST" attempt listing versions series
+  local -a candidates=()
+
+  [[ "$requested" == "auto" || "$requested" =~ ^[0-9]+\.[0-9]+$ ]] \
+    || die "On Ubuntu, PHP_VER must be auto or a major.minor series such as 8.4 or 8.5"
+
+  # Try the currently configured repositories first. Only add the PPA when
+  # they cannot provide the requested/eligible runtime and its extensions.
+  for attempt in 0 1; do
+    if [[ "$requested" == "auto" ]]; then
+      listing="$(LC_ALL=C apt-cache pkgnames)" \
+        || die "Could not read Ubuntu's APT package index"
+      versions="$(printf '%s\n' "$listing" \
+        | sed -nE 's/^php(8\.[0-9]+)-cli$/\1/p' | sort -uVr)"
+      mapfile -t candidates <<< "$versions"
+    else
+      candidates=("$requested")
+    fi
+
+    for series in "${candidates[@]}"; do
+      [[ -n "$series" ]] || continue
+      if ubuntu_php_packages_usable "$series"; then
+        PHP_VER="$series"
+        PHP_SERVICE="php${PHP_VER}-fpm"
+        log "Ubuntu selected PHP ${PHP_VER}; FPM service: ${PHP_SERVICE}"
+        return 0
+      fi
+    done
+
+    if [[ "$attempt" == "0" ]]; then
+      log "Ubuntu: enabling third-party Ondrej PHP PPA for the required PHP packages"
+      pkg_install software-properties-common
+      wait_for_pkg_locks
+      add-apt-repository -y ppa:ondrej/php
+      wait_for_pkg_locks
+      apt-get update
+    fi
+  done
+  die "Ubuntu: no usable stable PHP runtime/extensions were found. Review APT errors above; requested PHP_VER=${requested}."
+}
+
+select_ubuntu_php_cli() {
+  [[ "${ID:-}" == "ubuntu" ]] || return 0
+  [[ -x "/usr/bin/php${PHP_VER}" ]] \
+    || die "Ubuntu PHP CLI is missing: /usr/bin/php${PHP_VER}"
+  update-alternatives --set php "/usr/bin/php${PHP_VER}"
+  hash -r
+  local actual_series
+  actual_series="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
+  [[ "$actual_series" == "$PHP_VER" ]] \
+    || die "Another php binary is overriding /usr/bin/php in PATH. Expected ${PHP_VER}; got ${actual_series}. Inspect: command -v php"
+  log "Ubuntu CLI: PHP $(php -r 'echo PHP_VERSION;'); FPM: ${PHP_SERVICE}"
 }
 
 install_composer() {
@@ -333,6 +446,11 @@ detect_runtime_web_user_group() {
       break
     fi
   done
+
+  # Ubuntu keeps each PHP series in its own configuration directory.
+  if [[ "${ID:-}" == "ubuntu" && -f "/etc/php/${PHP_VER}/fpm/pool.d/www.conf" ]]; then
+    fpm_conf="/etc/php/${PHP_VER}/fpm/pool.d/www.conf"
+  fi
 
   if [[ -n "$fpm_conf" ]]; then
     app_user="$(awk -F= '/^[[:space:]]*user[[:space:]]*=/{gsub(/[[:space:]]+/,"",$2); print $2; exit}' "$fpm_conf" || true)"
@@ -600,6 +718,15 @@ detect_supervisor_layout() {
 ensure_supervisor_service_running() {
   local svc=""
 
+  # Ubuntu's package provides supervisor.service. Avoid a pipefail/grep -q
+  # false negative here; leave the original discovery for other OSes alone.
+  if [[ "${ID:-}" == "ubuntu" ]]; then
+    systemctl enable --now supervisor >&2 \
+      || { die "Could not start Ubuntu supervisor.service" >&2; }
+    printf '%s\n' supervisor
+    return 0
+  fi
+
   if systemctl list-unit-files 2>/dev/null | awk '{print $1}' | grep -qx 'supervisor.service'; then
     svc="supervisor"
   elif systemctl list-unit-files 2>/dev/null | awk '{print $1}' | grep -qx 'supervisord.service'; then
@@ -749,6 +876,10 @@ main() {
   log "Enabling and starting Redis"
   systemctl enable --now redis-server 2>/dev/null || systemctl enable --now redis 2>/dev/null || true
 
+  if [[ "${ID:-}" == "ubuntu" ]]; then
+    prepare_ubuntu_php
+  fi
+
   log "Installing PHP + extensions"
   if [[ "$OS_FAMILY" == "debian" ]]; then
     pkg_install \
@@ -764,6 +895,14 @@ main() {
     pkg_install php8-cli php8-fpm php8-mysql php8-mbstring php8-curl php8-zip php8-gd php8-bcmath php8-intl || true
   fi
 
+  if [[ "${ID:-}" == "ubuntu" ]]; then
+    select_ubuntu_php_cli
+    # Install the matching Redis extension explicitly; the original helper
+    # below then finds it installed rather than falling back to another series.
+    pkg_install "php${PHP_VER}-redis"
+    systemctl daemon-reload
+  fi
+
   install_php_redis_extensions
   enable_php_redis_extensions
 
@@ -773,6 +912,13 @@ main() {
   log "Enabling services"
   systemctl enable --now nginx || true
   systemctl enable --now "${PHP_SERVICE}" || true
+  if [[ "${ID:-}" == "ubuntu" ]]; then
+    # Start the selected packaged unit directly; do not infer its existence
+    # by piping systemctl list-unit-files into grep -q.
+    systemctl restart "${PHP_SERVICE}"
+    systemctl is-active --quiet "${PHP_SERVICE}" \
+      || die "Ubuntu PHP-FPM did not start: ${PHP_SERVICE}"
+  fi
   verify_php_redis_extensions
 
   detect_runtime_web_user_group
@@ -854,6 +1000,16 @@ main() {
   fi
   chown -R "${WEB_USER}:${WEB_GROUP}" "$INSTALL_DIR" || true
 
+  if [[ "${ID:-}" == "ubuntu" ]]; then
+    log "Checking Ubuntu PHP and extensions against the production Composer lock file"
+    [[ -f composer.lock ]] || die "composer.lock is missing; refusing to resolve new production dependencies"
+    sudo -u "${WEB_USER}" -H env HOME="${WEB_HOME}" bash -lc "
+      set -e
+      cd '${INSTALL_DIR}'
+      composer --no-interaction --no-plugins --no-scripts check-platform-reqs --lock --no-dev
+    " || die "Selected PHP ${PHP_VER}/extensions do not satisfy composer.lock. See Composer's errors above. Do not use composer update or ignore-platform-reqs to bypass this."
+  fi
+
   log "Composer install"
   sudo -u "${WEB_USER}" -H env HOME="${WEB_HOME}" bash -lc "
     cd '${INSTALL_DIR}'
@@ -928,6 +1084,16 @@ ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8.1-fpm
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php-fpm
 ${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart php8-fpm
 EOF
+
+  # Ubuntu: permit the app's existing performance-tuning actions for the
+  # selected PHP series, rather than only the original 8.2/8.3 paths.
+  if [[ "${ID:-}" == "ubuntu" ]]; then
+    cat >>/etc/sudoers.d/admixcentral <<EOF
+# Ubuntu selected PHP runtime
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/cp /tmp/admix_tune_* /etc/php/${PHP_VER}/fpm/pool.d/www.conf
+${RUNTIME_WEB_USER} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ${PHP_SERVICE}
+EOF
+  fi
 
   # If RUNTIME_WEB_USER is not www-data, also add www-data explicitly —
   # PHP-FPM pool often runs as www-data regardless of the detected install user.
